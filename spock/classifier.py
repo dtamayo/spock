@@ -1,10 +1,13 @@
 import dill
 import pandas as pd
 from  . import featurefunctions
+import os
 
 class spockClassifier():
     def __init__(self, modelname='ressummaryfeaturesxgbv6_resonant1e+04.pkl'):
-        self.model, self.features, featurefuncname = dill.load(open('../spock/models/'+modelname, "rb"))
+        this_dir, this_filename = os.path.split(__file__)
+        model_path = os.path.join(this_dir, "models", modelname)
+        self.model, self.features, featurefuncname = dill.load(open(model_path, "rb"))
         self.featurefunc = getattr(featurefunctions, featurefuncname)
     def predict(self, sim):
         summaryfeatures = self.featurefunc(sim)
