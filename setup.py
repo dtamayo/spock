@@ -30,7 +30,7 @@ setup(name='spock',
     ],
     keywords='astronomy astrophysics exoplanets stability',
     packages=['spock'],
-    install_requires=["dill","rebound","pandas","celmech","xgboost"],
+    install_requires=["dill","rebound","pandas","celmech","xgboost","sklean"],
     tests_require=["numpy","matplotlib"],
     test_suite="spock.tests",
     zip_safe=False)
