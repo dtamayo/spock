@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import numpy as np
 from  . import featurefunctions
+import os
 
 class spockClassifier():
     def __init__(self, modelname='spocktrio_resonant.pkl'):
