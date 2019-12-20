@@ -6,7 +6,7 @@ from  . import featurefunctions
 import os
 
 class spockClassifier():
-    def __init__(self, modelname='spocktrio_resonant.pkl'):
+    def __init__(self, modelname='spocknosepAMDstd_resonant.pkl'):
         spockpath = os.path.dirname(__file__)
         self.model, self.features, featurefuncname = dill.load(open(spockpath+'/models/'+modelname, "rb"))
         self.featurefunc = getattr(featurefunctions, 'spock_features')
