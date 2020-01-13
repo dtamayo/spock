@@ -151,7 +151,6 @@ def spock_init_sim(sim, trios, Nout):
     except:
         sim.init_megno()
    
-    sim.dt *= 2 # delete this!
     if sim.integrator != "whfast":
         sim.integrator = "whfast"
         sim.dt = 2*np.sqrt(3)/100.*sim.particles[1].P
