@@ -2,14 +2,14 @@ from subprocess import call
 from collections import OrderedDict
 import sys
 
-datapath = '../data/'
+datapath = '../training_data/'
 
 datasets = 'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
 runfunc = 'spock_features'#'orbtseries'#'orbsummaryfeaturesxgb'
 
 kwargs = OrderedDict()
 kwargs['Norbits'] = 1e4
-kwargs['Nout'] = 1000
+kwargs['Nout'] = 80
 kwargs['trio'] = [[1,2,3]]
 
 foldername = runfunc

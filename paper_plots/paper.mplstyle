@@ -1,0 +1,25 @@
+savefig.dpi : 1200
+
+legend.scatterpoints : 1 
+legend.fontsize : 16
+ 
+image.interpolation : Nearest
+## Heavier ticks & add minor ticks
+xtick.minor.size : 3.0 
+xtick.major.size : 6.0 
+xtick.minor.width : 2.0 
+xtick.major.width : 2.0 
+ 
+ytick.minor.size : 3.0 
+ytick.major.size : 6.0 
+ytick.minor.width : 2.0 
+ytick.major.width : 2.0 
+## Square
+figure.figsize : 6.0, 6.0 
+
+axes.titlesize : 24
+axes.labelsize : 20
+lines.linewidth : 3 
+lines.markersize : 10
+xtick.labelsize : 16
+ytick.labelsize : 16

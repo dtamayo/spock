@@ -12,7 +12,7 @@ from featurefunctions import spock_features
 datapath = '../data/'
 repopath = '../'
 
-datasets = ['resonant'] # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
+datasets = 'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
 runfunc = spock_features
 
 kwargs = OrderedDict()
