@@ -9,9 +9,12 @@ from xgboost import XGBClassifier
 class spockClassifier():
     def __init__(self):
         pwd = os.path.dirname(__file__)
-        self.model = XGBClassifier()
-        self.model.load_model(pwd+'/../models/spock4.bin')
+        self.model, self.features, self.featurefolder = dill.load(open("../models/spocknoAMD2.pkl", "rb"))
+        #self.features = ['MEGNO', 'MEGNOstd', 'EMcrossnear', 'EMcrossfar', 'MMRstrengthnear', 'MMRstrengthfar', 'EPstdnear', 'EPstdfar', 'EMfracstdnear', 'EMfracstdfar']
+
         self.featurefunc = getattr(featurefunctions, 'spock_features')
+        #self.model = XGBClassifier()
+        #self.model.load_model(pwd+'/../models/spocknoAMD2.bin')
 
     def predict(self, sim, indices=None):
         if sim.N_real < 4:
@@ -32,6 +35,6 @@ class spockClassifier():
             summaryfeatures = triofeatures[i] 
             if summaryfeatures['stableinshortintegration'] == 0: # definitely unstable if unstable in short integration
                 return 0
-            summaryfeatures = pd.DataFrame([summaryfeatures.drop('stableinshortintegration')])# put it in format model expects...would be nice to optimize out
+            summaryfeatures = pd.DataFrame([summaryfeatures[self.features]])# put it in format model expects...would be nice to optimize out
             trioprobs[i] = self.model.predict_proba(summaryfeatures)[:,1][0]
         return trioprobs.min() # return minimum of 3

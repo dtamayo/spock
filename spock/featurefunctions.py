@@ -237,7 +237,6 @@ def spock_features(sim, args): # final cut down list
             features['AMDtriofrac'+label] = np.nan
             features['EMcross'+label] = np.nan
             features['MMRstrength'+label] = np.nan
-            features['MMRstrengthfilt'+label] = np.nan
             features['j'+label] = np.nan
             features['k'+label] = np.nan
 

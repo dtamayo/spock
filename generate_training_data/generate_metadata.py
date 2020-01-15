@@ -57,7 +57,7 @@ def nonressystems():
     return ['nonressystems/' + folder for folder in folders]
 
 
-datasets = ['resonant', 'random'] + ttvsystems() + nonressystems()
+datasets = ['resonant']#['resonant', 'random'] + ttvsystems() + nonressystems()
 for dataset in datasets:
     print(dataset)
     pathtosa = datapath + dataset + '/simulation_archives/runs/'
