@@ -1,3 +1,5 @@
-__pycache__
-*egg*
-jupyter_examples/.ipynb_checkpoints
+*.png
+*.pdf
+__pycache__/
+.ipynb_checkpoints/
+spock.egg-info/
