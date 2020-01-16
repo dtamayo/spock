@@ -2,17 +2,15 @@ import dill
 import pandas as pd
 import os
 import numpy as np
-from  . import featurefunctions
 import os
 from xgboost import XGBClassifier
+from . import feature_functions
 
 class spockClassifier():
     def __init__(self):
         pwd = os.path.dirname(__file__)
-        self.model, self.features, self.featurefolder = dill.load(open("../models/spocknoAMD2.pkl", "rb"))
-        #self.features = ['MEGNO', 'MEGNOstd', 'EMcrossnear', 'EMcrossfar', 'MMRstrengthnear', 'MMRstrengthfar', 'EPstdnear', 'EPstdfar', 'EMfracstdnear', 'EMfracstdfar']
-
-        self.featurefunc = getattr(featurefunctions, 'spock_features')
+        self.model, self.features, self.featureargs = dill.load(open("../models/spock.pkl", "rb"))
+        self.featurefunc = getattr(feature_functions, 'features')
         #self.model = XGBClassifier()
         #self.model.load_model(pwd+'/../models/spocknoAMD2.bin')
 
@@ -25,16 +23,15 @@ class spockClassifier():
             trios = [indices] # always make it into a list of trios to test
         else:
             trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
-
-        Norbits=10000
-        Nout = 80
+        
+        featureargs = [f for f in self.featureargs] + [trios]
         trioprobs = np.zeros(len(trios))
-        args = [Norbits, Nout, trios]
-        triofeatures = self.featurefunc(sim, args) # 
+        triofeatures, stable = self.featurefunc(sim, featureargs) # 
+        if not stable:
+            return 0
+
         for i, trio in enumerate(trios):
             summaryfeatures = triofeatures[i] 
-            if summaryfeatures['stableinshortintegration'] == 0: # definitely unstable if unstable in short integration
-                return 0
             summaryfeatures = pd.DataFrame([summaryfeatures[self.features]])# put it in format model expects...would be nice to optimize out
-            trioprobs[i] = self.model.predict_proba(summaryfeatures)[:,1][0]
+            trioprobs[i] = self.model.predict_proba(summaryfeatures)[:,1] # probability of stability
         return trioprobs.min() # return minimum of 3
