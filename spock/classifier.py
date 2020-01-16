@@ -9,7 +9,7 @@ from . import feature_functions
 class spockClassifier():
     def __init__(self):
         pwd = os.path.dirname(__file__)
-        self.model, self.features, self.featureargs = dill.load(open("../models/spock.pkl", "rb"))
+        self.model, self.features, self.featureargs, _ = dill.load(open("../models/spock.pkl", "rb"))
         self.featurefunc = getattr(feature_functions, 'features')
         #self.model = XGBClassifier()
         #self.model.load_model(pwd+'/../models/spocknoAMD2.bin')
