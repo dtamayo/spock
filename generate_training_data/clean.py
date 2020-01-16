@@ -5,7 +5,7 @@ import sys
 datapath = '../training_data/'
 
 datasets = 'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
-runfunc = 'spock_features'#'orbtseries'#'orbsummaryfeaturesxgb'
+runfunc = 'features'#'orbtseries'#'orbsummaryfeaturesxgb'
 
 kwargs = OrderedDict()
 kwargs['Norbits'] = 1e4
@@ -19,25 +19,8 @@ for key, val in kwargs.items():
     else:
         foldername += '{0}{1}'.format(key, val)
 
-def allsystems():
-    return ['random', 'resonant'] + ttvsystems() + nonressystems()
-
-def ttvsystems():
-    folders = ['KOI-1576']
-    return ['TTVsystems/' + folder for folder in folders]
-
-def nonressystems():
-    folders = ['Kepler-431']
-    return ['nonressystems/' + folder for folder in folders]
-
 if datasets == 'all':
-    datasets = allsystems()
-
-if datasets == 'ttv':
-    datasets = ttvsystems()
-
-if datasets == 'nonres':
-    datasets = nonressystems()
+    datasets = ['random', 'resonant', 'TTVsystems/KOI-1576/', 'nonressystems/Kepler-431/']
 
 for dataset in list(datasets):
     folder = datapath + dataset + '/'

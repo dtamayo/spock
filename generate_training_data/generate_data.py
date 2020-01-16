@@ -7,13 +7,14 @@ warnings.filterwarnings('ignore') # to suppress warnings about REBOUND versions 
 from collections import OrderedDict
 from training_data_functions import gen_training_data
 sys.path.append('../spock')
-from featurefunctions import spock_features
+from feature_functions import features
+from additional_feature_functions import additional_features
 
+runfunc = additional_features
 datapath = '../data/'
 repopath = '../'
 
 datasets = 'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
-runfunc = spock_features
 
 kwargs = OrderedDict()
 kwargs['Norbits'] = 1e4
@@ -37,25 +38,8 @@ if not already_exists: # store a copy of this script in generate_data so we can 
     # we always run the copied script so that we do the same thing whether we're running for first time or regenerating
 # if it does exist don't overwrite since we don't want to overwrite history
 
-def allsystems():
-    return ['random', 'resonant'] + ttvsystems() + nonressystems()
-
-def ttvsystems():
-    folders = ['KOI-1576']
-    return ['TTVsystems/' + folder for folder in folders]
-
-def nonressystems():
-    folders = ['Kepler-431']
-    return ['nonressystems/' + folder for folder in folders]
-
 if datasets == 'all':
-    datasets = allsystems()
-
-if datasets == 'ttv':
-    datasets = ttvsystems()
-
-if datasets == 'nonres':
-    datasets = nonressystems()
+    datasets = ['random', 'resonant', 'TTVsystems/KOI-1576/', 'nonressystems/Kepler-431/']
 
 for dataset in list(datasets):
     if dataset == 'random':

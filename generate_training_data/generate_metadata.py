@@ -9,7 +9,7 @@ warnings.filterwarnings('ignore') # filter REBOUND warnings about version that I
 datapath = '../data/'
 repopath = '../'
 
-if rebound.__githash__ != '06c95e2a69d319de3b077d92f2541cdcdf68a8fa':
+if rebound.__githash__ != '6fb912f615ca542b670ab591375191d1ed914672':
     print('Should checkout commit above to ensure this runs correctly')
 
 call('cp ' + repopath + 'generate_training_data/inputresonantparams.csv ' + repopath + 'training_data/resonant/', shell=True)
