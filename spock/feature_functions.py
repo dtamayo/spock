@@ -95,7 +95,7 @@ def init_sim(sim, trios):
    
     if sim.integrator != "whfast":
         sim.integrator = "whfast"
-        sim.dt = 2*np.sqrt(3)/100.*sim.particles[1].P
+        sim.dt = 0.07*sim.particles[1].P
 
     triopairs, triojks, trioa10s, triotseries = [], [], [], []
     for tr, trio in enumerate(trios): # For each trio there are two adjacent pairs that have their own j,k,strength
