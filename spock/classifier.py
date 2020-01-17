@@ -6,15 +6,17 @@ import os
 from xgboost import XGBClassifier
 from . import feature_functions
 
-class spockClassifier():
+class StabilityClassifier():
     def __init__(self):
         pwd = os.path.dirname(__file__)
-        self.model, self.features, self.featureargs, _ = dill.load(open("../models/spock.pkl", "rb"))
+        self.model, self.features, self.featureargs, _ = dill.load(open(os.path.dirname(__file__)+"/../models/spock.pkl", "rb"))
         self.featurefunc = getattr(feature_functions, 'features')
         #self.model = XGBClassifier()
         #self.model.load_model(pwd+'/../models/spocknoAMD2.bin')
 
-    def predict(self, sim, indices=None):
+    def predict(self, sim, indices=None, copy=True):
+        if copy:
+            sim = sim.copy()
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planetse") 
         if indices:
