@@ -2,15 +2,21 @@ import dill
 import pandas as pd
 import os
 import numpy as np
-from  . import featurefunctions
 import os
+from xgboost import XGBClassifier
+from . import feature_functions
 
-class spockClassifier():
-    def __init__(self, modelname='spocktrio_resonant.pkl'):
-        spockpath = os.path.dirname(__file__)
-        self.model, self.features, featurefuncname = dill.load(open(spockpath+'/models/'+modelname, "rb"))
-        self.featurefunc = getattr(featurefunctions, 'spock_features')
-    def predict(self, sim, indices=None):
+class StabilityClassifier():
+    def __init__(self):
+        pwd = os.path.dirname(__file__)
+        self.model, self.features, self.featureargs, _ = dill.load(open(os.path.dirname(__file__)+"/../models/spock.pkl", "rb"))
+        self.featurefunc = getattr(feature_functions, 'features')
+        #self.model = XGBClassifier()
+        #self.model.load_model(pwd+'/../models/spocknoAMD2.bin')
+
+    def predict(self, sim, indices=None, copy=True):
+        if copy:
+            sim = sim.copy()
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planetse") 
         if indices:
@@ -19,20 +25,15 @@ class spockClassifier():
             trios = [indices] # always make it into a list of trios to test
         else:
             trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
-
-        Norbits=10000
-        Nout = 1000
-
+        
+        featureargs = [f for f in self.featureargs] + [trios]
         trioprobs = np.zeros(len(trios))
-        args = [Norbits, Nout, trios]
-        triofeatures = self.featurefunc(sim, args) # 
+        triofeatures, stable = self.featurefunc(sim, featureargs) # 
+        if not stable:
+            return 0
+
         for i, trio in enumerate(trios):
             summaryfeatures = triofeatures[i] 
-            if summaryfeatures['unstableinshortintegration'] == 1: # definitely unstable if unstable in short integration
-                return 0
-            
-            if self.features is not None:
-                summaryfeatures = summaryfeatures[self.features] # take subset of features used in training the model
-            summaryfeatures = pd.DataFrame([summaryfeatures]) # put it in format model expects...would be nice to optimize out
-            trioprobs[i] = self.model.predict_proba(summaryfeatures)[:,1][0]
+            summaryfeatures = pd.DataFrame([summaryfeatures[self.features]])# put it in format model expects...would be nice to optimize out
+            trioprobs[i] = self.model.predict_proba(summaryfeatures)[:,1] # probability of stability
         return trioprobs.min() # return minimum of 3
