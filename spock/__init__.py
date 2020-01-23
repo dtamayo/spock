@@ -8,6 +8,6 @@ try:
 except ImportError:
     pass                 # python 2.x
 
-from .classifier import spockClassifier
+from .classifier import StabilityClassifier
 
-__all__ = ["spockClassifier"]
+__all__ = ["StabilityClassifier"]
