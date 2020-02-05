@@ -17,7 +17,8 @@ def training_data(row, safolder, runfunc, args):
         print('{0} failed'.format(row['runstring']))
         return None
 
-    return ret[0] # all runfuncs return list of features for all adjacent trios (to not rerun for each). For training assume it's always 3 planets so list of 1 trio
+    r = ret[0] # all runfuncs return list of features for all adjacent trios (to not rerun for each). For training assume it's always 3 planets so list of 1 trio
+    return pd.Series(r, index=list(r.keys())) # conert OrderedDict to pandas Series
 
 def gen_training_data(outputfolder, safolder, runfunc, args):
     # assumes runfunc returns a pandas Series of features, and whether it was stable in short integration. See features fucntion in spock/feature_functions.py for example

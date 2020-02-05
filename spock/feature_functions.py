@@ -1,14 +1,10 @@
 import rebound
 import numpy as np
-import pandas as pd
 import itertools
 from scipy.optimize import brenth
 from collections import OrderedDict
-from celmech.poincare import Poincare, PoincareHamiltonian
-from celmech import Andoyer, AndoyerHamiltonian
-from celmech.resonances import resonant_period_ratios, resonance_intersections_list, resonance_pratio_span
-from celmech.transformations import masses_to_jacobi
-from celmech.andoyer import get_num_fixed_points
+from celmech import Andoyer
+from celmech.resonances import resonant_period_ratios
 
 def collision(reb_sim, col):
     reb_sim.contents._status = 5
@@ -185,7 +181,7 @@ def features(sim, args): # final cut down list
         for i, [label, i1, i2] in enumerate(pairs):
             features["EMcross"+label] = (ps[i2].a-ps[i1].a)/ps[i1].a       
         
-        triofeatures.append(pd.Series(features, index=list(features.keys())))
+        triofeatures.append(features)#pd.Series(features, index=list(features.keys())))
     
     triopairs, triojks, trioa10s, triotseries = init_sim(sim, trios)
     stable = get_tseries(sim, Norbits, Nout, trios, triopairs, triojks, trioa10s, triotseries)
