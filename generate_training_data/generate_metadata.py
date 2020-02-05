@@ -12,8 +12,6 @@ repopath = '../'
 if rebound.__githash__ != '6fb912f615ca542b670ab591375191d1ed914672':
     print('Should checkout commit above to ensure this runs correctly')
 
-call('cp ' + repopath + 'generate_training_data/inputresonantparams.csv ' + repopath + 'training_data/resonant/', shell=True)
-
 def labels(row):
     try:
         sa = rebound.SimulationArchive(pathtosa+'sa'+row['runstring'])
@@ -22,19 +20,25 @@ def labels(row):
 
         try: # Needed for old integrations (random and Naireen) because no snapshot on end
             sim = rebound.Simulation(pathtosa+'../../final_conditions/runs/fc'+row['runstring'])
+            row['instability_time'] = sim.t/P1
+            try:
+                ssim = rebound.Simulation(pathtossa+'../../final_conditions/shadowruns/fc'+row['runstring'])
+                row['shadow_instability_time'] = ssim.t/P1
+            except:
+                print('No shadow for random {0}'.format(row['runstring']))
         except: # New runs (resonant and Ari) have snapshots at collision
-            sa = rebound.SimulationArchive(pathtosa+'sa'+row['runstring'])
             sim = sa[-1]
-        row['instability_time'] = sim.t/P1
-        try:
-            ssim = rebound.Simulation(pathtossa+'../../final_conditions/shadowruns/fc'+row['runstring'])
-        except:
-            ssa = rebound.SimulationArchive(pathtossa+'sa'+row['runstring'])
-            ssim = ssa[-1]
-        row['shadow_instability_time'] = ssim.t/P1
+            if sim.t > 9.99e3 and sim.t < 1.0001e4: # catch all stable integrations accidentally thrown out. Have checked this catches all thrown out, and doesn't catch any with actual  instability times in this range
+                row['instability_time'] = 1e9
+                row['shadow_instability_time'] = 1e9
+            else:
+                row['instability_time'] = sim.t/P1
+                ssa = rebound.SimulationArchive(pathtossa+'sa'+row['runstring'])
+                ssim = ssa[-1]
+                row['shadow_instability_time'] = ssim.t/P1
         row['Stable'] = row['instability_time'] > 9.99e8
     except:
-        print(pathtosa+'sa'+row['runstring'])
+        print('Error', pathtosa+'sa'+row['runstring'])
     return row
 
 def massratios(row):
@@ -57,7 +61,7 @@ def nonressystems():
     return ['nonressystems/' + folder for folder in folders]
 
 
-datasets = ['resonant']#['resonant', 'random'] + ttvsystems() + nonressystems()
+datasets = ['combinedresonant']#['resonant', 'random'] + ttvsystems() + nonressystems()
 for dataset in datasets:
     print(dataset)
     pathtosa = datapath + dataset + '/simulation_archives/runs/'
@@ -91,4 +95,3 @@ for dataset in datasets:
     df.to_csv(pathtotraining+'massratios.csv', encoding='ascii')
     call('cp ' + pathtotraining + 'massratios.csv ' + pathtotraining + 'shadowtimes/', shell=True)
     call('cp ' + pathtotraining + 'runstrings.csv ' + pathtotraining + 'shadowtimes/', shell=True)
-

@@ -1,5 +1,6 @@
 *.png
 *.pdf
+*.swp
 __pycache__/
-.ipynb_checkpoints/
+*/.ipynb_checkpoints/
 spock.egg-info/

@@ -1,24 +1,19 @@
-import dill
-import pandas as pd
-import os
 import numpy as np
 import os
 from xgboost import XGBClassifier
-from . import feature_functions
+from .feature_functions import features
 
 class StabilityClassifier():
     def __init__(self):
         pwd = os.path.dirname(__file__)
-        self.model, self.features, self.featureargs, _ = dill.load(open(os.path.dirname(__file__)+"/../models/spock.pkl", "rb"))
-        self.featurefunc = getattr(feature_functions, 'features')
-        #self.model = XGBClassifier()
-        #self.model.load_model(pwd+'/../models/spocknoAMD2.bin')
+        self.model = XGBClassifier()
+        self.model.load_model(pwd + '/models/spock.json')
 
     def predict(self, sim, indices=None, copy=True):
         if copy:
             sim = sim.copy()
         if sim.N_real < 4:
-            raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planetse") 
+            raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
         if indices:
             if len(indices) != 3:
                 raise AttributeError("SPOCK Error: indices must be a list of 3 particle indices")
@@ -26,14 +21,14 @@ class StabilityClassifier():
         else:
             trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
         
-        featureargs = [f for f in self.featureargs] + [trios]
+        featureargs = [10000, 80] + [trios]
         trioprobs = np.zeros(len(trios))
-        triofeatures, stable = self.featurefunc(sim, featureargs) # 
+        triofeatures, stable = features(sim, featureargs) # 
         if not stable:
             return 0
 
-        for i, trio in enumerate(trios):
-            summaryfeatures = triofeatures[i] 
-            summaryfeatures = pd.DataFrame([summaryfeatures[self.features]])# put it in format model expects...would be nice to optimize out
-            trioprobs[i] = self.model.predict_proba(summaryfeatures)[:,1] # probability of stability
+        # xgboost model expects a 2D array of shape (Npred, Nfeatures) where Npred is number of samples to predict, Nfeatures is # f / sample
+        triofeaturevals = np.array([[val for val in od.values()] for od in triofeatures])
+        trioprobs = self.model.predict_proba(triofeaturevals)[:,1] # take 2nd column for probability it belongs to stable class
+        
         return trioprobs.min() # return minimum of 3
