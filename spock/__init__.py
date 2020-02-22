@@ -9,5 +9,6 @@ except ImportError:
     pass                 # python 2.x
 
 from .classifier import StabilityClassifier
+from .regression import StabilityRegression
 
 __all__ = ["StabilityClassifier"]
