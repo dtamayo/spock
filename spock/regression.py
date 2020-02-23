@@ -12,6 +12,7 @@ import torch
 from torch import nn
 from torch.nn import Parameter
 from torch.autograd import Variable
+from torch.functional import F
 from .training_data_functions import restseriesv5, orbtseries
 
 
@@ -19,6 +20,8 @@ from .training_data_functions import restseriesv5, orbtseries
 def calculate_kl(log_alpha):
     return 0.5 * torch.sum(torch.log1p(torch.exp(-log_alpha)))
 
+def soft_clamp(x, lo, high):
+    return 0.5*(torch.tanh(x)+1)*(high-lo) + lo
 
 class ModuleWrapper(nn.Module):
     """Wrapper for nn.Module with support for arbitrary flags and a universal forward pass"""
@@ -127,6 +130,27 @@ act = nn.ReLU
 low_sampling_num = 8
 log_sample_sampling_num = False
 idxes = np.array([0, 2, 3, 5, 7, 8, 12, 13, 16, 19, 22, 23, 25, 27, 28, 29, 30, 32, 33, 34, 37, 38, 40])
+axis_mapping = {
+        'time': [0],
+        'e+': [1+j*8 for j in range(3)],
+        'e-': [2+j*8 for j in range(3)],
+        'Zcross': [3+j*8 for j in range(3)],
+        'phi': [4+j*8 for j in range(3)],
+        'Zcom': [5+j*8 for j in range(3)],
+        'phiZcom': [6+j*8 for j in range(3)],
+        'Zstar': [7+j*8 for j in range(3)],
+        'Zfree': [8+j*8 for j in range(3)],
+        'AMD': [25],
+        'MEGNO': [26],
+        'mass': [27, 28, 29],
+        # 30 is just time again.
+        'e': [31 + i*6 + 0 for i in range(3)],
+        'a': [31 + i*6 + 1 for i in range(3)],
+        'i': [31 + i*6 + 2 for i in range(3)],
+        'Omega': [31 + i*6 + 3 for i in range(3)],
+        'pomega': [31 + i*6 + 4 for i in range(3)],
+        'M': [31 + i*6 + 5 for i in range(3)]
+    }
 effective_n_features = len(idxes)
 
 class VarModel(module):
@@ -209,7 +233,37 @@ class StabilityRegression(object):
         kwargs['Nout'] = 1000 * mult
         kwargs['window'] = 10
         args = list(kwargs.values())
-        return orbtseries(sim, args), restseriesv5(sim, args)
+	# These are the .npy.
+	# In the other file, we concatenate (restseries, orbtseries, mass_array)
+        restseries_array = restseriesv5(sim, args)
+        orbtseries_array = orbtseries(sim, args)
+        mass_array = np.array([sim.particles[i].m/sim.particles[0].m for i in range(1, 4)])
+        mass_array = np.tile(mass_array[None], (1000, 1))
+        together = np.concatenate((restseries_array, orbtseries_array, mass_array), axis=1)
+        relevant_axes=['e',
+            'a',
+            'e-',
+            'e+',
+            'AMD',
+            'MEGNO',
+            'mass',
+            'pomega',
+            'Omega',
+            'Zcross',
+            'phi',
+            'phiZcom',
+            'Zstar',
+            'Zfree',
+            'M'
+        ]
+        flatten = lambda l: [subitem for item in l for subitem in item]
+        axes_to_take = sorted(flatten([axis_mapping[axis_name] for axis_name in relevant_axes]))
+        prepared = together[None, ::10, axes_to_take][..., idxes]
+        prepared = (prepared - self.mean_[None, None]) / self.scale_[None, None]
+        prepared = torch.from_numpy(prepared).float()
+
+        return self.model(prepared)
+
         # featureargs = [10000, 80] + [trios]
         # trioprobs = np.zeros(len(trios))
         # triofeatures, stable = features(sim, featureargs) # 
