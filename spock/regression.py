@@ -202,14 +202,16 @@ class StabilityRegression(object):
         assert np.all(idxes == model_state['idxes'])
 
     def predict(self, sim, indices=None, samples=1, prior='cutoff'):
-        """Estimate instability time for a given simulation
+        """Estimate instability time for a given simulation.
 
         :sim: The rebound simulation.
         :indices: The list of planets to consider.
         :samples: How many MC samples to return.
-        :prior: What prior to use for T>9. Default is to simply return T=9 if average is greater.
-        :returns: Array of samples of T for the simulation. The spread of samples
-            covers both epistemic (model-based) and aleatoric (real, data-based) uncertainty.
+        :prior: What prior to use for T>9. Default is to simply return T=9 if
+            average is greater.
+        :returns: Array of samples of log10(T), sigma_log10(T) for the
+            simulation. The spread of samples covers both epistemic
+            (model-based) and aleatoric (real, data-based) uncertainty.
 
         """
         if copy:
