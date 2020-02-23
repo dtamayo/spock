@@ -1,7 +1,8 @@
+import math
 import numpy as np
 import os
+from collections import OrderedDict
 from .feature_functions import features
-
 from copy import deepcopy as copy
 from sklearn.preprocessing import StandardScaler
 import matplotlib as mpl
@@ -9,7 +10,14 @@ mpl.use('agg')
 from matplotlib import pyplot as plt
 import torch
 from torch import nn
+from torch.nn import Parameter
 from torch.autograd import Variable
+from .training_data_functions import restseriesv5, orbtseries
+
+
+
+def calculate_kl(log_alpha):
+    return 0.5 * torch.sum(torch.log1p(torch.exp(-log_alpha)))
 
 
 class ModuleWrapper(nn.Module):
@@ -47,7 +55,7 @@ class BBBLinear(ModuleWrapper):
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
-        self.kl_value = metrics.calculate_kl
+        self.kl_value = calculate_kl
 
     def reset_parameters(self):
         stdv = 1. / math.sqrt(self.W.size(1))
@@ -167,9 +175,19 @@ class StabilityRegression(object):
         self.model.load_state_dict(model_state['state'])
         self.mean_ = model_state['mean']
         self.scale_ = model_state['scale']
-        assert idxes == model_state['idxes']
+        assert np.all(idxes == model_state['idxes'])
 
-    def predict(self, sim, indices=None, samples=1):
+    def predict(self, sim, indices=None, samples=1, prior='cutoff'):
+        """Estimate instability time for a given simulation
+
+        :sim: The rebound simulation.
+        :indices: The list of planets to consider.
+        :samples: How many MC samples to return.
+        :prior: What prior to use for T>9. Default is to simply return T=9 if average is greater.
+        :returns: Array of samples of T for the simulation. The spread of samples
+            covers both epistemic (model-based) and aleatoric (real, data-based) uncertainty.
+
+        """
         if copy:
             sim = sim.copy()
         if sim.N_real < 4:
@@ -183,17 +201,15 @@ class StabilityRegression(object):
         
         #Simplicity for start:
         trio = trios[0]
-        assert sim.N_real == 3
+        assert sim.N_real == 4
 
-        from collections import OrderedDict
         kwargs = OrderedDict()
         mult = 1
         kwargs['Norbits'] = 1e4 * mult
         kwargs['Nout'] = 1000 * mult
         kwargs['window'] = 10
         args = list(kwargs.values())
-        print(orbtseries(sim, args))
-        print(restseriesv5(sim, args))
+        return orbtseries(sim, args), restseriesv5(sim, args)
         # featureargs = [10000, 80] + [trios]
         # trioprobs = np.zeros(len(trios))
         # triofeatures, stable = features(sim, featureargs) # 
@@ -204,7 +220,7 @@ class StabilityRegression(object):
         # triofeaturevals = np.array([[val for val in od.values()] for od in triofeatures])
         # trioprobs = self.model.predict_proba(triofeaturevals)[:,1] # take 2nd column for probability it belongs to stable class
         
-        return ###trioprobs.min() # return minimum of 3
+        #return ###trioprobs.min() # return minimum of 3
 
 #runfunc(sim, args) for orbtseries and restseriesv5
 
