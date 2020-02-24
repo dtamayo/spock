@@ -260,12 +260,16 @@ class StabilityRegression(object):
             prepared = np.tile(prepared, (samples, 1, 1))
             prepared = torch.from_numpy(prepared).float()
 
-            out = np.concatenate([
-                self.model(prepared[slic]).detach().numpy()
-                for slic in np.array_split(
-                    np.arange(len(prepared)),
-                    len(prepared)//5000
-                    )])
+            if len(prepared) > 10000:
+                out = np.concatenate([
+                    self.model(prepared[slic]).detach().numpy()
+                    for slic in np.array_split(
+                        np.arange(len(prepared)),
+                        len(prepared)//5000
+                        )])
+            else:
+                out = self.model(prepared).detach().numpy()
+
             out = out.reshape(-1, samples, 2)
             a, b = (4 - out[..., 0]) / out[..., 1], (12 - out[..., 0]) / out[..., 1]
             full_samples = truncnorm.rvs(a, b, loc=out[..., 0], scale=out[..., 1])
