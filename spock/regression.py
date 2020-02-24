@@ -189,7 +189,7 @@ class StabilityRegression(object):
     def __init__(self):
         super(StabilityRegression, self).__init__()
         pwd = os.path.dirname(__file__)
-        model_state = torch.load(open(pwd + '/models/feb23_best_modelv6_bbb.pt', 'rb'))
+        model_state = torch.load(open(pwd + '/models/feb22_best_modelv5_bbb.pt', 'rb'))
         self.model = VarModel(hidden, latent=latent)
         self.model.load_state_dict(model_state['state'])
         self.mean_ = model_state['mean']
