@@ -6,9 +6,6 @@ from collections import OrderedDict
 from .feature_functions import features
 from copy import deepcopy as copy
 from sklearn.preprocessing import StandardScaler
-import matplotlib as mpl
-mpl.use('agg')
-from matplotlib import pyplot as plt
 import torch
 from torch import nn
 from torch.nn import Parameter
