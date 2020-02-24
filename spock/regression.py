@@ -201,17 +201,17 @@ class StabilityRegression(object):
         self.scale_ = model_state['scale']
         assert np.all(idxes == model_state['idxes'])
 
-    def predict(self, sim, indices=None, samples=1, prior='cutoff'):
+    def predict(self, sim, indices=None, samples=100):
         """Estimate instability time for a given simulation.
 
         :sim: The rebound simulation.
         :indices: The list of planets to consider.
         :samples: How many MC samples to return.
-        :prior: What prior to use for T>9. Default is to simply return T=9 if
-            average is greater.
-        :returns: Array of samples of log10(T), sigma_log10(T) for the
-            simulation. The spread of samples covers both epistemic
+        :returns: Array of samples of log10(T) for the simulation.
+            The spread of samples covers both epistemic
             (model-based) and aleatoric (real, data-based) uncertainty.
+            Samples above log10(T) indicate a stable simulation. Bounded
+            between 4 and 12.
 
         """
         if copy:
@@ -262,9 +262,14 @@ class StabilityRegression(object):
         axes_to_take = sorted(flatten([axis_mapping[axis_name] for axis_name in relevant_axes]))
         prepared = together[None, ::10, axes_to_take][..., idxes]
         prepared = (prepared - self.mean_[None, None]) / self.scale_[None, None]
+        prepared = np.tile(prepared, (samples, 1, 1))
         prepared = torch.from_numpy(prepared).float()
 
-        return self.model(prepared)
+        out = self.model(prepared).detach().numpy()
+        out = out.reshape(-1, samples, 2)
+        full_samples = np.clip(out[..., 0] + np.random.normal(scale=out[..., 1]), 4, 12)
+
+        return full_samples
 
         # featureargs = [10000, 80] + [trios]
         # trioprobs = np.zeros(len(trios))
