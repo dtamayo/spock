@@ -1077,22 +1077,24 @@ def getpairs(sim):
 
     return pairs, nearpair 
 
-def getpairsv5(sim):
-    N = sim.N - sim.N_var
-    Npairs = int((N-1)*(N-2)/2)
-    EMcross = np.zeros(Npairs)
+def getpairsv5(sim, indices=[1, 2, 3]):
     ps = sim.particles
-    #print('pairindex, i1, i2, j, k, strength')
-    for i, [i1, i2] in enumerate(itertools.combinations(np.arange(1, N), 2)):
-        i1 = int(i1); i2 = int(i2)
-        EMcross[i] = (ps[int(i2)].a-ps[int(i1)].a)/ps[int(i1)].a
-        
-    if EMcross[0] < EMcross[2]: # 0 = '1-2', 2='2-3'
-        pairs = [['near', 1,2], ['far', 2, 3], ['outer', 1, 3]]
-    else:
-        pairs = [['near', 2, 3], ['far', 1, 2], ['outer', 1, 3]]
+    sortedindices = sorted(indices, key=lambda i: ps[i].a) # sort from inner to outer
+    EMcrossInner = (ps[sortedindices[1]].a-ps[sortedindices[0]].a)/ps[sortedindices[0]].a
+    EMcrossOuter = (ps[sortedindices[2]].a-ps[sortedindices[1]].a)/ps[sortedindices[1]].a
 
-    return pairs
+    if EMcrossInner < EMcrossOuter:
+        return [
+            ['near', sortedindices[0], sortedindices[1]],
+            ['far', sortedindices[1], sortedindices[2]] ,
+            ['outer', sortedindices[0], sortedindices[2]]
+        ]
+    else:
+        return [
+            ['near', sortedindices[1], sortedindices[2]],
+            ['far', sortedindices[0], sortedindices[1]],
+            ['outer', sortedindices[0], sortedindices[2]],
+        ]
 
 def resparams(sim, args):
     Norbits = args[0]
