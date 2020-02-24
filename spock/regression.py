@@ -215,8 +215,6 @@ class StabilityRegression(object):
             between 4 and 12.
 
         """
-        if copy:
-            sim = sim.copy()
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
         if indices:
@@ -227,64 +225,54 @@ class StabilityRegression(object):
             trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
         
         #Simplicity for start:
-        trio = trios[0]
-        assert sim.N_real == 4
+        all_full_samples = []
+        simt = sim.copy()
+        for trio in trios:
+            sim = simt.copy()
 
-        kwargs = OrderedDict()
-        mult = 1
-        kwargs['Norbits'] = 1e4 * mult
-        kwargs['Nout'] = 1000 * mult
-        kwargs['window'] = 10
-        args = list(kwargs.values())
-	# These are the .npy.
-	# In the other file, we concatenate (restseries, orbtseries, mass_array)
-        restseries_array = restseriesv5(sim, args)
-        orbtseries_array = orbtseries(sim, args)
-        mass_array = np.array([sim.particles[i].m/sim.particles[0].m for i in range(1, 4)])
-        mass_array = np.tile(mass_array[None], (1000, 1))
-        together = np.concatenate((restseries_array, orbtseries_array, mass_array), axis=1)
-        relevant_axes=['e',
-            'a',
-            'e-',
-            'e+',
-            'AMD',
-            'MEGNO',
-            'mass',
-            'pomega',
-            'Omega',
-            'Zcross',
-            'phi',
-            'phiZcom',
-            'Zstar',
-            'Zfree',
-            'M'
-        ]
-        flatten = lambda l: [subitem for item in l for subitem in item]
-        axes_to_take = sorted(flatten([axis_mapping[axis_name] for axis_name in relevant_axes]))
-        prepared = together[None, ::10, axes_to_take][..., idxes]
-        prepared = (prepared - self.mean_[None, None]) / self.scale_[None, None]
-        prepared = np.tile(prepared, (samples, 1, 1))
-        prepared = torch.from_numpy(prepared).float()
+            kwargs = OrderedDict()
+            mult = 1
+            kwargs['Norbits'] = 1e4 * mult
+            kwargs['Nout'] = 1000 * mult
+            kwargs['window'] = 10
+            args = list(kwargs.values())
+            # These are the .npy.
+            # In the other file, we concatenate (restseries, orbtseries, mass_array)
+            restseries_array = restseriesv5(sim, args, trio=trio)
+            orbtseries_array = orbtseries(sim, args, trio=trio)
+            mass_array = np.array([sim.particles[i].m/sim.particles[0].m for i in range(1, 4)])
+            mass_array = np.tile(mass_array[None], (1000, 1))
+            together = np.concatenate((restseries_array, orbtseries_array, mass_array), axis=1)
+            relevant_axes=['e',
+                'a',
+                'e-',
+                'e+',
+                'AMD',
+                'MEGNO',
+                'mass',
+                'pomega',
+                'Omega',
+                'Zcross',
+                'phi',
+                'phiZcom',
+                'Zstar',
+                'Zfree',
+                'M'
+            ]
+            flatten = lambda l: [subitem for item in l for subitem in item]
+            axes_to_take = sorted(flatten([axis_mapping[axis_name] for axis_name in relevant_axes]))
+            prepared = together[None, ::10, axes_to_take][..., idxes]
+            prepared = (prepared - self.mean_[None, None]) / self.scale_[None, None]
+            prepared = np.tile(prepared, (samples, 1, 1))
+            prepared = torch.from_numpy(prepared).float()
 
-        out = self.model(prepared).detach().numpy()
-        out = out.reshape(-1, samples, 2)
-        a, b = (4 - out[..., 0]) / out[..., 1], (12 - out[..., 0]) / out[..., 1]
-        full_samples = truncnorm.rvs(a, b, loc=out[..., 0], scale=out[..., 1])
-        #full_samples = np.clip(out[..., 0] + np.random.normal(scale=out[..., 1]), 4, 12)
+            out = self.model(prepared).detach().numpy()
+            out = out.reshape(-1, samples, 2)
+            a, b = (4 - out[..., 0]) / out[..., 1], (12 - out[..., 0]) / out[..., 1]
+            full_samples = truncnorm.rvs(a, b, loc=out[..., 0], scale=out[..., 1])
+            all_full_samples.append(full_samples)
 
-        return full_samples
-
-        # featureargs = [10000, 80] + [trios]
-        # trioprobs = np.zeros(len(trios))
-        # triofeatures, stable = features(sim, featureargs) # 
-        # if not stable:
-            # return 0
-
-        # # xgboost model expects a 2D array of shape (Npred, Nfeatures) where Npred is number of samples to predict, Nfeatures is # f / sample
-        # triofeaturevals = np.array([[val for val in od.values()] for od in triofeatures])
-        # trioprobs = self.model.predict_proba(triofeaturevals)[:,1] # take 2nd column for probability it belongs to stable class
-        
-        #return ###trioprobs.min() # return minimum of 3
-
-#runfunc(sim, args) for orbtseries and restseriesv5
+        out = np.array(all_full_samples)
+        best_out_over_trios = out[np.argsort(np.average(out, axis=1))[0]]
+        return 10**best_out_over_trios
 

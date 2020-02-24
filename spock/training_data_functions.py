@@ -148,7 +148,7 @@ def AMD_stability_coefficient(sim, i1, i2):
 ### end AMD functions
 # write functions to take args and unpack them at top so it's clear what you have to pass in args
 @safe_run_func
-def orbtseries(sim, args):
+def orbtseries(sim, args, trio):
     Norbits = args[0]
     Nout = args[1]
     val = np.zeros((Nout, 19))
@@ -169,14 +169,21 @@ def orbtseries(sim, args):
             break
 
         orbits = sim.calculate_orbits()
+        skipped = 0
         for j, o in enumerate(orbits):
+            #print(j, trio)
+            if j+1 not in trio:
+                skipped += 1
+                continue
+            #print(j, 'actually in', trio, skipped)
             val[i,0] = sim.t
-            val[i,6*j+1] = o.a
-            val[i,6*j+2] = o.e
-            val[i,6*j+3] = o.inc
-            val[i,6*j+4] = o.Omega
-            val[i,6*j+5] = o.pomega
-            val[i,6*j+6] = o.M
+            val[i,6*(j-skipped)+1] = o.a
+            val[i,6*(j-skipped)+2] = o.e
+            val[i,6*(j-skipped)+3] = o.inc
+            val[i,6*(j-skipped)+4] = o.Omega
+            val[i,6*(j-skipped)+5] = o.pomega
+            val[i,6*(j-skipped)+6] = o.M
+
     return val
 
 @safe_run_func
@@ -1144,17 +1151,17 @@ def resparams(sim, args):
             
     return pd.Series(features, index=list(features.keys())) 
 
-def resparamsv5(sim, args):
+def resparamsv5(sim, args, trio):
     Norbits = args[0]
     Nout = args[1]
 
     features = OrderedDict()
     ps = sim.particles
-    N = sim.N - sim.N_var
-    a0 = [0] + [sim.particles[i].a for i in range(1, N)]
+    N = 4
+    a0 = [0] + [sim.particles[i].a for i in trio]
     Npairs = int((N-1)*(N-2)/2)
 
-    pairs = getpairsv5(sim)
+    pairs = getpairsv5(sim, trio)
     for i, [label, i1, i2] in enumerate(pairs):
         # recalculate with new ordering
         RH = ps[i1].a*((ps[i1].m + ps[i2].m)/ps[0].m)**(1./3.)
@@ -1181,7 +1188,7 @@ def resparamsv5(sim, args):
             
     return pd.Series(features, index=list(features.keys())) 
 
-def restseriesv5(sim, args): # corresponds to ressummaryfeaturesxgbv5
+def restseriesv5(sim, args, trio): # corresponds to ressummaryfeaturesxgbv5
     Norbits = args[0]
     Nout = args[1]
     ###############################
@@ -1195,13 +1202,13 @@ def restseriesv5(sim, args): # corresponds to ressummaryfeaturesxgbv5
     P0 = ps[1].P
     times = np.linspace(0, Norbits*P0, Nout)
    
-    features = resparamsv5(sim, args)
-    pairs = getpairsv5(sim)
+    features = resparamsv5(sim, args, trio)
+    pairs = getpairsv5(sim, trio)
 
     AMD0 = 0
-    N = sim.N - sim.N_var
-    a0 = [0] + [ps[i].a for i in range(1, N)]
-    for p in ps[1:sim.N-sim.N_var]:
+    N = 4
+    a0 = [0] + [ps[i].a for i in trio]
+    for p in [ps[i] for i in trio]:
         AMD0 += p.m*np.sqrt(sim.G*ps[0].m*p.a)*(1-np.sqrt(1-p.e**2)*np.cos(p.inc))
 
     val = np.zeros((Nout, 27))
@@ -1211,7 +1218,7 @@ def restseriesv5(sim, args): # corresponds to ressummaryfeaturesxgbv5
         except:
             break
         AMD = 0
-        for p in ps[1:sim.N-sim.N_var]:
+        for p in [ps[i] for i in trio]:
             AMD += p.m*np.sqrt(sim.G*ps[0].m*p.a)*(1-np.sqrt(1-p.e**2)*np.cos(p.inc))
         
         val[i,0] = sim.t  # time
