@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from scipy.stats import truncnorm
 import os
 from collections import OrderedDict
 from .feature_functions import features
@@ -267,7 +268,9 @@ class StabilityRegression(object):
 
         out = self.model(prepared).detach().numpy()
         out = out.reshape(-1, samples, 2)
-        full_samples = np.clip(out[..., 0] + np.random.normal(scale=out[..., 1]), 4, 12)
+        a, b = (4 - out[..., 0]) / out[..., 1], (12 - out[..., 0]) / out[..., 1]
+        full_samples = truncnorm.rvs(a, b, loc=out[..., 0], scale=out[..., 1])
+        #full_samples = np.clip(out[..., 0] + np.random.normal(scale=out[..., 1]), 4, 12)
 
         return full_samples
 
