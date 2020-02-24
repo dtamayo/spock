@@ -12,6 +12,7 @@ from torch.nn import Parameter
 from torch.autograd import Variable
 from torch.functional import F
 from .training_data_functions import restseriesv5, orbtseries
+from feature_functions import get_tseries, init_sim
 
 
 
@@ -217,6 +218,14 @@ class StabilityRegression(object):
             trios = [indices] # always make it into a list of trios to test
         else:
             trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
+
+        triopairs, triojks, trioa10s, triotseries = init_sim(sim.copy(), trios)
+        Nout = 1000
+        Norbits = int(1e4)
+        stable = get_tseries(sim.copy(), Norbits, Nout, trios, triopairs, triojks, trioa10s, triotseries)
+
+        if not stable:
+            return 10**(np.ones(samples) * 4)
         
         #Simplicity for start:
         all_full_samples = []

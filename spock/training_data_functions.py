@@ -1155,6 +1155,8 @@ def resparamsv5(sim, args, trio):
     return pd.Series(features, index=list(features.keys())) 
 
 def restseriesv5(sim, args, trio): # corresponds to ressummaryfeaturesxgbv5
+    # TODO: Need to call get_tseries to see if unstable or not.
+    #  See features - call to init_sim.
     Norbits = args[0]
     Nout = args[1]
     ###############################
