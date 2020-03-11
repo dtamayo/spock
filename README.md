@@ -19,3 +19,12 @@ model.predict(sim, copy=False)
 >>> 0.0048521925
 ```
 
+## Installation
+
+pip install spock
+
+SPOCK relies on XGBoost, which has installation issues on Mac OSX. If you have problems (<https://github.com/dmlc/xgboost/issues/4477>), the easiest way is probably to install [homebrew](brew.sh), and
+
+brew install cmake
+brew install libomp
+pip install spock
