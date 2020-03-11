@@ -90,7 +90,7 @@ def additional_features(sim, args): # final cut down list
             features["EMcross"+label] = (ps[i2].a-ps[i1].a)/ps[i1].a       
             features["j"+label], features["k"+label], _ = find_strongest_MMR(sim, i1, i2)
         
-        triofeatures.append(pd.Series(features, index=list(features.keys())))
+        triofeatures.append(features)
     
     triopairs, triojks, trioa10s, triotseries = init_sim(sim, trios)
     stable = additional_get_tseries(sim, Norbits, Nout, trios, triopairs, triojks, trioa10s, triotseries)
