@@ -14,7 +14,7 @@ runfunc = features
 datapath = '../data/'
 repopath = '../'
 
-datasets = ['resonant']#'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
+datasets = 'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
 
 kwargs = OrderedDict()
 kwargs['Norbits'] = 1e4

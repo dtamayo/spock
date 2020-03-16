@@ -10,7 +10,8 @@ datapath = '../data/'
 repopath = '../'
 
 if rebound.__githash__ != '6fb912f615ca542b670ab591375191d1ed914672':
-    print('Should checkout commit above to ensure this runs correctly')
+    print('Need to install REBOUND commit 6fb912f615ca542b670ab591375191d1ed914672 to ensure this runs correctly')
+    exit()
 
 def labels(row):
     try:
@@ -61,7 +62,7 @@ def nonressystems():
     return ['nonressystems/' + folder for folder in folders]
 
 
-datasets = ['combinedresonant']#['resonant', 'random'] + ttvsystems() + nonressystems()
+datasets = ['resonant', 'random'] + ttvsystems() + nonressystems()
 for dataset in datasets:
     print(dataset)
     pathtosa = datapath + dataset + '/simulation_archives/runs/'
