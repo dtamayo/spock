@@ -10,11 +10,11 @@ sys.path.append('../spock')
 from feature_functions import features
 from additional_feature_functions import additional_features
 
-runfunc = additional_features
+runfunc = features
 datapath = '../data/'
 repopath = '../'
 
-datasets = ['combinedresonant']#'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
+datasets = ['resonant']#'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
 
 kwargs = OrderedDict()
 kwargs['Norbits'] = 1e4
