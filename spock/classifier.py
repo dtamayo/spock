@@ -4,10 +4,10 @@ from xgboost import XGBClassifier
 from .feature_functions import features
 
 class StabilityClassifier():
-    def __init__(self):
+    def __init__(self, modelfile='spock.json'):
         pwd = os.path.dirname(__file__)
         self.model = XGBClassifier()
-        self.model.load_model(pwd + '/models/spock.json')
+        self.model.load_model(pwd + '/models/'+modelfile)
 
     def predict(self, sim, indices=None, copy=True):
         if copy:
