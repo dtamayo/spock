@@ -1,10 +1,24 @@
+# Training machine learning models
+
+If you are happy with our set of engineered features and want to train different machine learning models to predict stability from them, you can just use the pregenerated csv files we've created and skip down to training ML models.
+
+If you would like to get the initial conditions to generate your own sets of features or make your own predictions (machine learning or analytic), you need to download our dataset of REBOUND simulation\_archives, from which you can extract any dynamical information you like (see <https://rebound.readthedocs.io/>) or run N-body integrations. 
+
+REBOUND integrators are machine independent and we have checked that if you rerun the integrations starting from the simulation\_archives you will get the same answer bit by bit, ensuring you get the exact same instability times despite the dynamics being chaotic. Different sets of integrations were run with different versions of REBOUND, so see `spock/generate_training_data/reproducibility.ipynb` for how to do that.
+
 # Getting the data
 
-First get the data from zenodo and put the 'data' directory in the root spock directory (where this file is, spock/data)
+First get the data from <https://zenodo.org/record/3723292#.XnvF8i2ZMmU>. Save the tar file to the root spock directory (where this file is). Then
+
+```shell
+tar xzvf data.tar.gz
+```
+
+will untar the data folder where it needs to be (all scripts assume that this folder is located at `spock/data` so make sure you don't put it somewhere else).
 
 # Generating Features
 
-Different training/testing sets were run at different times with different versions of REBOUND. You need to clone the REBOUND repository (<https://github.com/hannorein/rebound>) then
+Different training/testing sets were run at different times with different versions of REBOUND. You first need to clone the REBOUND repository (<https://github.com/hannorein/rebound>) (even if you already installed it with pip).
 
 To regenerate the labels.csv (instability timesfor each example), massratios.csv (planetary masses for each example) and runstrings.csv (names of all the examples) that are needed for subsequent scripts run
 
