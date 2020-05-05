@@ -1,0 +1,10 @@
+python runcomparison.py ias15 0 0 16 & 
+python runcomparison.py ias15 0 1 32 & 
+python runcomparison.py whfast 5 0 32 &
+python runcomparison.py whfast 7 0 32 &
+python runcomparison.py whfast 3 0 32 &
+python runcomparison.py whfast 1 0 32 &
+python runcomparison.py whfast 15 0 32 &
+python runcomparison.py whfast 5 0 32 & # with safe mode = 1
+python runcomparison.py whfast 2 0 32 &
+
