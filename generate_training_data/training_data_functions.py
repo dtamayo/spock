@@ -2,6 +2,7 @@ import rebound
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
+from spock.simsetup import set_sim_parameters
 
 def training_data(row, safolder, runfunc, args):
     try:
@@ -10,9 +11,9 @@ def training_data(row, safolder, runfunc, args):
     except:
         print("traininst_data_functions.py Error reading " + safolder+'sa'+row['runstring'])
         return None
-
+    set_sim_parameters(sim)
     try:
-        ret, stable = runfunc(sim, args)
+        ret = runfunc(sim, args)
     except:
         print('{0} failed'.format(row['runstring']))
         return None
@@ -23,7 +24,7 @@ def training_data(row, safolder, runfunc, args):
 def gen_training_data(outputfolder, safolder, runfunc, args):
     # assumes runfunc returns a pandas Series of features, and whether it was stable in short integration. See features fucntion in spock/feature_functions.py for example
     df = pd.read_csv(outputfolder+"/runstrings.csv", index_col = 0)
-    ddf = dd.from_pandas(df, npartitions=24)
+    ddf = dd.from_pandas(df, npartitions=48)
     testres = training_data(df.loc[0], safolder, runfunc, args) # Choose formatting based on selected runfunc return type
 
     metadf = pd.DataFrame([testres]) # make single row dataframe to autodetect meta

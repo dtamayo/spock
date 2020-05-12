@@ -6,24 +6,6 @@ from collections import OrderedDict
 from celmech import Andoyer
 from celmech.resonances import resonant_period_ratios
 
-def collision(reb_sim, col):
-    reb_sim.contents._status = 5
-    return 0
-
-def error_check(sim, Norbits, Nout, trio):
-    i1, i2, i3 = trio
-    if not isinstance(i1, int) or not isinstance(i2, int) or not isinstance(i3, int):
-        raise AttributeError("SPOCK  Error: Particle indices passed to spock_features were not integers")
-    ps = sim.particles
-    if ps[0].m < 0 or ps[1].m < 0 or ps[2].m < 0 or ps[3].m < 0: 
-        raise AttributeError("SPOCK Error: Particles in sim passed to spock_features had negative masses")
-
-    if ps[1].r == 0 or ps[2].r == 0 or ps[3].r == 0.:
-        for  p in ps[1:]:
-            rH = p.a*(p.m/3./ps[0].m)**(1./3.)
-            p.r = rH
-    return
-
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
 # having the smaller semimajor axis
@@ -73,26 +55,7 @@ def find_strongest_MMR(sim, i1, i2):
 
     return j, k, maxstrength
 
-def init_sim(sim, trios):
-    ###############################
-    try:
-        sim.collision = 'line' # use line if using newer version of REBOUND
-    except:
-        sim.collision = 'direct'# fall back for older versions
-    sim.collision_resolve = collision
-    sim.ri_whfast.keep_unsynchronized = 1
-    sim.ri_whfast.safe_mode = 0
-    ##############################
-    ps = sim.particles
-    try:
-        sim.init_megno(seed=0)
-    except:
-        sim.init_megno()
-   
-    if sim.integrator != "whfast":
-        sim.integrator = "whfast"
-        sim.dt = 0.07*sim.particles[1].P
-
+def init_lists(sim, trios):
     triopairs, triojks, trioa10s, triotseries = [], [], [], []
     for tr, trio in enumerate(trios): # For each trio there are two adjacent pairs that have their own j,k,strength
         triopairs.append(get_pairs(sim, trio))
@@ -102,7 +65,7 @@ def init_sim(sim, trios):
             j, k, _ = find_strongest_MMR(sim, i1, i2) 
             if np.isnan(j) == False:
                 triojks[tr][label] = (j,k)
-                trioa10s[tr][label] = ps[i1].a
+                trioa10s[tr][label] = sim.particles[i1].a
 
     return triopairs, triojks, trioa10s, triotseries 
 
@@ -125,8 +88,7 @@ def populate_trio(sim, trio, pairs, jk, a10, tseries, i):
         try:
             j, k, tseries[i,Ns*q+3] = find_strongest_MMR(sim, i1, i2) # will fail if any osculating orbit is hyperbolic, flag as unstable
         except:
-            return False
-
+            raise RuntimeError("SPOCK: find_strongest_MMR failed. This typically indicates 
     tseries[i,7] = sim.calculate_megno() # megno
 
     return True
@@ -135,6 +97,8 @@ def get_tseries(sim, Norbits, Nout, trios, triopairs, triojks, trioa10s, triotse
     P0 = sim.particles[1].P
     times = np.linspace(0, Norbits*P0, Nout)
     
+    triopairs, triojks, trioa10s, triotseries = init_lists(sim, trios)
+    
     for tr, trio in enumerate(trios): 
         triotseries.append(np.zeros((Nout, 8)))
    
@@ -142,7 +106,7 @@ def get_tseries(sim, Norbits, Nout, trios, triopairs, triojks, trioa10s, triotse
         try:
             sim.integrate(time, exact_finish_time=0)
         except:
-            return 0
+            raise RuntimeError("SPOCK: Simulation destabilized in short integration.")
     
         for tseries in triotseries:
             tseries[i,0] = sim.t/P0  # time
@@ -183,10 +147,10 @@ def features(sim, args): # final cut down list
         
         triofeatures.append(features)#pd.Series(features, index=list(features.keys())))
     
-    triopairs, triojks, trioa10s, triotseries = init_sim(sim, trios)
-    stable = get_tseries(sim, Norbits, Nout, trios, triopairs, triojks, trioa10s, triotseries)
-
-    if not stable:
+    try:
+        triotseries = get_tseries(sim, Norbits, Nout, trios)
+    except:
+        stable = False
         return triofeatures, stable
 
     for features, tseries in zip(triofeatures, triotseries):
@@ -199,7 +163,7 @@ def features(sim, args): # final cut down list
         MEGNO = tseries[:, 7]
 
         features['MEGNO'] = np.median(MEGNO[-int(Nout/10):]) # smooth last 10% to remove oscillations around 2
-        features['MEGNOstd'] = MEGNO.std()
+        features['MEGNOstd'] = MEGNO[int(Nout/5):].std()
         features['MMRstrengthnear'] = np.median(MMRstrengthnear)
         features['MMRstrengthfar'] = np.median(MMRstrengthfar)
         features['EMfracstdnear'] = EMnear.std() / features['EMcrossnear']

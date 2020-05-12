@@ -2,7 +2,7 @@ import rebound
 import numpy as np
 import pandas as pd
 from collections import OrderedDict
-from feature_functions import error_check, get_pairs, init_sim, find_strongest_MMR
+#from feature_functions import error_check, get_pairs, init_sim, find_strongest_MMR
 from AMD import AMD_subset, AMD_crit
 
 def additional_populate_trio(sim, trio, pairs, jk, a10, tseries, i):
