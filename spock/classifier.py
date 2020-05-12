@@ -5,10 +5,11 @@ from .feature_functions import features
 from .simsetup import set_sim_parameters
 
 class StabilityClassifier():
-    def __init__(self, modelfile='spock_new.json'):
+    def __init__(self, modelfile='spock_new.json', features=None):
         pwd = os.path.dirname(__file__)
         self.model = XGBClassifier()
         self.model.load_model(pwd + '/models/'+modelfile)
+        self._features = features
 
     def predict(self, sim, indices=None, copy=True):
         if copy:
@@ -29,14 +30,11 @@ class StabilityClassifier():
         if triofeatures[0]['stable_in_short_integration'] == False:
             return 0
 
-        near = ['EMcrossnear', 'EMfracstdnear', 'EPstdnear', 'MMRstrengthnear']
-        far = ['EMcrossfar', 'EMfracstdfar', 'EPstdfar', 'MMRstrengthfar']
-        megno = ['MEGNO', 'MEGNOstd']
-
-        featurenames = near + far + megno
-        triofeatures = [feat[featurenames] for feat in triofeatures]
         # xgboost model expects a 2D array of shape (Npred, Nfeatures) where Npred is number of samples to predict, Nfeatures is # f / sample
-        triofeaturevals = np.array([[val for val in od.values()] for od in triofeatures])
+        if self._features:
+            triofeaturevals = np.array([[feat[f] for f in self._features] for feat in triofeatures])
+        else:
+            triofeaturevals = np.array([[val for val in feat.values()] for feat in triofeatures])
         trioprobs = self.model.predict_proba(triofeaturevals)[:,1] # take 2nd column for probability it belongs to stable class
         
         return trioprobs.min() # return minimum of 3
