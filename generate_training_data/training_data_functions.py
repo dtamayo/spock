@@ -23,7 +23,7 @@ def training_data(row, safolder, runfunc, args):
 
 def gen_training_data(outputfolder, safolder, runfunc, args):
     # assumes runfunc returns a pandas Series of features, and whether it was stable in short integration. See features fucntion in spock/feature_functions.py for example
-    df = pd.read_csv(outputfolder+"/runstrings.csv", index_col = 0)
+    df = pd.read_csv(outputfolder+"/runstrings.csv", index_col = 0).head(100)
     ddf = dd.from_pandas(df, npartitions=48)
     testres = training_data(df.loc[0], safolder, runfunc, args) # Choose formatting based on selected runfunc return type
 

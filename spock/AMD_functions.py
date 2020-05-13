@@ -41,20 +41,14 @@ def relative_AMD_crit(alpha,gamma):
     curlyC = gamma*np.sqrt(alpha) * (1-np.sqrt(1-ec*ec)) + (1 - np.sqrt(1-e1c*e1c))
     return curlyC
 
-def AMD_subset(sim2, indices): 
+def AMD(sim2):
     try:
         sim = sim2.copy()
         sim.move_to_com() # AMD calculations easiest in canonical heliocentric coordinates, but don't want to change original sim so copy
     except: # old version of REBOUND doesn't have a copy function (for random dataset), but all those were already moved to com so OK
         sim = sim2
     ps = sim.particles
-    sim2 = rebound.Simulation()
-    sim2.G = sim.G
-    sim2.add(ps[0].copy())
-    for i in indices:
-        sim2.add(ps[i].copy())
-    ps = sim2.particles
-    Lx, Ly, Lz = sim2.calculate_angular_momentum()
+    Lx, Ly, Lz = sim.calculate_angular_momentum()
     L = np.sqrt(Lx**2 + Ly**2 + Lz**2)
     Lcirc = 0
     Mint = ps[0].m

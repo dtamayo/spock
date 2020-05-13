@@ -2,60 +2,41 @@ import rebound
 import numpy as np
 import pandas as pd
 from collections import OrderedDict
-#from feature_functions import error_check, get_pairs, init_sim, find_strongest_MMR
-from AMD import AMD_subset, AMD_crit
+from spock.feature_functions import get_pairs, find_strongest_MMR, populate_trio
+from spock.AMD_functions import AMD, AMD_crit
 
-def additional_populate_trio(sim, trio, pairs, jk, a10, tseries, i):
-    Ns = 3
-    ps = sim.particles
-    for q, [label, i1, i2] in enumerate(pairs):
-        e1x, e1y = ps[i1].e*np.cos(ps[i1].pomega), -ps[i1].e*np.sin(ps[i1].pomega)
-        e2x, e2y = ps[i2].e*np.cos(ps[i2].pomega), -ps[i2].e*np.sin(ps[i2].pomega)
-        try:
-            # it's unlikely but possible for bodies to land nearly on top of  each other midtimestep and get a big kick that doesn't get caught by collisions  post timestep. All these cases are unstable, so flag them as above
-                # average only affects a (Lambda) Z and I think  Zcom  don't depend on a. Zsep and Zstar slightly, but several sig figs in even when close at conjunction
-            j,k = jk[label]
-            avars = Andoyer.from_Simulation(sim, a10=a10[label], j=j, k=k, i1=i1, i2=i2, average=False)
-            tseries[i,Ns*q+1] = avars.Z*np.sqrt(2) # EM = Z*sqrt(2)
-            tseries[i,Ns*q+2] = avars.Zcom # no sqrt(2) factor
-        except: # no nearby resonance, use EM and ecom
-            tseries[i,Ns*q+1] = np.sqrt((e2x-e1x)**2 + (e2y-e1y)**2)
-            tseries[i,Ns*q+2] = np.sqrt((ps[i1].m*e1x + ps[i2].m*e2x)**2 + (ps[i1].m*e1y + ps[i2].m*e2y)**2)/(ps[i1].m+ps[i2].m)
-        try:
-            j, k, tseries[i,Ns*q+3] = find_strongest_MMR(sim, i1, i2) # will fail if any osculating orbit is hyperbolic, flag as unstable
-        except:
-            return 0
+def additional_get_tseries(sim, args):
+    Norbits = args[0]
+    Nout = args[1]
+    trios = args[2]
 
-    tseries[i,7] = AMD_subset(sim, trio)
-    tseries[i,8] = sim.calculate_megno() # megno
-
-    return 1
-
-def additional_get_tseries(sim, Norbits, Nout, trios, triopairs, triojks, trioa10s, triotseries):
     P0 = sim.particles[1].P
     times = np.linspace(0, Norbits*P0, Nout)
     
-    for tr, trio in enumerate(trios): 
-        triotseries.append(np.zeros((Nout, 9)))
+    triopairs, triotseries = [], []
+    for tr, trio in enumerate(trios): # For each trio there are two adjacent pairs 
+        triopairs.append(get_pairs(sim, trio))
+        triotseries.append(np.zeros((Nout, 9))*np.nan)
    
     for i, time in enumerate(times):
         try:
             sim.integrate(time, exact_finish_time=0)
         except:
-            return 0
-    
+            pass
+
+        if sim._status == 5: # checking this way works for both new rebound and old version used for random dataset
+            return triotseries
+
         for tseries in triotseries:
             tseries[i,0] = sim.t/P0  # time
 
         for tr, trio in enumerate(trios):
             pairs = triopairs[tr]
-            jk = triojks[tr]
-            a10 = trioa10s[tr]
             tseries = triotseries[tr] 
-            stable = additional_populate_trio(sim, trio, pairs, jk, a10, tseries, i)
-            if not stable:
-                return 0
-    return 1
+            populate_trio(sim, trio, pairs, tseries, i)
+            tseries[i,8] = AMD(sim)
+
+    return triotseries 
     
 def additional_features(sim, args): # final cut down list
     Norbits = args[0]
@@ -63,32 +44,26 @@ def additional_features(sim, args): # final cut down list
     trios = args[2]
     
     ps  = sim.particles
-
     triofeatures = []
     for tr, trio in enumerate(trios):
-        error_check(sim, Norbits, Nout, trio)
         features = OrderedDict()
         pairs = get_pairs(sim, trio)
         for i, [label, i1, i2] in enumerate(pairs):
-            features['EMfracstd'+label] = np.nan  # E = exact (celmech)
+            features['EMfracstd'+label] = np.nan
             features['EPstd'+label] = np.nan
-            features['AMDcrit'+label] = np.nan
-            features['AMDtriofrac'+label] = np.nan
-            features['EMcross'+label] = np.nan
+            features['AMDfrac'+label] = np.nan
             features['MMRstrength'+label] = np.nan
-            features['j'+label] = np.nan
-            features['k'+label] = np.nan
-
-        features['MEGNO'] = np.nan
-        features['MEGNOstd'] = np.nan
-        features['stableinshortintegration'] = 1
-
-        for i, [label, i1, i2] in enumerate(pairs):
+            
             RH = ps[i1].a*((ps[i1].m + ps[i2].m)/ps[0].m)**(1./3.)
             features['beta'+label] = (ps[i2].a-ps[i1].a)/RH
             features["AMDcrit"+label] = AMD_crit(sim, i1, i2)
             features["EMcross"+label] = (ps[i2].a-ps[i1].a)/ps[i1].a       
             features["j"+label], features["k"+label], _ = find_strongest_MMR(sim, i1, i2) 
+
+        features['MEGNO'] = np.nan
+        features['MEGNOstd'] = np.nan
+        features['stable_in_short_integration'] = False
+
         triofeatures.append(features)
     
     features["e1Z07"] = ps[1].e * (ps[2].a+ps[1].a) / (ps[2].a-ps[1].a)
@@ -124,13 +99,9 @@ def additional_features(sim, args): # final cut down list
     features["Q11Stable_avg"] = features['Q11log_instability_time_avg'] > 9
     features["Q11Stable_worstpair"] = min(features['Q11log_instability_time_inner'], features["Q11log_instability_time_outer"]) > 9
 
-    triopairs, triojks, trioa10s, triotseries = init_sim(sim, trios)
-    stable = additional_get_tseries(sim, Norbits, Nout, trios, triopairs, triojks, trioa10s, triotseries)
-
-    if not stable:
-        for features in triofeatures:
-            features['stableinshortintegration'] = 0
-        return triofeatures, False
+    triotseries = additional_get_tseries(sim, args)
+    if sim._status == 5: # unstable
+        return triofeatures
 
     for features, tseries in zip(triofeatures, triotseries):
         EMnear = tseries[:, 1]
@@ -139,13 +110,13 @@ def additional_features(sim, args): # final cut down list
         EMfar = tseries[:, 4]
         EPfar = tseries[:, 5]
         MMRstrengthfar = tseries[:,6]
-        AMDtrio = tseries[:, 7]
-        MEGNO = tseries[:, 8]
+        MEGNO = tseries[:, 7]
+        AMD = tseries[:, 8]
 
         features['MEGNO'] = np.median(MEGNO[-int(Nout/10):]) # smooth last 10% to remove oscillations around 2
-        features['MEGNOstd'] = MEGNO.std()
-        features['AMDtriofracnear'] = np.median(AMDtrio) / features['AMDcritnear']
-        features['AMDtriofracfar'] = np.median(AMDtrio) / features['AMDcritfar']
+        features['MEGNOstd'] = MEGNO[int(Nout/5):].std()
+        features['AMDfracnear'] = np.median(AMD) / features['AMDcritnear']
+        features['AMDfracfar'] = np.median(AMD) / features['AMDcritfar']
         features['MMRstrengthnear'] = np.median(MMRstrengthnear)
         features['MMRstrengthfar'] = np.median(MMRstrengthfar)
         features['EMfracstdnear'] = EMnear.std() / features['EMcrossnear']
@@ -153,4 +124,4 @@ def additional_features(sim, args): # final cut down list
         features['EPstdnear'] = EPnear.std() 
         features['EPstdfar'] = EPfar.std() 
         
-    return triofeatures, True
+    return triofeatures
