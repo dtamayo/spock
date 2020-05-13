@@ -25,7 +25,8 @@ def additional_get_tseries(sim, args):
             pass
 
         if sim._status == 5: # checking this way works for both new rebound and old version used for random dataset
-            return triotseries
+            stable = False
+            return triotseries, stable
 
         for tseries in triotseries:
             tseries[i,0] = sim.t/P0  # time
@@ -36,7 +37,8 @@ def additional_get_tseries(sim, args):
             populate_trio(sim, trio, pairs, tseries, i)
             tseries[i,8] = AMD(sim)
 
-    return triotseries 
+    stable = True
+    return triotseries, stable
     
 def additional_features(sim, args): # final cut down list
     Norbits = args[0]
@@ -99,9 +101,9 @@ def additional_features(sim, args): # final cut down list
     features["Q11Stable_avg"] = features['Q11log_instability_time_avg'] > 9
     features["Q11Stable_worstpair"] = min(features['Q11log_instability_time_inner'], features["Q11log_instability_time_outer"]) > 9
 
-    triotseries = additional_get_tseries(sim, args)
-    if sim._status == 5: # unstable
-        return triofeatures
+    triotseries, stable = additional_get_tseries(sim, args)
+    if not stable:
+        return triofeatures, stable
 
     for features, tseries in zip(triofeatures, triotseries):
         EMnear = tseries[:, 1]
@@ -124,4 +126,4 @@ def additional_features(sim, args): # final cut down list
         features['EPstdnear'] = EPnear.std() 
         features['EPstdfar'] = EPfar.std() 
         
-    return triofeatures
+    return triofeatures, stable

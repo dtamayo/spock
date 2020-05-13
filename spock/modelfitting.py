@@ -91,7 +91,7 @@ def calibration_plot(trainingdatafolder, model, features=None, bins=10, filter=F
 
     return np.array(bincenters), np.array(fracstable), np.array(errorbars)
 
-def unstable_error_fraction(trainingdatafolder, model, features=None, bins=10, filter=False, filtertimes=False):
+def unstable_error_fraction(trainingdatafolder, model, thresh, features=None, bins=10, filter=False, filtertimes=False):
     trainX, trainy, testX, testy = train_test_split(trainingdatafolder, features, filter=filter, filtertimes=filtertimes)
     preds = model.predict_proba(testX)[:,1]
     dummy, dummy, dummy, inst_times = train_test_split(trainingdatafolder, features, labelname='instability_time', filter=filter, filtertimes=filtertimes)
@@ -101,9 +101,6 @@ def unstable_error_fraction(trainingdatafolder, model, features=None, bins=10, f
     preds = preds[unstable]
     log_inst_times = log_inst_times[unstable]
 
-    hist, edges = np.histogram(log_inst_times, bins=10)
-    mask = (log_inst_times >= edges[0]) & (log_inst_times < edges[1])
-    Nerrors = (preds[mask] > 0.5).sum()
     hist, edges = np.histogram(log_inst_times, bins=bins)
 
     bincenters = []
@@ -112,7 +109,7 @@ def unstable_error_fraction(trainingdatafolder, model, features=None, bins=10, f
     for i in range(len(edges)-1):
         bincenters.append((edges[i]+edges[i+1])/2)
         mask = (log_inst_times >= edges[i]) & (log_inst_times < edges[i+1])
-        Nerrors = (preds[mask] > 0.5).sum()
+        Nerrors = (preds[mask] > thresh).sum()
         errorfracs.append(Nerrors/hist[i])
         errorbars.append(np.sqrt(1./Nerrors + 1./hist[i])*errorfracs[-1]) # see calibration plot comment
 

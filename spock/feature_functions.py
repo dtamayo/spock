@@ -89,7 +89,8 @@ def get_tseries(sim, args):
             pass
 
         if sim._status == 5: # checking this way works for both new rebound and old version used for random dataset
-            return triotseries
+            stable = False
+            return triotseries, stable
 
         for tseries in triotseries:
             tseries[i,0] = sim.t/P0  # time
@@ -98,8 +99,9 @@ def get_tseries(sim, args):
             pairs = triopairs[tr]
             tseries = triotseries[tr] 
             populate_trio(sim, trio, pairs, tseries, i)
-
-    return triotseries 
+    
+    stable = True
+    return triotseries, stable
     
 def features(sim, args): # final cut down list
     Norbits = args[0]
@@ -119,12 +121,11 @@ def features(sim, args): # final cut down list
 
         features['MEGNO'] = np.nan
         features['MEGNOstd'] = np.nan
-        features['stable_in_short_integration'] = False
         triofeatures.append(features)
     
-    triotseries = get_tseries(sim, args)
-    if sim._status == 5: # unstable
-        return triofeatures
+    triotseries, stable = get_tseries(sim, args)
+    if not stable:
+        return triofeatures, stable
 
     for features, tseries in zip(triofeatures, triotseries):
         EMnear = tseries[:, 1]
@@ -135,7 +136,6 @@ def features(sim, args): # final cut down list
         MMRstrengthfar = tseries[:,6]
         MEGNO = tseries[:, 7]
         
-        features['stable_in_short_integration'] = True
         features['MEGNO'] = np.median(MEGNO[-int(Nout/10):]) # smooth last 10% to remove oscillations around 2
         features['MEGNOstd'] = MEGNO[int(Nout/5):].std()
         features['MMRstrengthnear'] = np.median(MMRstrengthnear)
@@ -144,5 +144,5 @@ def features(sim, args): # final cut down list
         features['EMfracstdfar'] = EMfar.std() / features['EMcrossfar']
         features['EPstdnear'] = EPnear.std() 
         features['EPstdfar'] = EPfar.std() 
-        
-    return triofeatures
+    
+    return triofeatures, stable

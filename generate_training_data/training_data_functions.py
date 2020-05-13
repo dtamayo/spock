@@ -2,7 +2,7 @@ import rebound
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
-from spock.simsetup import set_sim_parameters
+from spock.simsetup import set_sim_parameters, rescale, set_timestep
 
 def training_data(row, safolder, runfunc, args):
     try:
@@ -11,9 +11,13 @@ def training_data(row, safolder, runfunc, args):
     except:
         print("traininst_data_functions.py Error reading " + safolder+'sa'+row['runstring'])
         return None
+
+    sim = rescale(sim)
     set_sim_parameters(sim)
+    set_timestep(sim, dtfrac=0.06)
+
     try:
-        ret = runfunc(sim, args)
+        ret, stable = runfunc(sim, args)
     except:
         print('{0} failed'.format(row['runstring']))
         return None
@@ -23,7 +27,7 @@ def training_data(row, safolder, runfunc, args):
 
 def gen_training_data(outputfolder, safolder, runfunc, args):
     # assumes runfunc returns a pandas Series of features, and whether it was stable in short integration. See features fucntion in spock/feature_functions.py for example
-    df = pd.read_csv(outputfolder+"/runstrings.csv", index_col = 0).head(100)
+    df = pd.read_csv(outputfolder+"/runstrings.csv", index_col = 0)
     ddf = dd.from_pandas(df, npartitions=48)
     testres = training_data(df.loc[0], safolder, runfunc, args) # Choose formatting based on selected runfunc return type
 

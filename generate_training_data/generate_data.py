@@ -10,7 +10,7 @@ sys.path.append('../spock')
 from feature_functions import features
 from additional_feature_functions import additional_features
 
-runfunc = additional_features
+runfunc = features
 datapath = '../data/'
 repopath = '../'
 
