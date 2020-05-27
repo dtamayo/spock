@@ -71,3 +71,14 @@ def rescale(sim):
     simr.move_to_com()
 
     return simr
+    
+def init_sim(self, sim, dtfrac=0.05, archive_filename=None, interval=None):# WILL ALWAYS OVERWRITE. WE"re  NOT PROVIDING OPTION TO RELOAD IN   MIDDL 
+    sim = rescale(sim)
+    set_sim_parameters(sim)
+    set_timestep(sim, dtfrac=dtfrac)
+    if archive_filename:
+        if interval is None:
+            interval = 1e6*sim.particles[1].P
+        automateSimulationArchive(archive_filename, interval=interval, deleteFile=True)
+
+    return sim
