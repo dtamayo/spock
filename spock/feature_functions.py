@@ -89,8 +89,8 @@ def get_tseries(sim, args):
             pass
 
         if sim._status == 5: # checking this way works for both new rebound and old version used for random dataset
-            stable = False
-            return triotseries, stable
+            collision = True
+            return triotseries, collision
 
         for tseries in triotseries:
             tseries[i,0] = sim.t/P0  # time
@@ -99,9 +99,9 @@ def get_tseries(sim, args):
             pairs = triopairs[tr]
             tseries = triotseries[tr] 
             populate_trio(sim, trio, pairs, tseries, i)
-    
-    stable = True
-    return triotseries, stable
+   
+    collision = False
+    return triotseries, collision
     
 def features(sim, args): # final cut down list
     Norbits = args[0]
@@ -123,9 +123,9 @@ def features(sim, args): # final cut down list
         features['MEGNOstd'] = np.nan
         triofeatures.append(features)
     
-    triotseries, stable = get_tseries(sim, args)
-    if not stable:
-        return triofeatures, stable
+    triotseries, collision = get_tseries(sim, args)
+    if collision == True:
+        return triofeatures, collision
 
     for features, tseries in zip(triofeatures, triotseries):
         EMnear = tseries[:, 1]
@@ -145,4 +145,4 @@ def features(sim, args): # final cut down list
         features['EPstdnear'] = EPnear.std() 
         features['EPstdfar'] = EPfar.std() 
     
-    return triofeatures, stable
+    return triofeatures, collision 
