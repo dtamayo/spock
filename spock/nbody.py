@@ -1,4 +1,5 @@
 import numpy as np
+import rebound
 from .simsetup import init_sim_parameters
 
 class Nbody():
@@ -6,12 +7,11 @@ class Nbody():
         pass 
 
     def predict_stable(self, sim, tmax=None, dtfrac=0.05, archive_filename=None, archive_interval=None): 
-        t_inst = self.predict_instability_time(sim, tmax, dtfrac, archive_filename, archive_interval)
-
-        if t_inst < tmax:
-            return 0
-        else:
+        t_inst, stable = self.predict_instability_time(sim, tmax, dtfrac, archive_filename, archive_interval)
+        if stable == True:
             return 1
+        else:
+            return 0
     
     def predict_instability_time(self, sim, tmax=None, dtfrac=0.05, archive_filename=None, archive_interval=None):
         sim = sim.copy()
@@ -31,6 +31,8 @@ class Nbody():
         except rebound.Collision:
             if archive_filename:
                 sim.simulationarchive_snapshot(archive_filename)
-            return sim.t 
+            stable = False
+            return sim.t, stable
 
-        return tmax
+        stable = True
+        return tmax, stable
