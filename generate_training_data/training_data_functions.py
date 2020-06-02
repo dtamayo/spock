@@ -2,7 +2,7 @@ import rebound
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
-from spock.simsetup import set_sim_parameters, rescale, set_timestep
+from spock.simsetup import init_sim_parameters
 
 def training_data(row, safolder, runfunc, args):
     try:
@@ -12,9 +12,7 @@ def training_data(row, safolder, runfunc, args):
         print("traininst_data_functions.py Error reading " + safolder+'sa'+row['runstring'])
         return None
 
-    sim = rescale(sim)
-    set_sim_parameters(sim)
-    set_timestep(sim, dtfrac=0.06)
+    init_sim_parameters(sim)
 
     try:
         ret, stable = runfunc(sim, args)
