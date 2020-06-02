@@ -38,7 +38,6 @@ class StabilityClassifier():
             return 0
 
         sim = sim.copy()
-        check_valid_sim(sim)
         init_sim_parameters(sim, dtfrac)
 
         # check hyperbolic Should return 0 for stable if True, rather than raise

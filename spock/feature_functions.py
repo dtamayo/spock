@@ -5,7 +5,8 @@ from scipy.optimize import brenth
 from collections import OrderedDict
 from celmech import Andoyer
 from celmech.resonances import resonant_period_ratios
-
+import warnings
+warnings.filterwarnings("error")
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
 # having the smaller semimajor axis
@@ -45,7 +46,11 @@ def find_strongest_MMR(sim, i1, i2):
 
     j, k, maxstrength = np.nan, np.nan, 0 
     for a, b in res:
-        s = np.abs(np.sqrt(m1+m2)*(EM/EMcross)**((b-a)/2.)/((b*n2 - a*n1)/n1))
+        nres = (b*n2 - a*n1)/n1
+        if nres == 0:
+            s = np.inf # still want to identify as strongest MMR if initial condition is exatly b*n2-a*n1 = 0
+        else:
+            s = np.abs(np.sqrt(m1+m2)*(EM/EMcross)**((b-a)/2.)/nres)
         if s > maxstrength:
             j = b
             k = b-a
@@ -86,11 +91,7 @@ def get_tseries(sim, args):
         try:
             sim.integrate(time, exact_finish_time=0)
         except:
-            pass
-
-        if sim._status == 5: # checking this way works for both new rebound and old version used for random dataset
-            collision = True
-            return triotseries, collision
+            break
 
         for tseries in triotseries:
             tseries[i,0] = sim.t/P0  # time
@@ -99,8 +100,12 @@ def get_tseries(sim, args):
             pairs = triopairs[tr]
             tseries = triotseries[tr] 
             populate_trio(sim, trio, pairs, tseries, i)
-   
-    collision = False
+    
+    if sim._status == 5: # checking this way works for both new rebound and old version used for random dataset
+        collision = True
+    else:
+        collision = False
+
     return triotseries, collision
     
 def features(sim, args): # final cut down list
@@ -130,14 +135,17 @@ def features(sim, args): # final cut down list
     for features, tseries in zip(triofeatures, triotseries):
         EMnear = tseries[:, 1]
         EPnear = tseries[:, 2]
-        MMRstrengthnear = tseries[:,3]
+        # cut out first value (init cond) to avoid cases
+        # where user sets exactly b*n2 - a*n1 & strength is inf
+        MMRstrengthnear = tseries[1:,3]
         EMfar = tseries[:, 4]
         EPfar = tseries[:, 5]
-        MMRstrengthfar = tseries[:,6]
+        MMRstrengthfar = tseries[1:,6]
         MEGNO = tseries[:, 7]
-        
-        features['MEGNO'] = np.median(MEGNO[-int(Nout/10):]) # smooth last 10% to remove oscillations around 2
-        features['MEGNOstd'] = MEGNO[int(Nout/5):].std()
+
+        if not np.isnan(MEGNO).any(): # no nans
+            features['MEGNO'] = np.median(MEGNO[-int(Nout/10):]) # smooth last 10% to remove oscillations around 2
+            features['MEGNOstd'] = MEGNO[int(Nout/5):].std()
         features['MMRstrengthnear'] = np.median(MMRstrengthnear)
         features['MMRstrengthfar'] = np.median(MMRstrengthfar)
         features['EMfracstdnear'] = EMnear.std() / features['EMcrossnear']
