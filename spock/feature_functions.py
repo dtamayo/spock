@@ -79,19 +79,20 @@ def get_tseries(sim, args):
     Nout = args[1]
     trios = args[2]
 
-    P0 = sim.particles[1].P
+    P0 = np.abs(sim.particles[1].P) # want hyperbolic case to run so it raises exception
     times = np.linspace(0, Norbits*P0, Nout)
     
     triopairs, triotseries = [], []
     for tr, trio in enumerate(trios): # For each trio there are two adjacent pairs 
         triopairs.append(get_pairs(sim, trio))
         triotseries.append(np.zeros((Nout, 8))*np.nan)
-   
+  
     for i, time in enumerate(times):
         try:
             sim.integrate(time, exact_finish_time=0)
-        except:
-            break
+        except rebound.Collision:
+            stable = False
+            return triotseries, stable
 
         for tseries in triotseries:
             tseries[i,0] = sim.t/P0  # time
@@ -101,14 +102,10 @@ def get_tseries(sim, args):
             tseries = triotseries[tr] 
             populate_trio(sim, trio, pairs, tseries, i)
     
-    if sim._status == 5: # checking this way works for both new rebound and old version used for random dataset
-        collision = True
-    else:
-        collision = False
-
-    return triotseries, collision
+    stable = True
+    return triotseries, stable
     
-def features(sim, args): # final cut down list
+def features(sim, args):
     Norbits = args[0]
     Nout = args[1]
     trios = args[2]
@@ -128,9 +125,9 @@ def features(sim, args): # final cut down list
         features['MEGNOstd'] = np.nan
         triofeatures.append(features)
     
-    triotseries, collision = get_tseries(sim, args)
-    if collision == True:
-        return triofeatures, collision
+    triotseries, stable = get_tseries(sim, args)
+    if stable == False:
+        return triofeatures, stable
 
     for features, tseries in zip(triofeatures, triotseries):
         EMnear = tseries[:, 1]
@@ -153,4 +150,4 @@ def features(sim, args): # final cut down list
         features['EPstdnear'] = EPnear.std() 
         features['EPstdfar'] = EPfar.std() 
     
-    return triofeatures, collision 
+    return triofeatures, stable

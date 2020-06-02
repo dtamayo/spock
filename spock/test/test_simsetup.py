@@ -56,11 +56,8 @@ class TestSimSetup(unittest.TestCase):
     def test_set_collision(self):
         sim = rebound.Simulation('unstable.bin')
         init_sim_parameters(sim)
-        try:
+        with self.assertRaises(rebound.Collision):
             sim.integrate(1e4*sim.particles[1].P)
-        except:
-            pass
-        self.assertEqual(sim._status, 5)
 
 if __name__ == '__main__':
     unittest.main()

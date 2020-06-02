@@ -30,42 +30,28 @@ class StabilityClassifier():
         #raise AttributeError("SPOCK  Error: Particle indices passed to spock_features were not integers")
 
     def predict_stable(self, sim, dtfrac=0.05, trios=None):
-
-        # Flag hyperbolic initial conditions as unstable before
-        # using orbital period to set timestep of short integration
-        # This is an acceptable init. cond. so don't raise exception
-        if check_hyperbolic(sim) == True: 
-            return 0
-
-        sim = sim.copy()
-        init_sim_parameters(sim, dtfrac)
-
-        # check hyperbolic Should return 0 for stable if True, rather than raise
-
-        triofeatures, collision = self.generate_features(sim, trios, copysim=False) # already copied
-        if collision == True or check_hyperbolic(sim) == True:
+        triofeatures, stable = self.generate_features(sim, dtfrac, trios)
+        if stable == False:
             return 0
        
         trioprobs = self.predict_from_features(triofeatures)
+        return trioprobs.min()          # minimum prob among all trios tested
 
-        return trioprobs.min() # return minimum of probability amoong all trios tested
-
-    def generate_features(self, sim, trios=None, copysim=True):
-        if copysim is True:
-            sim = sim.copy()
-
-        if trios is None:
-            trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
-
+    def generate_features(self, sim, dtfrac=0.05, trios=None):
+        if trios is None:               # list of adjacent trios
+            trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)]    
+        sim = sim.copy()
+        init_sim_parameters(sim)
         self.check_errors(sim, trios)
-
+        
         featureargs = [10000, 80, trios]
-        triofeatures, stable = features(sim, featureargs) 
+        triofeatures, stable = features(sim, featureargs)
+        
         return triofeatures, stable
 
-    def predict_from_features(self, featureslist):
+    def predict_from_features(self, triofeatures):
         # xgboost model expects a 2D array of shape (Npred, Nfeatures) where Npred is number of samples to predict, Nfeatures is # of features per sample
-        featurevals = np.array([[val for val in features.values()] for features in featureslist])
+        featurevals = np.array([[val for val in features.values()] for features in triofeatures])
         return self.model.predict_proba(featurevals)[:,1] # take 2nd column for probability it belongs to stable class
 
 

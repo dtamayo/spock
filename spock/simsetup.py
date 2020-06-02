@@ -23,19 +23,16 @@ def check_valid_sim(sim):
 def set_integrator_and_timestep(sim, dtfrac):
     Ps = np.array([p.P for p in sim.particles[1:sim.N_real]])
     es = np.array([p.e for p in sim.particles[1:sim.N_real]])
-    minTperi = np.min(Ps * (1-es)**1.5 / np.sqrt(1+es)) # minimum time of pericenter passages
+    if np.max(es) < 1:
+        minTperi = np.min(Ps*(1-es)**1.5/np.sqrt(1+es)) # min peri passage time
+        sim.dt = dtfrac*minTperi                        # Wisdom 2015 suggests 0.05
+    else:                                               # hyperbolic orbit 
+        sim.dt = np.nan # so tseries gives nans, but still always gives same shape array
 
-    sim.dt = dtfrac*minTperi # Wisdom 2015 suggests 0.05
-
-
-    if np.max(es) > 0.99: # approx threshold where ias15 becomes faster than whfast
+    if np.max(es) > 0.99:                               # avoid stall with WHFAST for e~1
         sim.integrator = "ias15"
     else:
         sim.integrator = "whfast"
-
-def collision(reb_sim, col): # for random testset run with old version of rebound that doesn't do this automatiaclly
-    reb_sim.contents._status = 5
-    return 0
 
 def init_sim_parameters(sim, dtfrac=0.05): 
     # overwrites particle radii with their individual Hill radii
@@ -50,7 +47,6 @@ def init_sim_parameters(sim, dtfrac=0.05):
     except:
         sim.collision = 'direct'# fall back for older versions
     
-    sim.collision_resolve = collision
     sim.ri_whfast.keep_unsynchronized = 0
     sim.ri_whfast.safe_mode = 1
 

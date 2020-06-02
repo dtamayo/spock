@@ -1,37 +1,34 @@
-from .simsetup import init_sim_parameters, check_valid_sim, check_hyperbolic
+import numpy as np
+from .simsetup import init_sim_parameters
 
 class Nbody():
-    def __init__(self:  # don't allow reloading simarcchives. give way for them to do it  themselves
+    def __init__(self):
         pass 
-    def predict_stable(sim, dtfrac=0.05, tmax=None, archive_filename=None, archive_interval=None): 
-       
-        check_valid_sim(sim)
-        sim = init_sim_parameters(sim, dtfrac)
+
+    def predict_stable(self, sim, tmax=None, dtfrac=0.05, archive_filename=None, archive_interval=None): 
+        t_inst = self.predict_instability_time(sim, tmax, dtfrac, archive_filename, archive_interval)
+
+        if t_inst < tmax:
+            return 0
+        else:
+            return 1
+    
+    def predict_instability_time(self, sim, tmax=None, dtfrac=0.05, archive_filename=None, archive_interval=None):
+        sim = sim.copy()
+        init_sim_parameters(sim, dtfrac)
 
         minP = np.min([p.P for p in sim.particles[1:]])
         if tmax is None:
-            tmax = 1e9*self.sim.particles[1].P
+            tmax = 1e9*minP
           
+        if archive_filename:
+            if archive_interval is None:
+                archive_interval = 1e6*minP
+            sim.automateSimulationArchive(archive_filename, archive_interval, deletefile=True)
+
         try:
             sim.integrate(tmax, exact_finish_time=0)
-            collision=False
         except rebound.Collision:
-            collision=True
-            if archive_filename:
-                sim.simulationarchive_snapshot(archive_filename)
-        if collision == True or check_hyperbolic(sim) == True:
-            return 0
-
-        return 1
-    
-    def predict_instability_time(sim, tmax=None, dtfrac=0.05, archive_filename=None, interval=None): 
-        sim = init_sim(sim, dtfrac, archive_filename, interval)
-        if tmax is None:
-            tmax = 1e9*self.sim.particles[1].P
-
-        try:
-            sim.integrate(tmax, exact_finish_time=0)
-        except:
             if archive_filename:
                 sim.simulationarchive_snapshot(archive_filename)
             return sim.t 
