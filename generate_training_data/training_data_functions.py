@@ -9,7 +9,7 @@ def training_data(row, safolder, runfunc, args):
         sa = rebound.SimulationArchive(safolder+'sa'+row['runstring'])
         sim = sa[0]
     except:
-        print("traininst_data_functions.py Error reading " + safolder+'sa'+row['runstring'])
+        print("training_data_functions.py Error reading " + safolder+'sa'+row['runstring'])
         return None
 
     init_sim_parameters(sim)
