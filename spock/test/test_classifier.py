@@ -18,52 +18,6 @@ class TestClassifier(unittest.TestCase):
     def setUp(self):
         self.model = StabilityClassifier()
 
-    def test_singlelisttrios(self):
-        sim = rebound.Simulation()
-        sim.add(m=1.)
-        sim.add(m=1.e-5, P=1.)
-        sim.add(m=1.e-5, P=2.)
-        sim.add(m=1.e-5, P=3.)
-        with self.assertRaises(AttributeError):
-            self.model.predict_stable(sim, trios=[1,2,3])
-    
-    def test_wrongindex(self):
-        sim = rebound.Simulation()
-        sim.add(m=1.)
-        sim.add(m=1.e-5, P=1.)
-        sim.add(m=1.e-5, P=2.)
-        sim.add(m=1.e-5, P=3.)
-        with self.assertRaises(AttributeError):
-            self.model.predict_stable(sim, trios=[[1,2,4]])
-    
-    def test_zeroindex(self):
-        sim = rebound.Simulation()
-        sim.add(m=1.)
-        sim.add(m=1.e-5, P=1.)
-        sim.add(m=1.e-5, P=2.)
-        sim.add(m=1.e-5, P=3.)
-        with self.assertRaises(AttributeError):
-            self.model.predict_stable(sim, trios=[[0,2,4]])
-    
-    def test_wronglengthtrios(self):
-        sim = rebound.Simulation()
-        sim.add(m=1.)
-        sim.add(m=1.e-5, P=1.)
-        sim.add(m=1.e-5, P=2.)
-        sim.add(m=1.e-5, P=3.)
-        with self.assertRaises(AttributeError):
-            self.model.predict_stable(sim, trios=[[1,2,3], [1,2]])
-    
-    def test_indexorderinvariance(self):
-        sim = rebound.Simulation()
-        sim.add(m=1.)
-        sim.add(m=1.e-5, P=1.)
-        sim.add(m=1.e-5, P=2.)
-        sim.add(m=1.e-5, P=3.)
-        p123 = self.model.predict_stable(sim, trios=[[1,2,3]])
-        p231 = self.model.predict_stable(sim, trios=[[2,3,1]])
-        self.assertEqual(p123, p231)
-    
     def test_repeat(self):
         sim = rebound.Simulation()
         sim.add(m=1.)
