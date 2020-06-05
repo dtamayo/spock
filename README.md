@@ -3,7 +3,7 @@
 
 ## Quickstart
 
-Let's predict the stability of a given 3-planet system:
+Let's predict the probaility that a given 3-planet system is stable:
 
 ```python
 import rebound
