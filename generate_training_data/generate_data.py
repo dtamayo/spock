@@ -43,8 +43,8 @@ if datasets == 'all':
 
 for dataset in list(datasets):
     if dataset == 'random':
-        if rebound.__githash__ != '4992313d213b0be717a0b82002e0b89a143c9828':
-            print('random dataset not run. Check out rebound commit 4992313d213b0be717a0b82002e0b89a143c9828 and rerun script if needed')
+        if rebound.__githash__ != '4a6c79ae14ffde27828dd9d1f8d8afeba94ef048':
+            print('random dataset not run. Check out rebound commit 4a6c79ae14ffde27828dd9d1f8d8afeba94ef048 (HEAD of spockrandomintegrations branch on dtamayo/rebound fork) and rerun script if needed')
             continue 
     else:
         if rebound.__githash__ != '6fb912f615ca542b670ab591375191d1ed914672':
