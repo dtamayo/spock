@@ -9,5 +9,6 @@ except ImportError:
     pass                 # python 2.x
 
 from .classifier import StabilityClassifier
+from .nbody import Nbody
 
-__all__ = ["StabilityClassifier"]
+__all__ = ["StabilityClassifier", "Nbody"]
