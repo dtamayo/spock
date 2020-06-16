@@ -5,7 +5,8 @@ from scipy.optimize import brenth
 from collections import OrderedDict
 from celmech import Andoyer
 from celmech.resonances import resonant_period_ratios
-
+import warnings
+warnings.filterwarnings("error")
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
 # having the smaller semimajor axis
@@ -77,9 +78,11 @@ def get_tseries(sim, args):
     Norbits = args[0]
     Nout = args[1]
     trios = args[2]
+    
+    minP = np.min([p.P for p in sim.particles[1:sim.N_real]])
 
-    P0 = np.abs(sim.particles[1].P) # want hyperbolic case to run so it raises exception
-    times = np.linspace(0, Norbits*P0, Nout)
+    # want hyperbolic case to run so it raises exception
+    times = np.linspace(0, Norbits*np.abs(minP), Nout)
     
     triopairs, triotseries = [], []
     for tr, trio in enumerate(trios): # For each trio there are two adjacent pairs 
@@ -94,7 +97,7 @@ def get_tseries(sim, args):
             return triotseries, stable
 
         for tseries in triotseries:
-            tseries[i,0] = sim.t/P0  # time
+            tseries[i,0] = sim.t/minP  # time
 
         for tr, trio in enumerate(trios):
             pairs = triopairs[tr]

@@ -7,8 +7,10 @@ class Nbody():
         pass 
 
     def predict_stable(self, sim, tmax=None, archive_filename=None, archive_interval=None): 
-        t_inst, stable = self.predict_instability_time(sim, tmax, archive_filename, archive_interval)
-        if stable == True:
+        t_inst = self.predict_instability_time(sim, tmax, archive_filename, archive_interval)
+        
+        minP = np.min([p.P for p in sim.particles[1:sim.N_real]])
+        if t_inst >= 1e9*minP:
             return 1
         else:
             return 0
@@ -30,8 +32,6 @@ class Nbody():
         except:# rebound.Collision:
             if archive_filename:
                 sim.simulationarchive_snapshot(archive_filename)
-            stable = False
-            return sim.t, stable
+            return sim.t
             
-        stable = True
-        return tmax, stable
+        return tmax
