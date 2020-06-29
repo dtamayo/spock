@@ -5,8 +5,7 @@ from scipy.optimize import brenth
 from collections import OrderedDict
 from celmech import Andoyer
 from celmech.resonances import resonant_period_ratios
-import warnings
-warnings.filterwarnings("error")
+
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
 # having the smaller semimajor axis
