@@ -6,3 +6,8 @@ __pycache__/
 spock.egg-info/
 training_data/
 data*
+paper_plots/*.csv
+spock/models/AMD.json
+spock/models/hill.json
+spock/models/megno.json
+spock/models/nbody.json
