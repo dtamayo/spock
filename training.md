@@ -1,8 +1,6 @@
-# Training machine learning models
+# Training machine learning models or running comparisons
 
-If you are happy with our set of engineered features and want to train different machine learning models to predict stability from them, you can just use the pregenerated csv files we've created and skip down to training ML models.
-
-If you would like to get the initial conditions to generate your own sets of features or make your own predictions (machine learning or analytic), you need to download our dataset of REBOUND simulation\_archives, from which you can extract any dynamical information you like (see <https://rebound.readthedocs.io/>) or run N-body integrations. 
+In order to retrain our machine learning models, to train your own, or to test any other type of model against our data, you need to download our dataset of REBOUND simulation\_archives, from which you can extract the initial conditions and any dynamical information you like (see <https://rebound.readthedocs.io/>) or run N-body integrations.
 
 REBOUND integrators are machine independent and we have checked that if you rerun the integrations starting from the simulation\_archives you will get the same answer bit by bit, ensuring you get the exact same instability times despite the dynamics being chaotic. Different sets of integrations were run with different versions of REBOUND, so see `spock/generate_training_data/reproducibility.ipynb` for how to do that.
 
@@ -18,7 +16,12 @@ will untar the data folder where it needs to be (all scripts assume that this fo
 
 # Generating Features
 
-Different training/testing sets were run at different times with different versions of REBOUND. You first need to clone the REBOUND repository (<https://github.com/hannorein/rebound>) (even if you already installed it with pip).
+Different training/testing sets were run at different times with different versions of REBOUND. You first need to clone MY FORK of the REBOUND repository (wherever you like) 
+
+```shell
+cd /path/to/wherever/you/want
+git clone https://github.com/dtamayo/rebound.git
+```
 
 To regenerate the labels.csv (instability timesfor each example), massratios.csv (planetary masses for each example) and runstrings.csv (names of all the examples) that are needed for subsequent scripts run
 
@@ -30,10 +33,11 @@ pip install -e .
 cd /path/to/spock/generate_training_data/
 python generate_metadata.py
 ```
+# To regenerate the features we use for SPOCK for each initial condition in our test sets
 
 For a given function that generates a set of features for a given initial configuration, we have to run a script to generate all those features for all the examples in the training set. 
 
-That script is ``spock/generate_training_data/generate_data.py`` and you specify it by setting runfunc on line 13. Here we will use the ``features`` function actually used by SPOCK as well as the ``additional_features`` function we wrote for all the comparisons to previous work in our paper. We run
+That script is ``spock/generate_training_data/generate_data.py`` and you specify it by setting runfunc on line 13. You can just run the ``features`` function actually used by SPOCK, but if you want to regenerate our figures and do comparisons you also have to run the ``additional_features`` function. After editing line 13 to what you want,
 
 ```shell
 python generate_data.py
@@ -45,15 +49,8 @@ The above script will run the datasets that were run with the same REBOUND commi
 
 ```shell
 cd /path/to/rebound/
-git checkout 4992313d213b0be717a0b82002e0b89a143c9828
+git checkout 4a6c79ae14ffde27828dd9d1f8d8afeba94ef048 
 pip install -e .
 
 cd /path/to/spock/generate_training_data
 python generate_data.py
-```
-
-
-
-
-
-
