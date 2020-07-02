@@ -1,10 +1,32 @@
 import rebound
 import numpy as np
-import itertools
-from scipy.optimize import brenth
 from collections import OrderedDict
-from celmech import Andoyer
-from celmech.resonances import resonant_period_ratios
+
+######################### Taken from celmech github.com/shadden/celmech
+def farey_sequence(n):
+    """Return the nth Farey sequence as order pairs of the form (N,D) where `N' is the numerator and `D' is the denominator."""
+    a, b, c, d = 0, 1, 1, n
+    sequence=[(a,b)]
+    while (c <= n):
+        k = int((n + b) / d)
+        a, b, c, d = c, d, (k*c-a), (k*d-b)
+        sequence.append( (a,b) )
+    return sequence
+def resonant_period_ratios(min_per_ratio,max_per_ratio,order):
+    """Return the period ratios of all resonances up to order 'order' between 'min_per_ratio' and 'max_per_ratio' """
+    if min_per_ratio < 0.:
+        raise AttributeError("min_per_ratio of {0} passed to resonant_period_ratios can't be < 0".format(min_per_ratio))
+    if max_per_ratio >= 1.:
+        raise AttributeError("max_per_ratio of {0} passed to resonant_period_ratios can't be >= 1".format(max_per_ratio))
+    minJ = int(np.floor(1. /(1. - min_per_ratio)))
+    maxJ = int(np.ceil(1. /(1. - max_per_ratio)))
+    res_ratios=[(minJ-1,minJ)]
+    for j in range(minJ,maxJ):
+        res_ratios = res_ratios + [ ( x[1] * j - x[1] + x[0] , x[1] * j + x[0]) for x in farey_sequence(order)[1:] ]
+    res_ratios = np.array(res_ratios)
+    msk = np.array( list(map( lambda x: min_per_ratio < x[0]/float(x[1]) < max_per_ratio , res_ratios )) )
+    return res_ratios[msk]
+##########################
 
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 

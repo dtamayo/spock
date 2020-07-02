@@ -1,8 +1,15 @@
 from setuptools import setup
+import os
 
+here = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
+
+exec(open('spock/version.py').read())
 setup(name='spock',
-    version='1.0.0',
+    version=__version__,
     description='Stability of Planetary Orbital Configurations Klassifier',
+    long_description=long_description,
     url='https://github.com/dtamayo/spock',
     author='Daniel Tamayo',
     author_email='tamayo.daniel@gmail.com',
@@ -31,7 +38,7 @@ setup(name='spock',
     keywords='astronomy astrophysics exoplanets stability',
     packages=['spock'],
     package_data={'spock': ['models/spock.json']},
-    install_requires=["rebound","celmech","xgboost>=1.0.2"],
+    install_requires=["rebound", "xgboost>=1.1.0"],
     tests_require=["numpy"],
-    test_suite="spock.tests",
+    test_suite="spock.test",
     zip_safe=False)

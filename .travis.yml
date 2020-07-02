@@ -1,0 +1,29 @@
+language: python 
+sudo: false
+
+env:
+  - TESTPART=PYTHON1
+  - TESTPART=PYTHON2
+
+python:
+  - "2.7"
+  - "3.7"
+
+before_install:
+  - travis_apt_get_update
+  - if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then wget http://repo.continuum.io/miniconda/Miniconda-3.5.5-Linux-x86_64.sh -O miniconda.sh; else wget http://repo.continuum.io/miniconda/Miniconda3-3.5.5-Linux-x86_64.sh -O miniconda.sh; fi; fi
+  - chmod +x miniconda.sh; fi
+  - ./miniconda.sh -b -p /home/travis/mc; fi
+  - export PATH=/home/travis/mc/bin:$PATH; fi
+
+install:
+  - then conda update --yes conda; fi
+  - conda create -n testenv --yes numpy scipy matplotlib setuptools python=$TRAVIS_PYTHON_VERSION; fi
+  - source activate testenv; fi
+  - python setup.py install; fi
+
+script:
+    - if [[ $TESTPART == "PYTHON1" ]]; then cd $TRAVIS_BUILD_DIR/ && python setup.py test; fi
+      #- if [[ $TESTPART == "PYTHON1" ]]; then cd $TRAVIS_BUILD_DIR/ipython_examples/ && python ipynb2py.py ComparingToNbody.ipynb; fi
+    - if [[ $TESTPART == "PYTHON1" ]]; then cd $TRAVIS_BUILD_DIR/ipython_examples/ && python ipynb2py.py QuickStart.ipynb; fi
+    - if [[ $TESTPART == "PYTHON2" ]]; then cd $TRAVIS_BUILD_DIR/ipython_examples/ && python ipynb2py.py GridOfStabilityPredictions.ipynb; fi

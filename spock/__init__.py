@@ -8,6 +8,7 @@ try:
 except ImportError:
     pass                 # python 2.x
 
+from .version import __version__
 from .classifier import StabilityClassifier
 from .nbody import Nbody
 
