@@ -1,6 +1,6 @@
 SPOCK 🖖 
-========
-*Stability of Planetary Orbital Configurations Klassifier*
+********
+**Stability of Planetary Orbital Configurations Klassifier**
 
 .. image:: https://badge.fury.io/py/spock.svg
     :target: https://badge.fury.io/py/spock
@@ -37,7 +37,7 @@ Let's predict the probaility that a given 3-planet system is stable:
 Examples
 ========
 
-The best place to start is the example notebooks in jupyter\_examples/
+The best place to start is the example notebooks in `jupyter\_examples/ <https://github.com/dtamayo/spock/tree/master/jupyter_examples>`_.
 
 Installation
 ============
@@ -46,7 +46,7 @@ Install with::
 
     pip install spock
 
-SPOCK relies on XGBoost, which has installation issues with OpenMP on Mac OSX. If you have problems (<https://github.com/dmlc/xgboost/issues/4477>), the easiest way is probably to install `homebrew <brew.sh>`_, and::
+SPOCK relies on XGBoost, which has installation issues with OpenMP on Mac OSX. If you have problems (`https://github.com/dmlc/xgboost/issues/4477 <https://github.com/dmlc/xgboost/issues/4477>`_), the easiest way is probably to install `homebrew <brew.sh>`_, and::
 
     brew install libomp
     pip install spock
