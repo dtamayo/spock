@@ -4,6 +4,20 @@ import numpy as np
 from spock import StabilityClassifier
 from spock.simsetup import init_sim_parameters
 
+def unstablesim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, P=1)
+    sim.add(m=1.e-4, P=1.3)
+    sim.add(m=1.e-4, P=1.6)
+    for p in sim.particles[1:]:
+        p.r = p.a*(p.m/3)**(1/3)
+    sim.move_to_com()
+    sim.collision='line'
+    sim.integrator="whfast"
+    sim.dt = 0.05
+    return sim
+
 class TestSimSetup(unittest.TestCase):
     def setUp(self):
         self.model = StabilityClassifier()
@@ -54,8 +68,7 @@ class TestSimSetup(unittest.TestCase):
         self.assertAlmostEqual(sim.dt, 0.05*10*0.01**1.5/np.sqrt(1.99), delta=1.e-8)
     
     def test_set_collision(self):
-        sim = rebound.Simulation('unstable.bin')
-        init_sim_parameters(sim)
+        sim = unstablesim()
         with self.assertRaises(rebound.Collision):
             sim.integrate(1e4*sim.particles[1].P)
 
