@@ -17,7 +17,7 @@ before_install:
   - export PATH=/home/travis/mc/bin:$PATH
 
 install:
-  - then conda update --yes conda
+  - conda update --yes conda
   - conda create -n testenv --yes numpy scipy matplotlib setuptools python=$TRAVIS_PYTHON_VERSION
   - source activate testenv
   - python setup.py install
