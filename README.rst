@@ -1,7 +1,18 @@
-# SPOCK 🖖 
+.. image:: https://badge.fury.io/py/SPOCK.svg
+    :target: https://badge.fury.io/py/SPOCK
+.. image:: https://travis-ci.com/dtamayo/spock.svg?branch=master
+    :target: https://travis-ci.com/dtamayo/spock
+.. image:: http://img.shields.io/badge/license-GPL-green.svg?style=flat 
+    :target: https://github.com/dtamayo/spock/blob/master/LICENSE
+.. image:: https://img.shields.io/badge/launch-binder-ff69b4.svg?style=flat
+    :target: http://mybinder.org/repo/dtamayo/spock
+
+SPOCK 🖖 
+========
 *Stability of Planetary Orbital Configurations Klassifier*
 
-## Quickstart
+Quickstart
+==========
 
 Let's predict the probaility that a given 3-planet system is stable:
 
@@ -21,11 +32,13 @@ model.predict_stable(sim)
 >>> 0.011536411
 ```
 
-## Examples
+Examples
+========
 
 The best place to start is the example notebooks in jupyter\_examples/
 
-## Installation
+Installation
+============
 
 ```shell
 pip install spock
