@@ -38,7 +38,7 @@ setup(name='spock',
     keywords='astronomy astrophysics exoplanets stability',
     packages=['spock'],
     package_data={'spock': ['models/spock.json']},
-    install_requires=["rebound", "xgboost>=1.1.0"],
+    install_requires=["rebound", "sklearn", "xgboost>=1.1.0"],
     tests_require=["numpy"],
     test_suite="spock.test",
     zip_safe=False)
