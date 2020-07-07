@@ -11,6 +11,8 @@ SPOCK 🖖
 .. image:: https://img.shields.io/badge/launch-binder-ff69b4.svg?style=flat
     :target: http://mybinder.org/repo/dtamayo/spock
 
+.. image:: paper_plots/spockpr.jpg
+    :width: 400
 
 Quickstart
 ==========
