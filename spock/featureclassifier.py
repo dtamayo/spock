@@ -57,7 +57,8 @@ class FeatureClassifier():
         
         trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios   
         featureargs = [10000, 80, trios]
-        triofeatures, stable = features(sim, featureargs)
+        triofeatures, stable = features(sim, featureargs)    # stable will be 0 if an orbit is hyperbolic
+                                                             # sim.dt = nan in init_sim_parameters
         
         return triofeatures, stable
 

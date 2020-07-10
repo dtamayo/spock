@@ -21,10 +21,9 @@ Let's predict the probability that a given 3-planet system is stable:
 
 .. code:: python
 
-    python
     import rebound
-    from spock import StabilityClassifier
-    model = StabilityClassifier()
+    from spock import FeatureClassifier
+    model = FeatureClassifier()
 
     sim = rebound.Simulation()
     sim.add(m=1.)
@@ -34,7 +33,7 @@ Let's predict the probability that a given 3-planet system is stable:
     sim.move_to_com()
 
     model.predict_stable(sim)
-    >>> 0.011536411
+    >>> 0.011505529
 
 Examples
 ========

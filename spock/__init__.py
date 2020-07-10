@@ -2,7 +2,7 @@
 """Stability of Planetary Orbital Configurations Klassifier"""
 
 from .version import __version__, __githash__
-from .classifier import StabilityClassifier
-from .nbody import Nbody
+from .featureclassifier import FeatureClassifier
+from .nbodyregressor import NbodyRegressor
 
-__all__ = ["StabilityClassifier", "Nbody"]
+__all__ = ["FeatureClassifier", "NbodyRegressor"]

@@ -1,7 +1,7 @@
 import rebound
 import unittest
 import numpy as np
-from spock import StabilityClassifier
+from spock import FeatureClassifier
 from spock.simsetup import init_sim_parameters
 
 def unstablesim():
@@ -20,7 +20,7 @@ def unstablesim():
 
 class TestSimSetup(unittest.TestCase):
     def setUp(self):
-        self.model = StabilityClassifier()
+        self.model = FeatureClassifier()
 
     def test_negmass(self):
         sim = rebound.Simulation()

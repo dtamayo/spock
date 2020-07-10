@@ -1,6 +1,6 @@
 import rebound
 import unittest
-from spock import StabilityClassifier, Nbody
+from spock import FeatureClassifier, NbodyRegressor
 from spock.feature_functions import get_tseries
 from spock.simsetup import init_sim_parameters
 
@@ -63,7 +63,7 @@ def rescale(sim, dscale, tscale, mscale):
 
 class TestClassifier(unittest.TestCase):
     def setUp(self):
-        self.model = StabilityClassifier()
+        self.model = FeatureClassifier()
 
     def test_repeat(self):
         sim = rebound.Simulation()
@@ -82,7 +82,7 @@ class TestClassifier(unittest.TestCase):
         x1 = sim.particles[1].x
 
         sim = longstablesim()
-        nbody = Nbody()
+        nbody = NbodyRegressor()
         nbody.predict_stable(sim, tmax=1e4, archive_filename='temp.bin', archive_interval=1.e4)
         sa = rebound.SimulationArchive('temp.bin')
         sim = sa[-1]

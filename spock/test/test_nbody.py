@@ -1,6 +1,6 @@
 import rebound
 import unittest
-from spock import Nbody
+from spock import NbodyRegressor
 from spock.simsetup import init_sim_parameters
 
 def unstablesim():
@@ -62,7 +62,7 @@ def rescale(sim, dscale, tscale, mscale):
 
 class TestNbody(unittest.TestCase):
     def setUp(self):
-        self.model = Nbody()
+        self.model = NbodyRegressor()
 
     def test_repeat(self):
         sim = rebound.Simulation()
