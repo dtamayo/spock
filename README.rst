@@ -17,7 +17,7 @@ SPOCK 🖖
 Quickstart
 ==========
 
-Let's predict the probaility that a given 3-planet system is stable:
+Let's predict the probability that a given 3-planet system is stable:
 
 .. code:: python
 
