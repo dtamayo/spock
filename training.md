@@ -1,8 +1,8 @@
 # Training machine learning models or running comparisons
 
-In order to retrain our machine learning models, to train your own, or to test any other type of model against our data, you need to download our dataset of REBOUND simulation\_archives, from which you can extract the initial conditions and any dynamical information you like (see <https://rebound.readthedocs.io/>) or run N-body integrations.
+In order to retrain our machine learning models, to train your own, or to test any other type of model against our data, you need to download our dataset of REBOUND SimulationArchives, from which you can extract the initial conditions and any dynamical information you like (see <https://rebound.readthedocs.io/>) or run N-body integrations.
 
-REBOUND integrators are machine independent and we have checked that if you rerun the integrations starting from the simulation\_archives you will get the same answer bit by bit, ensuring you get the exact same instability times despite the dynamics being chaotic. Different sets of integrations were run with different versions of REBOUND, so see `spock/generate\_training\_data/reproducibility.ipynb` for how to do that.
+REBOUND integrators are machine independent and we have checked that if you rerun the integrations starting from the SimulationArchives you will get the same answer bit by bit, ensuring you get the exact same instability times despite the dynamics being chaotic. Different sets of integrations were run with different versions of REBOUND, so see `spock/generate_training_data/reproducibility.ipynb` for how to do that.
 
 # Getting the data
 
@@ -36,14 +36,14 @@ cd /path/to/spock/generate_training_data/
 python generate_metadata.py
 ```
 
-The instability times generated in `training\_data/<nameofdataset>/labels.csv, together with the corresponding simulation archives in data/ should be sufficient to evaluate the performance of any new model on our datasets.
+The instability times generated in `training_data/<nameofdataset>/labels.csv, together with the corresponding simulation archives in data/ should be sufficient to evaluate the performance of any new model on our datasets.
 
 # Retraining or modifying SPOCK
 
 In order to train the model, you first have to regenerate the features we use for SPOCK for each initial condition in our test sets.
 For a given function that generates a set of features for a given initial configuration, we have to run a script to generate all those features for all the examples in the training set. 
 
-That script is ``spock/generate\_training\_data/generate\_data.py`` and you specify the corresponding function (defined in `spock/spock/feature\_funcctions.py` by setting runfunc on line 13. You can just run the ``features`` function actually used by SPOCK, but if you want to regenerate our figures and do comparisons you also have to run the ``additional\_features`` function. After editing line 13 to what you want,
+That script is `spock/generate_training_data/generate_data.py` and you specify the corresponding function (defined in `spock/spock/feature_funcctions.py` by setting runfunc on line 13. You can just run the `features` function actually used by SPOCK, but if you want to regenerate our figures and do comparisons you also have to run the `additional_features` function. After editing line 13 to what you want,
 
 ```shell
 python generate_data.py
@@ -64,7 +64,7 @@ python generate_data.py
 
 # Retraining SPOCK
 
-Once you have generated all the features, you can retrain SPOCK by running the `train\_models/train\_spock.ipynb` notebook. To train the comparison models used in the paper, run `train\_models/train\_comparison\_models.ipynb`. This will save the trained models in `spock/spock/models`.
+Once you have generated all the features, you can retrain SPOCK by running the `train_models/train_spock.ipynb` notebook. To train the comparison models used in the paper, run `train_models/train_comparison_models.ipynb`. This will save the trained models in `spock/spock/models`.
 
 # To regenerate the figures
 
@@ -76,6 +76,6 @@ git checkout 6fb912f615ca542b670ab591375191d1ed914672
 pip install -e .
 
 cd /path/to/spock/paper_plots
-python generate_metadata.py
+python generatePratios.py
 ```
-After that you should be able to run all the figure notebooks (note Figs 6,7 take about 20 mins, Fig 5 would take about 20 times longer on a singlee core but runs over all available cores).
+After that you should be able to run all the figure notebooks (note Figs 6,7 take about 20 mins, Fig 5 would take about 20 times longer on a single core but runs over all available cores).
