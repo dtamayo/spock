@@ -10,6 +10,8 @@ SPOCK 🖖
     :target: https://github.com/dtamayo/spock/blob/master/LICENSE
 .. image:: https://img.shields.io/badge/launch-binder-ff69b4.svg?style=flat
     :target: http://mybinder.org/repo/dtamayo/spock
+.. image:: http://img.shields.io/badge/arXiv-2007.06521-green.svg?style=flat 
+    :target: http://arxiv.org/abs/2007.06521
 
 .. image:: paper_plots/spockpr.jpg
     :width: 400

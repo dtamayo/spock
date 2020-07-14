@@ -1,6 +1,6 @@
 # Training machine learning models or running comparisons
 
-In order to retrain our machine learning models, to train your own, or to test any other type of model against our data, you need to download our dataset of REBOUND SimulationArchives, from which you can extract the initial conditions and any dynamical information you like (see <https://rebound.readthedocs.io/>) or run N-body integrations.
+In order to retrain our machine learning models, to train your own, or to test any other type of model against our data, you need to download our dataset of REBOUND SimulationArchives, from which you can extract the initial conditions and any dynamical information you like (see <https://rebound.readthedocs.io/>) or run N-body integrations.
 
 REBOUND integrators are machine independent and we have checked that if you rerun the integrations starting from the SimulationArchives you will get the same answer bit by bit, ensuring you get the exact same instability times despite the dynamics being chaotic. Different sets of integrations were run with different versions of REBOUND, so see `spock/generate_training_data/reproducibility.ipynb` for how to do that.
 
