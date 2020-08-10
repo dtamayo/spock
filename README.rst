@@ -43,6 +43,8 @@ The best place to start is the example notebooks in `jupyter\_examples/ <https:/
 Installation
 ============
 
+SPOCK is compatible with both Linux and Mac. 
+
 Install with::
 
     pip install spock
