@@ -2,6 +2,7 @@ import rebound
 import unittest
 from spock import NbodyRegressor
 from spock.simsetup import init_sim_parameters
+from spock.feature_functions import features
 
 def unstablesim():
     sim = rebound.Simulation()
@@ -73,7 +74,7 @@ class TestNbody(unittest.TestCase):
         p1 = self.model.predict_stable(sim, tmax=1e4)
         p2 = self.model.predict_stable(sim, tmax=1e4)
         self.assertEqual(p1, p2)
-    
+
     def test_hyperbolic(self):
         sim = rebound.Simulation()
         sim.add(m=1.)
@@ -81,7 +82,7 @@ class TestNbody(unittest.TestCase):
         sim.add(m=1.e-5, a=2.)
         sim.add(m=1.e-5, a=3.)
         self.assertEqual(self.model.predict_stable(sim, tmax=1e4), 0)
-    
+   
     def test_unstable_in_short_integration(self):
         sim = unstablesim()
         self.assertEqual(self.model.predict_stable(sim, tmax=1e4), 0)
@@ -93,6 +94,23 @@ class TestNbody(unittest.TestCase):
     def test_stable(self):
         sim = longstablesim()
         self.assertEqual(self.model.predict_stable(sim, tmax=1e4), 1)
-    
+
+    def test_same_traj_as_feature_classifier(self):
+        # procedure in featureclassifier
+        sim = unstablesim()
+        init_sim_parameters(sim)                            
+        trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)]
+        featureargs = [10000, 80, trios]                    
+        triofeatures, stable = features(sim, featureargs)   
+        tfc = sim.t
+
+        sim = unstablesim()
+        init_sim_parameters(sim)
+        try:
+            sim.integrate(1e4*sim.particles[1].P, exact_finish_time=0)
+        except rebound.Collision:
+            tn = sim.t
+        self.assertEqual(tfc, tn)
+
 if __name__ == '__main__':
     unittest.main()
