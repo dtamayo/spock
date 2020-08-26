@@ -33,6 +33,9 @@ class NbodyRegressor():
                 archive_interval = tmax/1000
             sim.automateSimulationArchive(archive_filename, archive_interval, deletefile=True)
 
+        if np.isnan(sim.dt): # sim.dt set to nan for hyperbolic initial conditions in simsetup/set_integrator_and_timestep
+            return np.nan
+
         try:
             sim.integrate(tmax, exact_finish_time=0)
         except (rebound.Collision, rebound.Escape):
@@ -52,4 +55,3 @@ class NbodyRegressor():
             return 1
         else:
             return 0
-        

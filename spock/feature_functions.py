@@ -109,7 +109,11 @@ def get_tseries(sim, args):
     for tr, trio in enumerate(trios): # For each trio there are two adjacent pairs 
         triopairs.append(get_pairs(sim, trio))
         triotseries.append(np.zeros((Nout, 8))*np.nan)
-  
+
+    if np.isnan(sim.dt): # initially hyperbolic orbit, set in simsetup/set_integrator_and_timestep
+        stable = False
+        return triotseries, stable
+
     for i, time in enumerate(times):
         try:
             sim.integrate(time, exact_finish_time=0)
