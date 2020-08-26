@@ -82,7 +82,15 @@ class TestNbody(unittest.TestCase):
         sim.add(m=1.e-5, a=2.)
         sim.add(m=1.e-5, a=3.)
         self.assertEqual(self.model.predict_stable(sim, tmax=1e4), 0)
-   
+    
+    def test_escape(self):
+        sim = rebound.Simulation()
+        sim.add(m=1.)
+        sim.add(m=1.e-12, P=3.14, e=0.03, l=0.5)
+        sim.add(m=1.e-12, P=4.396, e=0.03, l=4.8)
+        sim.add(m=1.e-12, a=100, e=0.999)
+        self.assertEqual(self.model.predict_stable(sim, tmax=1e4), 0)
+    
     def test_unstable_in_short_integration(self):
         sim = unstablesim()
         self.assertEqual(self.model.predict_stable(sim, tmax=1e4), 0)

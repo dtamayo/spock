@@ -41,7 +41,10 @@ def init_sim_parameters(sim):
         sim.collision = 'line'  # use line if using newer version of REBOUND
     except:
         sim.collision = 'direct'# fall back for older versions
-    
+
+    maxd = np.array([p.d for p in sim.particles[1:sim.N_real]]).max()
+    sim.exit_max_distance = 100*maxd
+                
     sim.ri_whfast.keep_unsynchronized = 0
     sim.ri_whfast.safe_mode = 1
 
