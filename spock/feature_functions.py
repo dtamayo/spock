@@ -113,7 +113,7 @@ def get_tseries(sim, args):
     for i, time in enumerate(times):
         try:
             sim.integrate(time, exact_finish_time=0)
-        except rebound.Collision:
+        except (rebound.Collision, rebound.Escape):
             stable = False
             return triotseries, stable
 

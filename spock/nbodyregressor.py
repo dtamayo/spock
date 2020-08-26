@@ -35,7 +35,7 @@ class NbodyRegressor():
 
         try:
             sim.integrate(tmax, exact_finish_time=0)
-        except rebound.Collision:
+        except (rebound.Collision, rebound.Escape):
             if archive_filename:
                 sim.simulationarchive_snapshot(archive_filename)
             return sim.t
