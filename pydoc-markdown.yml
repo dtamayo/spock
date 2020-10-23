@@ -42,6 +42,6 @@ renderer:
       preamble: {weight: 1}
     - title: API Documentation
       contents:
-        - spock.*
+        - spock.featureclassifier.FeatureClassifier.*
       preamble: {weight: 2}
 
