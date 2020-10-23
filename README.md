@@ -3,16 +3,12 @@
 **Stability of Planetary Orbital Configurations Klassifier**
 
 [![image](https://badge.fury.io/py/spock.svg)](https://badge.fury.io/py/spock)
-
 [![image](https://travis-ci.com/dtamayo/spock.svg?branch=master)](https://travis-ci.com/dtamayo/spock)
-
 [![image](http://img.shields.io/badge/license-GPL-green.svg?style=flat)](https://github.com/dtamayo/spock/blob/master/LICENSE)
-
 [![image](https://img.shields.io/badge/launch-binder-ff69b4.svg?style=flat)](http://mybinder.org/repo/dtamayo/spock)
-
 [![image](http://img.shields.io/badge/arXiv-2007.06521-green.svg?style=flat)](http://arxiv.org/abs/2007.06521)
 
-![image](paper_plots/spockpr.jpg){width="400px"}
+![image](https://raw.githubusercontent.com/dtamayo/spock/master/paper_plots/spockpr.jpg)
 
 # Quickstart
 
