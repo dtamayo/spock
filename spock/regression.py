@@ -13,10 +13,9 @@ from torch.autograd import Variable
 from torch.functional import F
 from icecream import ic
 import glob
-import spock_reg_model
+from .spock_reg_model import load_swag
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.callbacks import LearningRateLogger, ModelCheckpoint
 import torch
 import time
 from numba import jit
@@ -24,9 +23,8 @@ import pickle as pkl
 
 profile = lambda _: _
 
-models/regression/
 class FeatureRegressor(object):
-    def __init__(self, cuda=False, filebase='*v50_*.pkl')
+    def __init__(self, cuda=False, filebase='*v50_*.pkl'):
         super(FeatureRegressor, self).__init__()
         pwd = os.path.dirname(__file__)
         pwd = pwd + '/models/regression'
@@ -34,7 +32,7 @@ class FeatureRegressor(object):
 
         #Load model
         self.swag_ensemble = [
-            spock_reg_model.load_swag(fname).cpu()
+            load_swag(fname).cpu()
             for i, fname in enumerate(glob.glob(pwd + '/' + filebase)) #0.78, 0.970
         ]
         ssX_file = basedir_bayes + '/' + filebase[:-4] + '_ssX.pkl'
