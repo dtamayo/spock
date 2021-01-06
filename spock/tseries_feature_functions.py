@@ -5,6 +5,8 @@ from scipy.optimize import brenth
 from collections import OrderedDict
 import warnings
 import pandas as pd
+from .feature_functions import find_strongest_MMR
+
 warnings.filterwarnings("error")
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
@@ -21,45 +23,6 @@ def get_pairs(sim, indices):
         return [['near', sortedindices[0], sortedindices[1]], ['far', sortedindices[1], sortedindices[2]]]
     else:
         return [['near', sortedindices[1], sortedindices[2]], ['far', sortedindices[0], sortedindices[1]]]
-
-def find_strongest_MMR(sim, i1, i2):
-    maxorder = 2
-    ps = sim.particles
-    n1 = ps[i1].n
-    n2 = ps[i2].n
-
-    m1 = ps[i1].m/ps[0].m
-    m2 = ps[i2].m/ps[0].m
-
-    Pratio = n2/n1
-
-    delta = 0.03
-    if Pratio < 0 or Pratio > 1: # n < 0 = hyperbolic orbit, Pratio > 1 = orbits are crossing
-        return np.nan, np.nan, np.nan
-
-    minperiodratio = max(Pratio-delta, 0.)
-    maxperiodratio = min(Pratio+delta, 0.99) # too many resonances close to 1
-    res = resonant_period_ratios(minperiodratio,maxperiodratio, order=2)
-
-    # Calculating EM exactly would have to be done in celmech for each j/k res below, and would slow things down. This is good enough for approx expression
-    EM = np.sqrt((ps[i1].e*np.cos(ps[i1].pomega) - ps[i2].e*np.cos(ps[i2].pomega))**2 + (ps[i1].e*np.sin(ps[i1].pomega) - ps[i2].e*np.sin(ps[i2].pomega))**2)
-    EMcross = (ps[i2].a-ps[i1].a)/ps[i1].a
-
-    j, k, maxstrength = np.nan, np.nan, 0 
-    for a, b in res:
-        nres = (b*n2 - a*n1)/n1
-        if nres == 0:
-            s = np.inf # still want to identify as strongest MMR if initial condition is exatly b*n2-a*n1 = 0
-        else:
-            s = np.abs(np.sqrt(m1+m2)*(EM/EMcross)**((b-a)/2.)/nres)
-        if s > maxstrength:
-            j = b
-            k = b-a
-            maxstrength = s
-    if maxstrength == 0:
-        maxstrength = np.nan
-
-    return j, k, maxstrength
 
 @profile
 def populate_extended_trio(sim, trio, pairs, tseries, i, a10, axis_labels=None):
