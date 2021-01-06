@@ -17,7 +17,7 @@ before_install:
 
 install:
   - conda update --yes conda > conda_install.txt
-  - conda create -y --name testenv -c pytorch -c conda-forge python=3.7 numpy scipy pandas scikit-learn matplotlib pytorch=1.5.1 torchvision torchaudio numba dask xgboost tqdm dill jupyter rebound seaborn fire einops h5py >> conda_install.txt
+  - conda create -y --name testenv -c pytorch -c conda-forge python=3.7 numpy scipy pandas scikit-learn matplotlib pytorch=1.5.1 torchvision torchaudio xgboost jupyter rebound einops h5py >> conda_install.txt
   - source activate testenv
   - pip install -q celluloid icecream pytorch_lightning  >> conda_install.txt
   - python setup.py install
