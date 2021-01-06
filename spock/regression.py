@@ -20,9 +20,61 @@ import time
 from numba import jit
 import pickle as pkl
 import warnings
+import einops as E
+from scipy.integrate import quad
+from scipy.interpolate import interp1d
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
 profile = lambda _: _
+
+def fast_truncnorm(
+        loc, scale, left=np.inf, right=np.inf,
+        d=10000, nsamp=50):
+    """Fast truncnorm sampling.
+    
+    Assumes scale and loc have the desired shape of output.
+    length is number of elements.
+    Select nsamp based on expecting at minimum one sample of a Gaussian
+        to fit within your (left, right) range.
+    Select d based on memory considerations - need to operate on
+        a (d, nsamp) array.
+    """
+    oldscale = scale
+    oldloc = loc
+    
+    scale = scale.reshape(-1)
+    loc = loc.reshape(-1)
+    samples = np.zeros_like(scale)
+    start = 0
+        
+    for start in range(0, scale.shape[0], d):
+
+        end = start + d
+        if end > scale.shape[0]:
+            end = scale.shape[0]
+        
+        cd = end-start
+        rand_out = np.random.normal(size=(nsamp, cd))
+
+        rand_out = (
+            rand_out * scale[None, start:end]
+            + loc[None, start:end]
+        )
+        
+        #rand_out is (nsamp, cd)
+        if right == np.inf:
+            mask = (rand_out > left)
+        elif left == np.inf:
+            mask = (rand_out < right)
+        else:
+            mask = (rand_out > left) & (rand_out < right)
+            
+        first_good_val = rand_out[
+            mask.argmax(0), np.arange(cd)
+        ]
+        samples[start:end] = first_good_val
+        
+    return samples.reshape(*oldscale.shape)
 
 class FeatureRegressor(object):
     def __init__(self, cuda=False, filebase='*v50_*output.pkl'):
@@ -83,24 +135,60 @@ class FeatureRegressor(object):
             swag_model.cpu()
         return out
 
-    def predict(self, sim, indices=None, samples=1000):
+    def predict(self, sim, samples=1000, indices=None):
         """Estimate instability time for a given simulation.
 
-        :sim: The rebound simulation.
-        :indices: The list of planets to consider.
-        :samples: How many MC samples to return.
-        :returns: Array of samples of log10(T) for the simulation.
-            The spread of samples covers both epistemic
-            (model-based) and aleatoric (real, data-based) uncertainty.
-            Samples above log10(T) indicate a stable simulation. Bounded
-            between 4 and 12.
+        Computes the median of the posterior using the number of samples.
 
+        Parameters:
+
+        sim (rebound.Simulation): Orbital configuration to test
+        samples (int): Number of samples to return
+
+        Returns:
+
+        float: instability time in units of initial orbit
+            of the innermost planet
         """
+
         samples = self.sample(sim, indices, samples)
         return np.median(samples)
 
+    def resample_stable_sims(self, samps_time):
+        """Use a prior fit to the unstable value histogram"""
+        stable_past_9 = samps_time >= 9
+        _prior = lambda logT: (
+            3.27086190404742*np.exp(-0.424033970670719 * logT) -
+            10.8793430454878*np.exp(-0.200351029031774 * logT**2)
+        )
+        normalization = quad(_prior, a=9, b=np.inf)[0]
+        prior = lambda logT: _prior(logT)/normalization
+        n_samples = stable_past_9.sum()
+        bins = n_samples*4
+        top = 100.
+        bin_edges = np.linspace(9, top, num=bins)
+        cum_values = [0] + list(np.cumsum(prior(bin_edges)*(bin_edges[1] - bin_edges[0]))) + [1]
+        bin_edges = [9.] +list(bin_edges)+[top]
+        inv_cdf = interp1d(cum_values, bin_edges)
+        r = np.random.rand(n_samples)
+        samples = inv_cdf(r)
+        samps_time[stable_past_9] = samples
+        return samps_time
+
     @profile
-    def sample(self, sim, indices=None, samples=1000):
+    def sample(self, sim, samples=1000, indices=None):
+        """Return samples from a posterior over instability time.
+        Samples from a simple prior for all times greater than 10^9 orbits
+
+        Parameters:
+
+        sim (rebound.Simulation): Orbital configuration to test
+        samples (int): Number of samples to return
+
+        Returns:
+
+        np.array: samples of the posterior
+        """
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
         if indices:
@@ -110,7 +198,6 @@ class FeatureRegressor(object):
         else:
             trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
 
-        ic(trios)
         kwargs = OrderedDict()
         kwargs['Norbits'] = int(1e4)
         kwargs['Nout'] = 1000
@@ -126,78 +213,67 @@ class FeatureRegressor(object):
         tseries = np.array(tseries)
         simt = sim.copy()
         alltime = []
+
+
+        Xs = []
         for i, trio in enumerate(trios):
             sim = simt.copy()
             # These are the .npy.
-            # In the other file, we concatenate (restseries, orbtseries, mass_array)
-            cur_tseries = tseries[None, i, ::10]
-            mass_array = np.array([sim.particles[j].m/sim.particles[0].m for j in trio])
+            cur_tseries = tseries[None, i, ::10].astype(np.float32)
+            mass_array = np.array([sim.particles[j].m/sim.particles[0].m for j in trio]).astype(np.float32)
+            mass_array = E.repeat(mass_array, 'i -> () t i', t=100)
             X = data_setup_kernel(mass_array, cur_tseries)
-            X = self.ssX.transform(X.reshape(-1, X.shape[-1])).reshape(X.shape)
-            X = torch.tensor(X).float()
-            if self.cuda:
-                X = X.cuda()
+            Xs.append(X)
 
-            time = torch.cat([self.sample_full_swag(X)[None] for _ in range(samples)], dim=0).detach()
+        Xs = np.array(Xs)
+        ntrios = Xs.shape[0]
+        nt = 100
+        X = E.rearrange(Xs, 'trio () time feature -> (trio time) feature')
+        Xp = self.ssX.transform(X)
+        Xp = E.rearrange(Xp, '(trio time) feature -> trio time feature',
+                         trio=ntrios, time=nt)
 
-            if self.cuda:
-                time = time.cpu()
+        Xflat = torch.tensor(Xp).float()
+        if self.cuda:
+            Xflat = Xflat.cuda()
 
-            time = time.numpy()
-            alltime.append(time)
+        sampled_mu_std = np.array([self.sample_full_swag(Xflat).detach().cpu().numpy() for _ in range(samples)])
+        #(samples, trio, mu_std)
 
-        out = np.array(alltime)[..., 0, :]
-        mu = out[..., 0]
-        std = out[..., 1]
+        samps_time = np.array(fast_truncnorm(
+                sampled_mu_std[..., 0], sampled_mu_std[..., 1],
+                left=4, d=10000, nsamp=40
+            ))
+        samps_time = self.resample_stable_sims(samps_time)
+        outs = np.min(samps_time, 1)
+        return 10.0**outs
 
-        #Old:
-        # a = (4 - mu)/std
-        # b = np.inf
-        # try:
-            # samples = truncnorm.rvs(a, b)*std + mu
-        # except ValueError:
-            # return None
-        # first_inst = np.min(samples, 0)
-        # return first_inst
-
-        #HACK - should this be inf at the top?
-        # a, b = (4 - out[..., 0]) / out[..., 1], np.inf #(12 - out[..., 0]) / out[..., 1]
-        # try:
-            # samples = truncnorm.rvs(a, b, loc=out[..., 0], scale=out[..., 1])
-        # except ValueError:
-            # return None
-        # return np.min(samples, 0)
-
-        return mu, std
-
-@jit
+@profile
 def data_setup_kernel(mass_array, cur_tseries):
-    mass_array = np.tile(mass_array[None], (100, 1))[None]
+    """Data preprocessing"""
+    nf = 32
+    nt = 100
+    concat_with_mass = np.concatenate((cur_tseries, mass_array), axis=2)
+    assert concat_with_mass.shape == (1, nt, nf - 3)
 
-    old_X = np.concatenate((cur_tseries, mass_array), axis=2)
+    concat_with_nan = np.concatenate(
+            (concat_with_mass,
+            (~np.isfinite(concat_with_mass[..., [3, 6, 7]]))),
+        axis=2)
 
-    isnotfinite = lambda _x: ~np.isfinite(_x)
+    clean_input = np.nan_to_num(concat_with_nan, posinf=0.0, neginf=0.0)
 
-    old_X = np.concatenate((old_X, isnotfinite(old_X[:, :, [3]]).astype(np.float)), axis=2)
-    old_X = np.concatenate((old_X, isnotfinite(old_X[:, :, [6]]).astype(np.float)), axis=2)
-    old_X = np.concatenate((old_X, isnotfinite(old_X[:, :, [7]]).astype(np.float)), axis=2)
+    X = np.zeros((1, nt, nf + 9))
 
-    old_X[..., :] = np.nan_to_num(old_X[..., :], posinf=0.0, neginf=0.0)
-
-    # axis_labels = []
-    X = []
-
-    for j in range(old_X.shape[-1]):#: #, label in enumerate(old_axis_labels):
+    cur_feature = 0
+    for j in range(nf):
         if j in [11, 12, 13, 17, 18, 19, 23, 24, 25]: #if 'Omega' in label or 'pomega' in label or 'theta' in label:
-            X.append(np.cos(old_X[:, :, [j]]))
-            X.append(np.sin(old_X[:, :, [j]]))
-            # axis_labels.append('cos_'+label)
-            # axis_labels.append('sin_'+label)
+            X[:, :, cur_feature] = np.cos(clean_input[:, :, j])
+            cur_feature += 1
+            X[:, :, cur_feature] = np.sin(clean_input[:, :, j])
+            cur_feature += 1
         else:
-            X.append(old_X[:, :, [j]])
-            # axis_labels.append(label)
-    X = np.concatenate(X, axis=2)
-    if X.shape[-1] != 41:
-        raise NotImplementedError("Need to change indexes above for angles, replace ssX.")
+            X[:, :, cur_feature] = clean_input[:, :, j]
+            cur_feature += 1
 
     return X
