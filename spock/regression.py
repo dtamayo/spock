@@ -23,6 +23,7 @@ import warnings
 import einops as E
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
+import pytorch_lightning as pl
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
 profile = lambda _: _
@@ -135,7 +136,7 @@ class FeatureRegressor(object):
             swag_model.cpu()
         return out
 
-    def predict(self, sim, samples=1000, indices=None):
+    def predict(self, sim, samples=1000, indices=None, seed=0):
         """Estimate instability time for a given simulation.
 
         Computes the median of the posterior using the number of samples.
@@ -151,7 +152,7 @@ class FeatureRegressor(object):
             of the innermost planet
         """
 
-        samples = self.sample(sim, indices, samples)
+        samples = self.sample(sim, samples=samples, indices=indices, seed=seed)
         return np.median(samples)
 
     def resample_stable_sims(self, samps_time):
@@ -176,7 +177,7 @@ class FeatureRegressor(object):
         return samps_time
 
     @profile
-    def sample(self, sim, samples=1000, indices=None):
+    def sample(self, sim, samples=1000, indices=None, seed=0):
         """Return samples from a posterior over instability time.
         Samples from a simple prior for all times greater than 10^9 orbits
 
@@ -189,6 +190,7 @@ class FeatureRegressor(object):
 
         np.array: samples of the posterior
         """
+        pl.seed_everything(seed)
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
         if indices:
