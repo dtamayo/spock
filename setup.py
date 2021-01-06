@@ -5,6 +5,14 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
+classifier_requirements = [
+    'rebound', 'sklearn', 'xgboost>=1.1.0'
+]
+regression_requirements = [
+    'matplotlib', 'pytorch_lightning>=1.0.0', 'pytorch>=1.5.1',
+    'scipy', 'rebound', 'sklearn', 'einops', 'matplotlib', 'numpy'
+]
+
 exec(open('spock/version.py').read())
 setup(name='spock',
     version=__version__,
@@ -32,13 +40,12 @@ setup(name='spock',
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
     ],
     keywords='astronomy astrophysics exoplanets stability',
     packages=['spock'],
     package_data={'spock': ['models/featureclassifier.json']},
-    install_requires=["rebound", "sklearn", "xgboost>=1.1.0"],
+    install_requires=list(set(classifier_requirements + regression_requirements)),
     tests_require=["numpy"],
     test_suite="spock.test",
     zip_safe=False)
