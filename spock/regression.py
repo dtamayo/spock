@@ -24,6 +24,7 @@ import einops as E
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 import pytorch_lightning as pl
+from .simsetup import init_sim_parameters
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
 profile = lambda _: _
@@ -178,8 +179,8 @@ class FeatureRegressor(object):
 
     @profile
     def sample(self, sim, samples=1000, indices=None, seed=0):
-        """Return samples from a posterior over instability time.
-        Samples from a simple prior for all times greater than 10^9 orbits
+        """Return samples from a posterior over log instability time (base 10).
+        This returns samples from a simple prior for all times greater than 10^9 orbits
 
         Parameters:
 
@@ -190,6 +191,7 @@ class FeatureRegressor(object):
 
         np.array: samples of the posterior
         """
+        init_sim_parameters(sim)
         pl.seed_everything(seed)
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
