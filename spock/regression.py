@@ -202,7 +202,7 @@ class DeepRegressor(object):
 
         kwargs = OrderedDict()
         kwargs['Norbits'] = int(1e4)
-        kwargs['Nout'] = 1000
+        kwargs['Nout'] = 100
         kwargs['trios'] = trios
         args = list(kwargs.values())
         # These are the .npy.
@@ -223,7 +223,7 @@ class DeepRegressor(object):
         for i, trio in enumerate(trios):
             sim = simt.copy()
             # These are the .npy.
-            cur_tseries = tseries[None, i, ::10].astype(np.float32)
+            cur_tseries = tseries[None, i, :].astype(np.float32)
             mass_array = np.array([sim.particles[j].m/sim.particles[0].m for j in trio]).astype(np.float32)
             mass_array = E.repeat(mass_array, 'i -> () t i', t=100)
             X = data_setup_kernel(mass_array, cur_tseries)
