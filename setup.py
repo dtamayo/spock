@@ -1,5 +1,6 @@
 from setuptools import setup
 import os
+import glob
 
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
@@ -45,7 +46,7 @@ setup(name='spock',
     ],
     keywords='astronomy astrophysics exoplanets stability',
     packages=['spock'],
-    package_data={'spock': ['models/featureclassifier.json']},
+    package_data={'spock': ['models/featureclassifier.json'] + list(glob.glob('models/regression/*.pkl'))},
     install_requires=list(set(classifier_requirements + regression_requirements)),
     tests_require=["numpy"],
     test_suite="spock.test",
