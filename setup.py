@@ -48,6 +48,9 @@ setup(name='spock',
     packages=['spock'],
     package_data={'spock': ['models/featureclassifier.json'] + list(glob.glob('models/regression/*.pkl'))},
     install_requires=list(set(classifier_requirements + regression_requirements)),
+    dependency_links=[
+        'git+https://git@github.com/MilesCranmer/celmech.git#egg=celmech'
+    ],
     tests_require=["numpy"],
     test_suite="spock.test",
     zip_safe=False)
