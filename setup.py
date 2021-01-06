@@ -12,7 +12,7 @@ classifier_requirements = [
 regression_requirements = [
     'matplotlib', 'pytorch_lightning>=1.0.0', 'torch>=1.5.1', 'torchvision>=0.6.1',
     'scipy', 'rebound', 'scikit-learn', 'einops', 'matplotlib', 'numpy',
-    'celmech'
+    'celmech', 'pandas'
 ]
 
 exec(open('spock/version.py').read())
