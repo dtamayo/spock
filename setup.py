@@ -6,11 +6,11 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 classifier_requirements = [
-    'rebound', 'sklearn', 'xgboost>=1.1.0'
+    'rebound', 'scikit-learn', 'xgboost>=1.1.0'
 ]
 regression_requirements = [
-    'matplotlib', 'pytorch_lightning>=1.0.0', 'pytorch>=1.5.1',
-    'scipy', 'rebound', 'sklearn', 'einops', 'matplotlib', 'numpy'
+    'matplotlib', 'pytorch_lightning>=1.0.0', 'torch>=1.5.1', 'torchvision>=0.6.1',
+    'scipy', 'rebound', 'scikit-learn', 'einops', 'matplotlib', 'numpy'
 ]
 
 exec(open('spock/version.py').read())
