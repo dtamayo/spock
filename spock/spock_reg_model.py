@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 import torch
 from torch import nn
 from torch.autograd import Variable
-from icecream import ic
 import sys
 import torch.nn.functional as F
 from torch.nn import Parameter
