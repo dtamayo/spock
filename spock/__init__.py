@@ -2,8 +2,8 @@
 """Stability of Planetary Orbital Configurations Klassifier"""
 
 from .featureclassifier import FeatureClassifier
-from .regression import FeatureRegressor
+from .regression import DeepRegressor
 from .nbodyregressor import NbodyRegressor
 from .version import __version__
 
-__all__ = ["FeatureClassifier", "FeatureRegressor", "NbodyRegressor"]
+__all__ = ["FeatureClassifier", "DeepRegressor", "NbodyRegressor"]

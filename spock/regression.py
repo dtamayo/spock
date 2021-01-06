@@ -78,9 +78,9 @@ def fast_truncnorm(
         
     return samples.reshape(*oldscale.shape)
 
-class FeatureRegressor(object):
+class DeepRegressor(object):
     def __init__(self, cuda=False, filebase='*v50_*output.pkl'):
-        super(FeatureRegressor, self).__init__()
+        super(DeepRegressor, self).__init__()
         pwd = os.path.dirname(__file__)
         pwd = pwd + '/models/regression'
         self.cuda = cuda
