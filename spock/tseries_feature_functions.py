@@ -3,8 +3,6 @@ import numpy as np
 import itertools
 from scipy.optimize import brenth
 from collections import OrderedDict
-from celmech import Andoyer
-from celmech.resonances import resonant_period_ratios
 import warnings
 import pandas as pd
 warnings.filterwarnings("error")
