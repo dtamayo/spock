@@ -10,7 +10,7 @@ classifier_requirements = [
     'rebound', 'scikit-learn', 'xgboost>=1.1.0'
 ]
 regression_requirements = [
-    'matplotlib', 'pytorch_lightning>=1.0.0', 'torch>=1.5.1', 'torchvision>=0.6.1',
+    'matplotlib', 'pytorch_lightning>=1.0.0', 'torch>=1.5.1', 'torchvision',
     'scipy', 'rebound', 'scikit-learn', 'einops', 'matplotlib', 'numpy',
     'celmech', 'pandas'
 ]

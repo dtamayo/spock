@@ -17,8 +17,9 @@ before_install:
 
 install:
   - conda update --yes conda
-  - conda create -n testenv --yes numpy scipy matplotlib setuptools python=$TRAVIS_PYTHON_VERSION
+  - conda create -y --name testenv -c pytorch -c conda-forge python=3.7 numpy scipy pandas scikit-learn matplotlib pytorch=1.5.1 torchvision torchaudio numba dask xgboost tqdm dill jupyter rebound seaborn fire einops h5py
   - source activate testenv
+  - pip install celluloid icecream pytorch_lightning git+https://github.com/MilesCranmer/celmech.git
   - python setup.py install
 
 script:
