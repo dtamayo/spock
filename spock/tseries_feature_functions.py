@@ -130,7 +130,7 @@ def get_extended_tseries(sim, args):
             sim.integrate(time, exact_finish_time=0)
         except rebound.Collision:
             stable = False
-            return triotseries, stable
+            return triotseries, sim.t/minP
 
         for tseries in triotseries:
             tseries[i,0] = sim.t/minP  # time

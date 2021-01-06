@@ -211,8 +211,10 @@ class FeatureRegressor(object):
         # In the other file, we concatenate (restseries, orbtseries, mass_array)
         tseries, stable = get_extended_tseries(sim, args)
 
-        if not stable:
-            return None
+        if stable != True:
+            time = stable
+            vals = np.ones(samples) * np.log10(time)
+            return vals
 
         tseries = np.array(tseries)
         simt = sim.copy()
@@ -250,7 +252,7 @@ class FeatureRegressor(object):
             ))
         samps_time = self.resample_stable_sims(samps_time)
         outs = np.min(samps_time, 1)
-        return 10.0**outs
+        return outs
 
 @profile
 def data_setup_kernel(mass_array, cur_tseries):
