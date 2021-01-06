@@ -34,7 +34,7 @@ def set_integrator_and_timestep(sim):
     else:
         sim.integrator = "whfast"
 
-def init_sim_parameters(sim): 
+def init_sim_parameters(sim, megno=True): 
     check_valid_sim(sim)
 
     try:
@@ -48,7 +48,7 @@ def init_sim_parameters(sim):
     sim.ri_whfast.keep_unsynchronized = 0
     sim.ri_whfast.safe_mode = 1
 
-    if sim.N_var == 0: # no variational particles
+    if sim.N_var == 0 and megno: # no variational particles
         sim.init_megno(seed=0)
    
     set_integrator_and_timestep(sim)

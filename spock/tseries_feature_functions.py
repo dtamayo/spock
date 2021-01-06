@@ -25,7 +25,7 @@ def get_pairs(sim, indices):
         return [['near', sortedindices[1], sortedindices[2]], ['far', sortedindices[0], sortedindices[1]]]
 
 @profile
-def populate_extended_trio(sim, trio, pairs, tseries, i, a10, axis_labels=None):
+def populate_extended_trio(sim, trio, pairs, tseries, i, a10, axis_labels=None, mmr=True, megno=True):
     Ns = 3
     ps = sim.particles
     for q, [label, i1, i2] in enumerate(pairs):
@@ -35,7 +35,10 @@ def populate_extended_trio(sim, trio, pairs, tseries, i, a10, axis_labels=None):
         e2x, e2y = ps[i2].e*np.cos(ps[i2].pomega), ps[i2].e*np.sin(ps[i2].pomega)
         tseries[i,Ns*q+1] = np.sqrt((e2x-e1x)**2 + (e2y-e1y)**2)
         tseries[i,Ns*q+2] = np.sqrt((m1*e1x + m2*e2x)**2 + (m1*e1y + m2*e2y)**2)/(m1+m2)
-        j, k, tseries[i,Ns*q+3] = find_strongest_MMR(sim, i1, i2) 
+        if mmr:
+            j, k, tseries[i,Ns*q+3] = find_strongest_MMR(sim, i1, i2) 
+        else:
+            tseries[i,Ns*q+3] = 0.0
 
         if axis_labels is not None:
             axis_labels[Ns*q+1] = 'e+_' + label
@@ -46,7 +49,10 @@ def populate_extended_trio(sim, trio, pairs, tseries, i, a10, axis_labels=None):
     if axis_labels is not None:
         axis_labels[7] = 'megno'
 
-    tseries[i,7] = sim.calculate_megno() # megno
+    if megno:
+        tseries[i,7] = sim.calculate_megno() # megno
+    else:
+        tseries[i,7] = 0.0
 
     orbits = sim.calculate_orbits()
     for j, k in enumerate(trio):
@@ -66,7 +72,7 @@ def populate_extended_trio(sim, trio, pairs, tseries, i, a10, axis_labels=None):
             axis_labels[13+6*j] = 'theta' + str(j+1)
 
 @profile
-def get_extended_tseries(sim, args):
+def get_extended_tseries(sim, args, mmr=True, megno=True):
     Norbits = args[0]
     Nout = args[1]
     trios = args[2]
@@ -99,7 +105,7 @@ def get_extended_tseries(sim, args):
         for tr, trio in enumerate(trios):
             pairs = triopairs[tr]
             tseries = triotseries[tr] 
-            populate_extended_trio(sim, trio, pairs, tseries, i, a10s[tr])
+            populate_extended_trio(sim, trio, pairs, tseries, i, a10s[tr], mmr=mmr, megno=megno)
             # if i == 0 and tr == 0:
                 # populate_extended_trio(sim, trio, pairs, tseries, i, a10s[tr], axis_labels)
             # else:

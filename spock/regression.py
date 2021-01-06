@@ -189,7 +189,7 @@ class DeepRegressor(object):
 
         np.array: samples of the posterior
         """
-        init_sim_parameters(sim)
+        init_sim_parameters(sim, megno=False)
         pl.seed_everything(seed)
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
@@ -207,7 +207,7 @@ class DeepRegressor(object):
         args = list(kwargs.values())
         # These are the .npy.
         # In the other file, we concatenate (restseries, orbtseries, mass_array)
-        tseries, stable = get_extended_tseries(sim, args)
+        tseries, stable = get_extended_tseries(sim, args, mmr=False, megno=False)
 
         if stable != True:
             time = stable
