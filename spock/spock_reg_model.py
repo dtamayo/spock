@@ -381,7 +381,8 @@ class VarModel(pl.LightningModule):
         hparams['weight_decay'] = 1e-4 if 'weight_decay' not in hparams else hparams['weight_decay']
         hparams['noisy_val'] = True if 'noisy_val' not in hparams else hparams['noisy_val']
 
-        self.hparams = hparams
+        # self.hparams = hparams
+        self.save_hyperparameters()
         self.steps = hparams['steps']
         self.batch_size = hparams['batch_size']
         self.lr = hparams['lr'] #init_lr
@@ -704,11 +705,6 @@ class SWAGModel(VarModel):
         self.swa_params['c'] = self.c
         self.swa_params['K'] = self.K
 
-        self.hparams = {
-                **self.hparams,
-                **self.swa_params
-            }
-
         return self
 
     def configure_optimizers(self):
@@ -933,12 +929,5 @@ def load_swag(path):
     swag_model.w_avg = save_items['w_avg']
     swag_model.w2_avg = save_items['w2_avg']
     swag_model.pre_D = save_items['pre_D']
-    ssX_file = path[:-4] + '_ssX.pkl'
-    try:
-        ssX = pkl.load(open(ssX_file, 'rb'))
-        swag_model.ssX = ssX
-    except FileNotFoundError:
-        print(f"ssX file not found! {ssX_file}")
-        ...
     
     return swag_model

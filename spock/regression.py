@@ -15,16 +15,17 @@ from icecream import ic
 import glob
 from .spock_reg_model import load_swag
 from pytorch_lightning import Trainer
-from pytorch_lightning.loggers import TensorBoardLogger
 import torch
 import time
 from numba import jit
 import pickle as pkl
+import warnings
+warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
 profile = lambda _: _
 
 class FeatureRegressor(object):
-    def __init__(self, cuda=False, filebase='*v50_*.pkl'):
+    def __init__(self, cuda=False, filebase='*v50_*output.pkl'):
         super(FeatureRegressor, self).__init__()
         pwd = os.path.dirname(__file__)
         pwd = pwd + '/models/regression'
