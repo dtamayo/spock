@@ -22,10 +22,55 @@ import einops as E
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 import pytorch_lightning as pl
+import pandas as pd
+from functools import partial
 from .simsetup import init_sim_parameters
+from multiprocessing import cpu_count
+from multiprocessing.pool import ThreadPool as Pool
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
 profile = lambda _: _
+
+def generate_dataset(sim, indices=None):
+    init_sim_parameters(sim, megno=False)
+    if sim.N_real < 4:
+        raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
+    if indices:
+        if len(indices) != 3:
+            raise AttributeError("SPOCK Error: indices must be a list of 3 particle indices")
+        trios = [indices] # always make it into a list of trios to test
+    else:
+        trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
+
+    kwargs = OrderedDict()
+    kwargs['Norbits'] = int(1e4)
+    kwargs['Nout'] = 100
+    kwargs['trios'] = trios
+    args = list(kwargs.values())
+    # These are the .npy.
+    # In the other file, we concatenate (restseries, orbtseries, mass_array)
+    tseries, stable = get_extended_tseries(sim, args, mmr=False, megno=False)
+
+    if stable != True:
+        time = stable
+        return time
+
+    tseries = np.array(tseries)
+    simt = sim.copy()
+    alltime = []
+
+    Xs = []
+    for i, trio in enumerate(trios):
+        sim = simt.copy()
+        # These are the .npy.
+        cur_tseries = tseries[None, i, :].astype(np.float32)
+        mass_array = np.array([sim.particles[j].m/sim.particles[0].m for j in trio]).astype(np.float32)
+        mass_array = E.repeat(mass_array, 'i -> () t i', t=100)
+        X = data_setup_kernel(mass_array, cur_tseries)
+        Xs.append(X)
+
+    Xs = np.array(Xs)
+    return Xs
 
 def fast_truncnorm(
         loc, scale, left=np.inf, right=np.inf,
@@ -136,13 +181,16 @@ class DeepRegressor(object):
         return out
 
     def predict_instability_time(self, sim, samples=1000, indices=None, seed=0):
-        """Estimate instability time for a given simulation.
+        """Estimate instability time for a given simulation, and the 68% confidence
+            interval.
 
-        Computes the median of the posterior using the number of samples.
+        Returns the median of the posterior, the 16th percentile, and
+            the 84th percentile. Uses `samples` samples of the posterior
+            to calculate this.
 
         Parameters:
 
-        sim (rebound.Simulation): Orbital configuration to test
+        sim (rebound.Simulation or list): Orbital configuration(s) to test
         samples (int): Number of samples to use
 
         Returns:
@@ -152,14 +200,17 @@ class DeepRegressor(object):
         """
 
         samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed)
-        return np.median(samples)
+        center_estimate = np.median(samples)
+        upper = np.percentile(samples, 100-16)
+        lower = np.percentile(samples,     16)
+        return center_estimate, lower, upper
 
     def predict_stable(self, sim, tmax=None, samples=1000, indices=None, seed=0):
         """Estimate chance of stability for a given simulation.
 
         Parameters:
 
-        sim (rebound.Simulation): Orbital configuration to test
+        sim (rebound.Simulation or list): Orbital configuration(s) to test
         tmax (float): Time at which the system is queried as stable,
             in units of initial orbit of innermost planet
         samples (int): Number of samples to use
@@ -204,60 +255,42 @@ class DeepRegressor(object):
 
         Parameters:
 
-        sim (rebound.Simulation): Orbital configuration to test
+        sim (rebound.Simulation or list): Orbital configuration(s) to test
         samples (int): Number of samples to return
 
         Returns:
 
         np.array: samples of the posterior
         """
-        init_sim_parameters(sim, megno=False)
-        pl.seed_everything(seed)
-        if sim.N_real < 4:
-            raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
-        if indices:
-            if len(indices) != 3:
-                raise AttributeError("SPOCK Error: indices must be a list of 3 particle indices")
-            trios = [indices] # always make it into a list of trios to test
+        batched = False
+        if isinstance(sim, list):
+            batched = True
         else:
-            trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
+            assert isinstance(sim, rebound.Simulation)
 
-        kwargs = OrderedDict()
-        kwargs['Norbits'] = int(1e4)
-        kwargs['Nout'] = 100
-        kwargs['trios'] = trios
-        args = list(kwargs.values())
-        # These are the .npy.
-        # In the other file, we concatenate (restseries, orbtseries, mass_array)
-        tseries, stable = get_extended_tseries(sim, args, mmr=False, megno=False)
+        pl.seed_everything(seed)
 
-        if stable != True:
-            time = stable
-            vals = np.ones(samples) * np.log10(time)
-            return vals
+        pool = Pool(cpu_count())
+        if batched:
+            n_sims = len(sim)
+            func = partial(generate_dataset, indices=indices)
+            pool_out = pool.map(func, sim)
+            already_computed_results_idx =   [i for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
+            already_computed_results_times = [X for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
+            Xs = np.array([X for X in pool_out if isinstance(X, np.ndarray)])
+        else:
+            out = generate_dataset(sim, indices)
+            if not isinstance(out, np.ndarray):
+                return np.ones(samples) * out
+            Xs = np.array([out])
 
-        tseries = np.array(tseries)
-        simt = sim.copy()
-        alltime = []
-
-
-        Xs = []
-        for i, trio in enumerate(trios):
-            sim = simt.copy()
-            # These are the .npy.
-            cur_tseries = tseries[None, i, :].astype(np.float32)
-            mass_array = np.array([sim.particles[j].m/sim.particles[0].m for j in trio]).astype(np.float32)
-            mass_array = E.repeat(mass_array, 'i -> () t i', t=100)
-            X = data_setup_kernel(mass_array, cur_tseries)
-            Xs.append(X)
-
-        Xs = np.array(Xs)
-        ntrios = Xs.shape[0]
+        nbatch = Xs.shape[0]
+        ntrios = Xs.shape[1]
         nt = 100
-        X = E.rearrange(Xs, 'trio () time feature -> (trio time) feature')
+        X = E.rearrange(Xs, 'batch trio () time feature -> (batch trio time) feature')
         Xp = self.ssX.transform(X)
-        Xp = E.rearrange(Xp, '(trio time) feature -> trio time feature',
-                         trio=ntrios, time=nt)
+        Xp = E.rearrange(Xp, '(batch trio time) feature -> (batch trio) time feature',
+                         batch=nbatch, trio=ntrios, time=nt)
 
         Xflat = torch.tensor(Xp).float()
         if self.cuda:
@@ -265,15 +298,33 @@ class DeepRegressor(object):
 
         sampled_mu_std = np.array([self.sample_full_swag(Xflat).detach().cpu().numpy() for _ in range(samples)])
         sampled_mu_std = sampled_mu_std.astype(np.float64)
-        #(samples, trio, mu_std)
+        # print(sampled_mu_std.shape)
+        #(samples, (batch trio), mu_std)
 
         samps_time = np.array(fast_truncnorm(
                 sampled_mu_std[..., 0], sampled_mu_std[..., 1],
                 left=4, d=10000, nsamp=40
             ))
         samps_time = self.resample_stable_sims(samps_time)
-        outs = np.min(samps_time, 1)
-        return np.power(10.0, outs)
+        samps_time = E.rearrange(samps_time,
+                         'samples (batch trio) -> batch samples trio',
+                         batch=nbatch, trio=ntrios)
+        outs = np.min(samps_time, 2)
+        time_estimates = np.power(10.0, outs)
+        #HACK TODO - need already computed estimates
+        if not batched: return time_estimates
+
+        j = 0
+        correct_order_results = []
+        for i in range(n_sims):
+            if i in already_computed_results_idx:
+                correct_order_results.append(already_computed_results_times * np.ones(samples))
+            else:
+                correct_order_results.append(time_estimates[j])
+                j += 1
+        correct_order_results = np.array(correct_order_results)
+
+        return correct_order_results
 
 @profile
 def data_setup_kernel(mass_array, cur_tseries):
