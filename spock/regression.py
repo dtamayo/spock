@@ -135,7 +135,7 @@ class DeepRegressor(object):
             swag_model.cpu()
         return out
 
-    def predict(self, sim, samples=1000, indices=None, seed=0):
+    def predict_instability_time(self, sim, samples=1000, indices=None, seed=0):
         """Estimate instability time for a given simulation.
 
         Computes the median of the posterior using the number of samples.
@@ -143,7 +143,7 @@ class DeepRegressor(object):
         Parameters:
 
         sim (rebound.Simulation): Orbital configuration to test
-        samples (int): Number of samples to return
+        samples (int): Number of samples to use
 
         Returns:
 
@@ -151,8 +151,30 @@ class DeepRegressor(object):
             of the innermost planet
         """
 
-        samples = self.sample(sim, samples=samples, indices=indices, seed=seed)
+        samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed)
         return np.median(samples)
+
+    def predict_stable(self, sim, tmax=None, samples=1000, indices=None, seed=0):
+        """Estimate chance of stability for a given simulation.
+
+        Parameters:
+
+        sim (rebound.Simulation): Orbital configuration to test
+        tmax (float): Time at which the system is queried as stable,
+            in units of initial orbit of innermost planet
+        samples (int): Number of samples to use
+
+        Returns:
+
+        float: probability of stability past the given tmax
+            (default 1e9 orbits)
+        """
+        samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed)
+
+        if tmax is None:
+            tmax = 1e9
+
+        return np.average(samples > tmax)
 
     def resample_stable_sims(self, samps_time):
         """Use a prior fit to the unstable value histogram"""
@@ -176,7 +198,7 @@ class DeepRegressor(object):
         return samps_time
 
     @profile
-    def sample(self, sim, samples=1000, indices=None, seed=0):
+    def sample_instability_time(self, sim, samples=1000, indices=None, seed=0):
         """Return samples from a posterior over log instability time (base 10).
         This returns samples from a simple prior for all times greater than 10^9 orbits
 
@@ -242,6 +264,7 @@ class DeepRegressor(object):
             Xflat = Xflat.cuda()
 
         sampled_mu_std = np.array([self.sample_full_swag(Xflat).detach().cpu().numpy() for _ in range(samples)])
+        sampled_mu_std = sampled_mu_std.astype(np.float64)
         #(samples, trio, mu_std)
 
         samps_time = np.array(fast_truncnorm(
@@ -250,7 +273,7 @@ class DeepRegressor(object):
             ))
         samps_time = self.resample_stable_sims(samps_time)
         outs = np.min(samps_time, 1)
-        return outs
+        return np.power(10.0, outs)
 
 @profile
 def data_setup_kernel(mass_array, cur_tseries):
