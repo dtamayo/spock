@@ -27,6 +27,7 @@ from functools import partial
 from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool as Pool
+import rebound
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
 profile = lambda _: _
@@ -180,8 +181,9 @@ class DeepRegressor(object):
             swag_model.cpu()
         return out
 
-    def predict_instability_time(self, sim, samples=1000, indices=None, seed=0):
-        """Estimate instability time for a given simulation, and the 68% confidence
+    def predict_instability_time(self, sim, samples=1000, indices=None, seed=0,
+            max_model_samples=100):
+        """Estimate instability time for given simulation(s), and the 68% confidence
             interval.
 
         Returns the median of the posterior, the 16th percentile, and
@@ -198,15 +200,22 @@ class DeepRegressor(object):
         float: instability time in units of initial orbit
             of the innermost planet
         """
+        batched = self.is_batched(sim)
+        samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
+        if batched:
+            center_estimate = np.median(samples, axis=1)
+            upper = np.percentile(samples, 100-16, axis=1)
+            lower = np.percentile(samples,     16, axis=1)
+            return center_estimate, lower, upper
+        else:
+            center_estimate = np.median(samples)
+            upper = np.percentile(samples, 100-16)
+            lower = np.percentile(samples,     16)
+            return center_estimate, lower, upper
 
-        samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed)
-        center_estimate = np.median(samples)
-        upper = np.percentile(samples, 100-16)
-        lower = np.percentile(samples,     16)
-        return center_estimate, lower, upper
-
-    def predict_stable(self, sim, tmax=None, samples=1000, indices=None, seed=0):
-        """Estimate chance of stability for a given simulation.
+    def predict_stable(self, sim, tmax=None, samples=1000, indices=None, seed=0, 
+            max_model_samples=100):
+        """Estimate chance of stability for given simulation(s).
 
         Parameters:
 
@@ -220,12 +229,16 @@ class DeepRegressor(object):
         float: probability of stability past the given tmax
             (default 1e9 orbits)
         """
-        samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed)
+        batched = self.is_batched(sim)
+        samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
 
         if tmax is None:
             tmax = 1e9
 
-        return np.average(samples > tmax)
+        if batched:
+            return np.average(samples > tmax, 1)
+        else:
+            return np.average(samples > tmax)
 
     def resample_stable_sims(self, samps_time):
         """Use a prior fit to the unstable value histogram"""
@@ -248,25 +261,34 @@ class DeepRegressor(object):
         samps_time[stable_past_9] = samples
         return samps_time
 
-    @profile
-    def sample_instability_time(self, sim, samples=1000, indices=None, seed=0):
-        """Return samples from a posterior over log instability time (base 10).
-        This returns samples from a simple prior for all times greater than 10^9 orbits
-
-        Parameters:
-
-        sim (rebound.Simulation or list): Orbital configuration(s) to test
-        samples (int): Number of samples to return
-
-        Returns:
-
-        np.array: samples of the posterior
-        """
+    def is_batched(self, sim):
         batched = False
         if isinstance(sim, list):
             batched = True
         else:
             assert isinstance(sim, rebound.Simulation)
+        return batched
+
+    @profile
+    def sample_instability_time(self, sim,
+            samples=1000, indices=None, seed=0,
+            max_model_samples=100):
+        """Return samples from a posterior over log instability time (base 10) for
+            given simulation(s). This returns samples from a simple prior for
+            all times greater than 10^9 orbits.
+
+        Parameters:
+
+        sim (rebound.Simulation or list): Orbital configuration(s) to test
+        samples (int): Number of samples to return
+        max_model_samples (int): maximum number of times to re-generate model parameters.
+            Larger number increases accuracy but greatly decreases speed.
+
+        Returns:
+
+        np.array: samples of the posterior
+        """
+        batched = self.is_batched(sim)
 
         pl.seed_everything(seed)
 
@@ -296,7 +318,20 @@ class DeepRegressor(object):
         if self.cuda:
             Xflat = Xflat.cuda()
 
-        sampled_mu_std = np.array([self.sample_full_swag(Xflat).detach().cpu().numpy() for _ in range(samples)])
+        model_samples = min([max_model_samples, samples])
+        oversample = int(samples/model_samples + 0.5)
+        Xflat = E.repeat(Xflat,
+                        '(batch trio) time feature -> (batch trio oversample) time feature',
+                        batch=nbatch, trio=ntrios,
+                        oversample=oversample)
+
+        sampled_mu_std = np.array([self.sample_full_swag(Xflat).detach().cpu().numpy() for _ in range(model_samples)])
+        sampled_mu_std = E.rearrange(sampled_mu_std,
+                        'msamples (batch trio oversample) mu_std -> (msamples oversample) (batch trio) mu_std',
+                        batch=nbatch, trio=ntrios,
+                        oversample=oversample
+                        )
+        sampled_mu_std = sampled_mu_std[:samples]
         sampled_mu_std = sampled_mu_std.astype(np.float64)
         # print(sampled_mu_std.shape)
         #(samples, (batch trio), mu_std)
@@ -312,7 +347,7 @@ class DeepRegressor(object):
         outs = np.min(samps_time, 2)
         time_estimates = np.power(10.0, outs)
         #HACK TODO - need already computed estimates
-        if not batched: return time_estimates
+        if not batched: return time_estimates[0]
 
         j = 0
         correct_order_results = []
