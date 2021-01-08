@@ -25,16 +25,16 @@ class TestRegressor(unittest.TestCase):
    
     def test_prediction(self):
         times = []
+        sims = []
         for mass in [1e-4, 5e-5, 3e-5, 1e-5]:
             sim = rebound.Simulation()
             sim.add(m=1.)
             sim.add(m=mass, P=1)
             sim.add(m=mass, P=1.3)
             sim.add(m=mass, P=1.6)
-            predicted_time = np.log10(self.model.predict_instability_time(sim, samples=100)[0])
-            times.append(predicted_time)
+            sims.append(sim)
 
-        times = np.array(times)
+        times = np.log10(self.model.predict_instability_time(sims, samples=100)[0])
         print(times)
 
         # First one is unstable:
