@@ -12,7 +12,7 @@ classifier_requirements = [
 regression_requirements = [
     'matplotlib', 'pytorch_lightning>=1.0.0', 'torch>=1.5.1', 'torchvision',
     'scipy', 'rebound', 'scikit-learn', 'einops', 'matplotlib', 'numpy',
-    'celmech', 'pandas'
+    'pandas'
 ]
 
 exec(open('spock/version.py').read())
@@ -48,9 +48,6 @@ setup(name='spock',
     packages=['spock'],
     package_data={'spock': ['models/featureclassifier.json'] + list(glob.glob('models/regression/*.pkl'))},
     install_requires=list(set(classifier_requirements + regression_requirements)),
-    dependency_links=[
-        'git+https://git@github.com/MilesCranmer/celmech.git#egg=celmech'
-    ],
     tests_require=["numpy"],
     test_suite="spock.test",
     zip_safe=False)

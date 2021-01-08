@@ -23,7 +23,6 @@ import einops as E
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 import pytorch_lightning as pl
-import pandas as pd
 from functools import partial
 from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
