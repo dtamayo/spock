@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from scipy.stats import truncnorm
 import os
 from collections import OrderedDict
@@ -90,7 +91,7 @@ def fast_truncnorm(
     
     scale = scale.reshape(-1)
     loc = loc.reshape(-1)
-    samples = np.zeros_like(scale)
+    t_inst_samples = np.zeros_like(scale)
     start = 0
         
     for start in range(0, scale.shape[0], d):
@@ -118,9 +119,9 @@ def fast_truncnorm(
         first_good_val = rand_out[
             mask.argmax(0), np.arange(cd)
         ]
-        samples[start:end] = first_good_val
+        t_inst_samples[start:end] = first_good_val
         
-    return samples.reshape(*oldscale.shape)
+    return t_inst_samples.reshape(*oldscale.shape)
 
 class DeepRegressor(object):
     def __init__(self, cuda=False, filebase='*v50_*output.pkl'):
@@ -182,7 +183,7 @@ class DeepRegressor(object):
         return out
 
     def predict_instability_time(self, sim, samples=1000, indices=None, seed=0,
-            max_model_samples=100):
+            max_model_samples=100, return_samples=False):
         """Estimate instability time for given simulation(s), and the 68% confidence
             interval.
 
@@ -201,16 +202,19 @@ class DeepRegressor(object):
             of the innermost planet
         """
         batched = self.is_batched(sim)
-        samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
+        t_inst_samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
         if batched:
-            center_estimate = np.median(samples, axis=1)
-            upper = np.percentile(samples, 100-16, axis=1)
-            lower = np.percentile(samples,     16, axis=1)
-            return center_estimate, lower, upper
+            center_estimate = np.median(t_inst_samples, axis=1)
+            upper = np.percentile(t_inst_samples, 100-16, axis=1)
+            lower = np.percentile(t_inst_samples,     16, axis=1)
         else:
-            center_estimate = np.median(samples)
-            upper = np.percentile(samples, 100-16)
-            lower = np.percentile(samples,     16)
+            center_estimate = np.median(t_inst_samples)
+            upper = np.percentile(t_inst_samples, 100-16)
+            lower = np.percentile(t_inst_samples,     16)
+
+        if return_samples:
+            return center_estimate, lower, upper, t_inst_samples
+        else:
             return center_estimate, lower, upper
 
     def predict_stable(self, sim, tmax=None, samples=1000, indices=None, seed=0, 
@@ -230,15 +234,15 @@ class DeepRegressor(object):
             (default 1e9 orbits)
         """
         batched = self.is_batched(sim)
-        samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
+        t_inst_samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
 
         if tmax is None:
             tmax = 1e9
 
         if batched:
-            return np.average(samples > tmax, 1)
+            return np.average(t_inst_samples > tmax, 1)
         else:
-            return np.average(samples > tmax)
+            return np.average(t_inst_samples > tmax)
 
     def resample_stable_sims(self, samps_time):
         """Use a prior fit to the unstable value histogram"""
@@ -257,14 +261,17 @@ class DeepRegressor(object):
         bin_edges = [9.] +list(bin_edges)+[top]
         inv_cdf = interp1d(cum_values, bin_edges)
         r = np.random.rand(n_samples)
-        samples = inv_cdf(r)
-        samps_time[stable_past_9] = samples
+        t_inst_samples = inv_cdf(r)
+        samps_time[stable_past_9] = t_inst_samples
         return samps_time
 
     def is_batched(self, sim):
         batched = False
         if isinstance(sim, list):
             batched = True
+            nsim = len(sim)
+            if len(set([s.N_real for s in sim])) != 1:
+                raise ValueError("If running over many sims at once, they must have the same number of particles!")
         else:
             assert isinstance(sim, rebound.Simulation)
         return batched
@@ -297,68 +304,73 @@ class DeepRegressor(object):
             n_sims = len(sim)
             func = partial(generate_dataset, indices=indices)
             pool_out = pool.map(func, sim)
+            Xs = np.array([X for X in pool_out if isinstance(X, np.ndarray)])
             already_computed_results_idx =   [i for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
             already_computed_results_times = [X for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
-            Xs = np.array([X for X in pool_out if isinstance(X, np.ndarray)])
         else:
             out = generate_dataset(sim, indices)
             if not isinstance(out, np.ndarray):
                 return np.ones(samples) * out
             Xs = np.array([out])
 
-        nbatch = Xs.shape[0]
-        ntrios = Xs.shape[1]
-        nt = 100
-        X = E.rearrange(Xs, 'batch trio () time feature -> (batch trio time) feature')
-        Xp = self.ssX.transform(X)
-        Xp = E.rearrange(Xp, '(batch trio time) feature -> (batch trio) time feature',
-                         batch=nbatch, trio=ntrios, time=nt)
+        if len(Xs) > 0:
+            nbatch = Xs.shape[0]
+            ntrios = Xs.shape[1]
+            nt = 100
+            X = E.rearrange(Xs, 'batch trio () time feature -> (batch trio time) feature')
+            Xp = self.ssX.transform(X)
+            Xp = E.rearrange(Xp, '(batch trio time) feature -> (batch trio) time feature',
+                             batch=nbatch, trio=ntrios, time=nt)
 
-        Xflat = torch.tensor(Xp).float()
-        if self.cuda:
-            Xflat = Xflat.cuda()
+            Xflat = torch.tensor(Xp).float()
+            if self.cuda:
+                Xflat = Xflat.cuda()
 
-        model_samples = min([max_model_samples, samples])
-        oversample = int(samples/model_samples + 0.5)
-        Xflat = E.repeat(Xflat,
-                        '(batch trio) time feature -> (batch trio oversample) time feature',
-                        batch=nbatch, trio=ntrios,
-                        oversample=oversample)
+            model_samples = min([max_model_samples, samples])
+            oversample = int(math.ceil(samples/model_samples))
+            Xflat = E.repeat(Xflat,
+                            '(batch trio) time feature -> (batch trio oversample) time feature',
+                            batch=nbatch, trio=ntrios,
+                            oversample=oversample)
 
-        sampled_mu_std = np.array([self.sample_full_swag(Xflat).detach().cpu().numpy() for _ in range(model_samples)])
-        sampled_mu_std = E.rearrange(sampled_mu_std,
-                        'msamples (batch trio oversample) mu_std -> (msamples oversample) (batch trio) mu_std',
-                        batch=nbatch, trio=ntrios,
-                        oversample=oversample
-                        )
-        sampled_mu_std = sampled_mu_std[:samples]
-        sampled_mu_std = sampled_mu_std.astype(np.float64)
-        # print(sampled_mu_std.shape)
-        #(samples, (batch trio), mu_std)
+            sampled_mu_std = np.array([self.sample_full_swag(Xflat).detach().cpu().numpy() for _ in range(model_samples)])
+            sampled_mu_std = E.rearrange(sampled_mu_std,
+                            'msamples (batch trio oversample) mu_std -> (msamples oversample) (batch trio) mu_std',
+                            batch=nbatch, trio=ntrios,
+                            oversample=oversample
+                            )
+            sampled_mu_std = sampled_mu_std[:samples]
+            sampled_mu_std = sampled_mu_std.astype(np.float64)
+            # print(sampled_mu_std.shape)
+            #(samples, (batch trio), mu_std)
 
-        samps_time = np.array(fast_truncnorm(
-                sampled_mu_std[..., 0], sampled_mu_std[..., 1],
-                left=4, d=10000, nsamp=40
-            ))
-        samps_time = self.resample_stable_sims(samps_time)
-        samps_time = E.rearrange(samps_time,
-                         'samples (batch trio) -> batch samples trio',
-                         batch=nbatch, trio=ntrios)
-        outs = np.min(samps_time, 2)
-        time_estimates = np.power(10.0, outs)
-        #HACK TODO - need already computed estimates
+            samps_time = np.array(fast_truncnorm(
+                    sampled_mu_std[..., 0], sampled_mu_std[..., 1],
+                    left=4, d=10000, nsamp=40
+                ))
+            samps_time = self.resample_stable_sims(samps_time)
+            samps_time = E.rearrange(samps_time,
+                             'samples (batch trio) -> batch samples trio',
+                             batch=nbatch, trio=ntrios)
+            outs = np.min(samps_time, 2)
+            time_estimates = np.power(10.0, outs)
+            # print(time_estimates.shape)
+            #HACK TODO - need already computed estimates
+
         if not batched: return time_estimates[0]
 
         j = 0
+        k = 0
         correct_order_results = []
         for i in range(n_sims):
             if i in already_computed_results_idx:
-                correct_order_results.append(already_computed_results_times * np.ones(samples))
+                correct_order_results.append(already_computed_results_times[k] * np.ones(samples))
+                k += 1
             else:
                 correct_order_results.append(time_estimates[j])
                 j += 1
-        correct_order_results = np.array(correct_order_results)
 
+        correct_order_results = np.array(correct_order_results, dtype=np.float64)
         return correct_order_results
 
 @profile

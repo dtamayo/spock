@@ -95,7 +95,7 @@ def get_extended_tseries(sim, args, mmr=True, megno=True):
     for i, time in enumerate(times):
         try:
             sim.integrate(time, exact_finish_time=0)
-        except rebound.Collision:
+        except (rebound.Collision, rebound.Escape):
             stable = False
             return triotseries, sim.t/minP
 
