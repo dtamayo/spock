@@ -93,7 +93,7 @@ class TestRegressorClassification(unittest.TestCase):
         sim.add(m=1.e-5, P=3.)
         p1 = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
         p2 = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
-        self.assertAlmostEqual(p1, p2, delta=1e-1)
+        self.assertEqual(p1, p2)
    
     # when chaotic realization matters, probs will vary more (eg t_inst=2e4)
     def test_galilean_transformation(self):
@@ -105,7 +105,7 @@ class TestRegressorClassification(unittest.TestCase):
         for p in sim.particles:
             p.vx += 1000
         p_moving = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
-        self.assertAlmostEqual(p_com, p_moving, delta=1e-1)
+        self.assertAlmostEqual(p_com, p_moving, delta=1e-2)
    
     def test_rescale_distances(self):
         sim = longstablesim()
@@ -114,7 +114,7 @@ class TestRegressorClassification(unittest.TestCase):
         sim = longstablesim()
         sim = rescale(sim, dscale=1e10, tscale=1, mscale=1)
         p1 = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
-        self.assertAlmostEqual(p0, p1, delta=1e-1)
+        self.assertAlmostEqual(p0, p1, delta=1e-2)
     
     def test_rescale_times(self):
         sim = longstablesim()
@@ -123,7 +123,7 @@ class TestRegressorClassification(unittest.TestCase):
         sim = longstablesim()
         sim = rescale(sim, dscale=1, tscale=1e10, mscale=1)
         p1 = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
-        self.assertAlmostEqual(p0, p1, delta=1e-1)
+        self.assertAlmostEqual(p0, p1, delta=1e-2)
 
     def test_rescale_masses(self):
         sim = longstablesim()
@@ -132,7 +132,7 @@ class TestRegressorClassification(unittest.TestCase):
         sim = longstablesim()
         sim = rescale(sim, dscale=1, tscale=1, mscale=1e10)
         p1 = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
-        self.assertAlmostEqual(p0, p1, delta=1e-1)
+        self.assertAlmostEqual(p0, p1, delta=1e-2)
     
     def test_hyperbolic(self):
         sim = rebound.Simulation()

@@ -181,7 +181,7 @@ class DeepRegressor(object):
             swag_model.cpu()
         return out
 
-    def predict_instability_time(self, sim, samples=1000, indices=None, seed=0,
+    def predict_instability_time(self, sim, samples=1000, indices=None, seed=None,
             max_model_samples=100, return_samples=False):
         """Estimate instability time for given simulation(s), and the 68% confidence
             interval.
@@ -216,7 +216,7 @@ class DeepRegressor(object):
         else:
             return center_estimate, lower, upper
 
-    def predict_stable(self, sim, tmax=None, samples=1000, indices=None, seed=0, 
+    def predict_stable(self, sim, tmax=None, samples=1000, indices=None, seed=None, 
             max_model_samples=100):
         """Estimate chance of stability for given simulation(s).
 
@@ -253,7 +253,7 @@ class DeepRegressor(object):
         normalization = quad(_prior, a=9, b=np.inf)[0]
         prior = lambda logT: _prior(logT)/normalization
         n_samples = stable_past_9.sum()
-        bins = n_samples*4
+        bins = max([10000, n_samples*4])
         top = 100.
         bin_edges = np.linspace(9, top, num=bins)
         cum_values = [0] + list(np.cumsum(prior(bin_edges)*(bin_edges[1] - bin_edges[0]))) + [1]
@@ -277,7 +277,7 @@ class DeepRegressor(object):
 
     @profile
     def sample_instability_time(self, sim,
-            samples=1000, indices=None, seed=0,
+            samples=1000, indices=None, seed=None,
             max_model_samples=100):
         """Return samples from a posterior over log instability time (base 10) for
             given simulation(s). This returns samples from a simple prior for
@@ -296,13 +296,16 @@ class DeepRegressor(object):
         """
         batched = self.is_batched(sim)
 
-        pl.seed_everything(seed)
+        if seed is not None:
+            pl.seed_everything(seed)
 
-        pool = Pool(cpu_count())
         if batched:
             n_sims = len(sim)
             func = partial(generate_dataset, indices=indices)
-            pool_out = pool.map(func, sim)
+
+            with Pool(cpu_count()) as pool:
+                pool_out = pool.map(func, sim)
+
             Xs = np.array([X for X in pool_out if isinstance(X, np.ndarray)])
             already_computed_results_idx =   [i for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
             already_computed_results_times = [X for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
