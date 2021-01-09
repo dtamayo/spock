@@ -275,6 +275,16 @@ class DeepRegressor(object):
             assert isinstance(sim, rebound.Simulation)
         return batched
 
+    def copy_sim(self, sim, batched):
+        if batched:
+            new_sim = []
+            for s in sim:
+                new_sim.append(s.copy())
+            return new_sim
+        else:
+            return sim.copy()
+
+
     @profile
     def sample_instability_time(self, sim,
             samples=1000, indices=None, seed=None,
@@ -295,6 +305,7 @@ class DeepRegressor(object):
         np.array: samples of the posterior
         """
         batched = self.is_batched(sim)
+        sim = self.copy_sim(sim, batched)
 
         if seed is not None:
             pl.seed_everything(seed)
