@@ -32,8 +32,9 @@ warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the AB
 
 profile = lambda _: _
 
-def generate_dataset(sim, indices=None):
+def generate_dataset(sim):
     init_sim_parameters(sim, megno=False)
+    indices = None
     if sim.N_real < 4:
         raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
     if indices:
@@ -181,7 +182,7 @@ class DeepRegressor(object):
             swag_model.cpu()
         return out
 
-    def predict_instability_time(self, sim, samples=1000, indices=None, seed=None,
+    def predict_instability_time(self, sim, samples=1000, seed=None,
             max_model_samples=100, return_samples=False):
         """Estimate instability time for given simulation(s), and the 68% confidence
             interval.
@@ -201,7 +202,7 @@ class DeepRegressor(object):
             of the innermost planet
         """
         batched = self.is_batched(sim)
-        t_inst_samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
+        t_inst_samples = self.sample_instability_time(sim, samples=samples, seed=seed, max_model_samples=max_model_samples)
         if batched:
             center_estimate = np.median(t_inst_samples, axis=1)
             upper = np.percentile(t_inst_samples, 100-16, axis=1)
@@ -216,7 +217,7 @@ class DeepRegressor(object):
         else:
             return center_estimate, lower, upper
 
-    def predict_stable(self, sim, tmax=None, samples=1000, indices=None, seed=None, 
+    def predict_stable(self, sim, tmax=None, samples=1000, seed=None, 
             max_model_samples=100):
         """Estimate chance of stability for given simulation(s).
 
@@ -233,7 +234,7 @@ class DeepRegressor(object):
             (default 1e9 orbits)
         """
         batched = self.is_batched(sim)
-        t_inst_samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
+        t_inst_samples = self.sample_instability_time(sim, samples=samples, seed=seed, max_model_samples=max_model_samples)
 
         if tmax is None:
             tmax = 1e9
@@ -287,7 +288,7 @@ class DeepRegressor(object):
 
     @profile
     def sample_instability_time(self, sim,
-            samples=1000, indices=None, seed=None,
+            samples=1000, seed=None,
             max_model_samples=100):
         """Return samples from a posterior over log instability time (base 10) for
             given simulation(s). This returns samples from a simple prior for
@@ -312,16 +313,15 @@ class DeepRegressor(object):
 
         if batched:
             n_sims = len(sim)
-            func = partial(generate_dataset, indices=indices)
 
             with Pool(cpu_count()) as pool:
-                pool_out = pool.map(func, sim)
+                pool_out = pool.map(generate_dataset, sim)
 
             Xs = np.array([X for X in pool_out if isinstance(X, np.ndarray)])
             already_computed_results_idx =   [i for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
             already_computed_results_times = [X for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
         else:
-            out = generate_dataset(sim, indices)
+            out = generate_dataset(sim)
             if not isinstance(out, np.ndarray):
                 return np.ones(samples) * out
             Xs = np.array([out])
