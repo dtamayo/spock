@@ -3,7 +3,6 @@ import math
 from scipy.stats import truncnorm
 import os
 from collections import OrderedDict
-from .feature_functions import features
 from .tseries_feature_functions import get_extended_tseries
 from copy import deepcopy as copy
 from sklearn.preprocessing import StandardScaler
@@ -23,7 +22,6 @@ import einops as E
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 import pytorch_lightning as pl
-from functools import partial
 from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool as Pool
@@ -32,16 +30,12 @@ warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the AB
 
 profile = lambda _: _
 
-def generate_dataset(sim, indices=None):
+def generate_dataset(sim): 
+    sim = sim.copy()
     init_sim_parameters(sim, megno=False)
     if sim.N_real < 4:
         raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
-    if indices:
-        if len(indices) != 3:
-            raise AttributeError("SPOCK Error: indices must be a list of 3 particle indices")
-        trios = [indices] # always make it into a list of trios to test
-    else:
-        trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
+    trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
 
     kwargs = OrderedDict()
     kwargs['Norbits'] = int(1e4)
@@ -57,12 +51,10 @@ def generate_dataset(sim, indices=None):
         return time
 
     tseries = np.array(tseries)
-    simt = sim.copy()
     alltime = []
 
     Xs = []
     for i, trio in enumerate(trios):
-        sim = simt.copy()
         # These are the .npy.
         cur_tseries = tseries[None, i, :].astype(np.float32)
         mass_array = np.array([sim.particles[j].m/sim.particles[0].m for j in trio]).astype(np.float32)
@@ -181,7 +173,7 @@ class DeepRegressor(object):
             swag_model.cpu()
         return out
 
-    def predict_instability_time(self, sim, samples=1000, indices=None, seed=0,
+    def predict_instability_time(self, sim, samples=1000, seed=0,
             max_model_samples=100, return_samples=False):
         """Estimate instability time for given simulation(s), and the 68% confidence
             interval.
@@ -201,7 +193,7 @@ class DeepRegressor(object):
             of the innermost planet
         """
         batched = self.is_batched(sim)
-        t_inst_samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
+        t_inst_samples = self.sample_instability_time(sim, samples=samples, seed=seed, max_model_samples=max_model_samples)
         if batched:
             center_estimate = np.median(t_inst_samples, axis=1)
             upper = np.percentile(t_inst_samples, 100-16, axis=1)
@@ -216,7 +208,7 @@ class DeepRegressor(object):
         else:
             return center_estimate, lower, upper
 
-    def predict_stable(self, sim, tmax=None, samples=1000, indices=None, seed=0, 
+    def predict_stable(self, sim, tmax=None, samples=1000, seed=0, 
             max_model_samples=100):
         """Estimate chance of stability for given simulation(s).
 
@@ -233,7 +225,7 @@ class DeepRegressor(object):
             (default 1e9 orbits)
         """
         batched = self.is_batched(sim)
-        t_inst_samples = self.sample_instability_time(sim, samples=samples, indices=indices, seed=seed, max_model_samples=max_model_samples)
+        t_inst_samples = self.sample_instability_time(sim, samples=samples, seed=seed, max_model_samples=max_model_samples)
 
         if tmax is None:
             tmax = 1e9
@@ -277,7 +269,7 @@ class DeepRegressor(object):
 
     @profile
     def sample_instability_time(self, sim,
-            samples=1000, indices=None, seed=0,
+            samples=1000,  seed=0,
             max_model_samples=100):
         """Return samples from a posterior over log instability time (base 10) for
             given simulation(s). This returns samples from a simple prior for
@@ -301,13 +293,12 @@ class DeepRegressor(object):
         pool = Pool(cpu_count())
         if batched:
             n_sims = len(sim)
-            func = partial(generate_dataset, indices=indices)
-            pool_out = pool.map(func, sim)
+            pool_out = pool.map(generate_dataset, sim)
             Xs = np.array([X for X in pool_out if isinstance(X, np.ndarray)])
             already_computed_results_idx =   [i for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
             already_computed_results_times = [X for i, X in enumerate(pool_out) if not isinstance(X, np.ndarray)]
         else:
-            out = generate_dataset(sim, indices)
+            out = generate_dataset(sim)
             if not isinstance(out, np.ndarray):
                 return np.ones(samples) * out
             Xs = np.array([out])

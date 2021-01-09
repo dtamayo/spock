@@ -84,6 +84,17 @@ def rescale(sim, dscale, tscale, mscale):
 class TestRegressorClassification(unittest.TestCase):
     def setUp(self):
         self.model = DeepRegressor(cuda=False)
+    
+    def test_sim_unchanged(self):
+        sim = rebound.Simulation()
+        sim.add(m=1.)
+        sim.add(m=1.e-5, P=1.)
+        sim.add(m=1.e-5, P=2.)
+        sim.add(m=1.e-5, P=3.)
+        sim.integrate(1.2)
+        x0 = sim.particles[1].x
+        p1 = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
+        self.assertEqual(sim.particles[1].x, x0)
 
     def test_repeat(self):
         sim = rebound.Simulation()
@@ -93,7 +104,7 @@ class TestRegressorClassification(unittest.TestCase):
         sim.add(m=1.e-5, P=3.)
         p1 = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
         p2 = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
-        self.assertAlmostEqual(p1, p2, delta=1e-1)
+        self.assertEqual(p1, p2)
    
     # when chaotic realization matters, probs will vary more (eg t_inst=2e4)
     def test_galilean_transformation(self):
