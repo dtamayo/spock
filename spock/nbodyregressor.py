@@ -24,6 +24,8 @@ class NbodyRegressor():
         """
         sim = sim.copy()
         init_sim_parameters(sim)
+        if np.isnan(sim.dt): # sim.dt set to nan for hyperbolic initial conditions in simsetup/set_integrator_and_timestep
+            return np.nan
 
         minP = np.min([p.P for p in sim.particles[1:sim.N_real]])
         if tmax is None:
@@ -32,9 +34,6 @@ class NbodyRegressor():
             if archive_interval is None:
                 archive_interval = tmax/1000
             sim.automateSimulationArchive(archive_filename, archive_interval, deletefile=True)
-
-        if np.isnan(sim.dt): # sim.dt set to nan for hyperbolic initial conditions in simsetup/set_integrator_and_timestep
-            return np.nan
 
         try:
             sim.integrate(tmax, exact_finish_time=0)

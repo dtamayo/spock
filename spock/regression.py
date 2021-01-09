@@ -3,7 +3,6 @@ import math
 from scipy.stats import truncnorm
 import os
 from collections import OrderedDict
-from .feature_functions import features
 from .tseries_feature_functions import get_extended_tseries
 from copy import deepcopy as copy
 from sklearn.preprocessing import StandardScaler
@@ -23,7 +22,6 @@ import einops as E
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 import pytorch_lightning as pl
-from functools import partial
 from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool as Pool
@@ -32,17 +30,12 @@ warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the AB
 
 profile = lambda _: _
 
-def generate_dataset(sim):
+def generate_dataset(sim): 
+    sim = sim.copy()
     init_sim_parameters(sim, megno=False)
-    indices = None
     if sim.N_real < 4:
         raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
-    if indices:
-        if len(indices) != 3:
-            raise AttributeError("SPOCK Error: indices must be a list of 3 particle indices")
-        trios = [indices] # always make it into a list of trios to test
-    else:
-        trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
+    trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
 
     kwargs = OrderedDict()
     kwargs['Norbits'] = int(1e4)
@@ -58,12 +51,10 @@ def generate_dataset(sim):
         return time
 
     tseries = np.array(tseries)
-    simt = sim.copy()
     alltime = []
 
     Xs = []
     for i, trio in enumerate(trios):
-        sim = simt.copy()
         # These are the .npy.
         cur_tseries = tseries[None, i, :].astype(np.float32)
         mass_array = np.array([sim.particles[j].m/sim.particles[0].m for j in trio]).astype(np.float32)
@@ -276,15 +267,6 @@ class DeepRegressor(object):
             assert isinstance(sim, rebound.Simulation)
         return batched
 
-    def copy_sim(self, sim, batched):
-        if batched:
-            new_sim = []
-            for s in sim:
-                new_sim.append(s.copy())
-            return new_sim
-        else:
-            return sim.copy()
-
 
     @profile
     def sample_instability_time(self, sim,
@@ -306,7 +288,6 @@ class DeepRegressor(object):
         np.array: samples of the posterior
         """
         batched = self.is_batched(sim)
-        sim = self.copy_sim(sim, batched)
 
         if seed is not None:
             pl.seed_everything(seed)

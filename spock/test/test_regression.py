@@ -84,6 +84,17 @@ def rescale(sim, dscale, tscale, mscale):
 class TestRegressorClassification(unittest.TestCase):
     def setUp(self):
         self.model = DeepRegressor(cuda=False)
+    
+    def test_sim_unchanged(self):
+        sim = rebound.Simulation()
+        sim.add(m=1.)
+        sim.add(m=1.e-5, P=1.)
+        sim.add(m=1.e-5, P=2.)
+        sim.add(m=1.e-5, P=3.)
+        sim.integrate(1.2)
+        x0 = sim.particles[1].x
+        p1 = self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS)
+        self.assertEqual(sim.particles[1].x, x0)
 
     def test_repeat(self):
         sim = rebound.Simulation()
