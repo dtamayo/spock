@@ -1,3 +1,3 @@
 #!/bin/bash
-conda create -q -y --name $1 -c pytorch -c conda-forge python=3.7 numpy scipy pandas scikit-learn matplotlib torchvision pytorch=1.5.1 xgboost=1.2.0 rebound einops jupyter && ~/miniconda3/envs/$1/bin/pip install -q pytorch_lightning -Iv ipython==7.16.0
+conda create -q -y --name $1 -c pytorch -c conda-forge python=3.7 numpy scipy pandas scikit-learn matplotlib torchvision pytorch xgboost rebound einops jupyter pytorch-lightning ipython h5py
 
