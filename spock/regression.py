@@ -28,6 +28,18 @@ from multiprocessing.pool import ThreadPool as Pool
 import rebound
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
+def fitted_prior():
+    """A prior that was fit to the PDF of instability times in the training set below T=9"""
+    return (lambda logT: 3.27086190404742*np.exp(-0.424033970670719 * logT) - 10.8793430454878*np.exp(-0.200351029031774 * logT**2))
+
+def flat_prior(upper_limit):
+    """A uniform prior between 9 and an upper limit"""
+    return (lambda logT: 1.0 * (logT <= upper_limit))
+
+def exponential_decaying_prior(decay_rate):
+    """An exponentially decaying prior, which decays at a rate e^(-T*decay_rate)"""
+    return (lambda logT: np.exp(-decay_rate * (logT - 9)))
+
 profile = lambda _: _
 
 def generate_dataset(sim): 
@@ -174,7 +186,7 @@ class DeepRegressor(object):
         return out
 
     def predict_instability_time(self, sim, samples=1000, seed=None,
-            max_model_samples=100, return_samples=False):
+            max_model_samples=100, return_samples=False, prior_above_9=fitted_prior()):
         """Estimate instability time for given simulation(s), and the 68% confidence
             interval.
 
@@ -186,14 +198,26 @@ class DeepRegressor(object):
 
         sim (rebound.Simulation or list): Orbital configuration(s) to test
         samples (int): Number of samples to use
+        seed (int): Random seed
+        max_model_samples (int): maximum number of times to re-generate model parameters.
+            Larger number increases accuracy but greatly decreases speed.
+        return_samples (bool): return the raw samples as a second argument
+        prior_above_9 (function): function defining the probability density
+            function of instability times above 1e9 orbits. By default
+            is a decaying prior which was fit to the training dataset.
 
         Returns:
 
-        float: instability time in units of initial orbit
+        center_estimate (float): instability time in units of initial orbit
             of the innermost planet
+        lower (float): 16th percentile instability time
+        upper (float): 84th percentile instability time
+        [t_inst_samples (array): raw samples of the posterior]
         """
         batched = self.is_batched(sim)
-        t_inst_samples = self.sample_instability_time(sim, samples=samples, seed=seed, max_model_samples=max_model_samples)
+        t_inst_samples = self.sample_instability_time(sim,
+                samples=samples, seed=seed, max_model_samples=max_model_samples,
+                prior_above_9=prior_above_9)
         if batched:
             center_estimate = np.median(t_inst_samples, axis=1)
             upper = np.percentile(t_inst_samples, 100-16, axis=1)
@@ -209,7 +233,7 @@ class DeepRegressor(object):
             return center_estimate, lower, upper
 
     def predict_stable(self, sim, tmax=None, samples=1000, seed=None, 
-            max_model_samples=100):
+            return_samples=False, max_model_samples=100, prior_above_9=fitted_prior()):
         """Estimate chance of stability for given simulation(s).
 
         Parameters:
@@ -218,32 +242,43 @@ class DeepRegressor(object):
         tmax (float): Time at which the system is queried as stable,
             in units of initial orbit of innermost planet
         samples (int): Number of samples to use
+        seed (int): Random seed
+        max_model_samples (int): maximum number of times to re-generate model parameters.
+            Larger number increases accuracy but greatly decreases speed.
+        return_samples (bool): return the raw samples as a second argument
+        prior_above_9 (function): function defining the probability density
+            function of instability times above 1e9 orbits. By default
+            is a decaying prior which was fit to the training dataset.
 
         Returns:
 
-        float: probability of stability past the given tmax
+        p (float): probability of stability past the given tmax
             (default 1e9 orbits)
+        [t_inst_samples (array): raw samples of the posterior]
         """
         batched = self.is_batched(sim)
-        t_inst_samples = self.sample_instability_time(sim, samples=samples, seed=seed, max_model_samples=max_model_samples)
+        t_inst_samples = self.sample_instability_time(sim,
+                samples=samples, seed=seed, max_model_samples=max_model_samples,
+                prior_above_9=prior_above_9)
 
         if tmax is None:
             tmax = 1e9
 
         if batched:
-            return np.average(t_inst_samples > tmax, 1)
+            out = np.average(t_inst_samples > tmax, 1)
         else:
-            return np.average(t_inst_samples > tmax)
+            out = np.average(t_inst_samples > tmax)
+        
+        if return_samples:
+            return out, t_inst_samples
+        else:
+            return out
 
-    def resample_stable_sims(self, samps_time):
+    def resample_stable_sims(self, samps_time, prior_above_9):
         """Use a prior fit to the unstable value histogram"""
         stable_past_9 = samps_time >= 9
-        _prior = lambda logT: (
-            3.27086190404742*np.exp(-0.424033970670719 * logT) -
-            10.8793430454878*np.exp(-0.200351029031774 * logT**2)
-        )
-        normalization = quad(_prior, a=9, b=np.inf)[0]
-        prior = lambda logT: _prior(logT)/normalization
+        normalization = quad(prior_above_9, a=9, b=np.inf)[0]
+        prior = lambda logT: prior_above_9(logT)/normalization
         n_samples = stable_past_9.sum()
         bins = max([10000, n_samples*4])
         top = 100.
@@ -269,9 +304,8 @@ class DeepRegressor(object):
 
 
     @profile
-    def sample_instability_time(self, sim,
-            samples=1000, seed=None,
-            max_model_samples=100):
+    def sample_instability_time(self, sim, samples=1000, seed=None,
+            max_model_samples=100, prior_above_9=fitted_prior()):
         """Return samples from a posterior over log instability time (base 10) for
             given simulation(s). This returns samples from a simple prior for
             all times greater than 10^9 orbits.
@@ -280,8 +314,12 @@ class DeepRegressor(object):
 
         sim (rebound.Simulation or list): Orbital configuration(s) to test
         samples (int): Number of samples to return
+        seed (int): Random seed
         max_model_samples (int): maximum number of times to re-generate model parameters.
             Larger number increases accuracy but greatly decreases speed.
+        prior_above_9 (function): function defining the probability density
+            function of instability times above 1e9 orbits. By default
+            is a decaying prior which was fit to the training dataset.
 
         Returns:
 
@@ -342,7 +380,7 @@ class DeepRegressor(object):
                     sampled_mu_std[..., 0], sampled_mu_std[..., 1],
                     left=4, d=10000, nsamp=40
                 ))
-            samps_time = self.resample_stable_sims(samps_time)
+            samps_time = self.resample_stable_sims(samps_time, prior_above_9)
             samps_time = E.rearrange(samps_time,
                              'samples (batch trio) -> batch samples trio',
                              batch=nbatch, trio=ntrios)

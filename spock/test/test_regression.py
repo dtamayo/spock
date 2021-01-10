@@ -41,6 +41,20 @@ class TestRegressor(unittest.TestCase):
         # Should get more stable:
         self.assertTrue(np.all(times[1:] > times[:-1]))
 
+    def test_custom_prior(self):
+        mass = 1e-7
+
+        sim = rebound.Simulation()
+        sim.add(m=1.)
+        sim.add(m=mass, P=1)
+        sim.add(m=mass, P=1.3)
+        sim.add(m=mass, P=1.6)
+        expected_center = 13.0
+        prior = lambda logT: np.exp(-(logT - expected_center)**2/2/0.1**2)
+
+        times = np.log10(self.model.predict_instability_time(sim, prior_above_9=prior, **SAMPLE_SETTINGS)[0])
+        self.assertAlmostEqual(times, expected_center, delta=1e-2)
+
     
 def unstablesim():
     sim = rebound.Simulation()
