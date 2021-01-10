@@ -275,7 +275,7 @@ class DeepRegressor(object):
             return out
 
     def resample_stable_sims(self, samps_time, prior_above_9):
-        """Use a prior fit to the unstable value histogram"""
+        """Use a prior to re-sample stable instability times"""
         stable_past_9 = samps_time >= 9
         normalization = quad(prior_above_9, a=9, b=np.inf)[0]
         prior = lambda logT: prior_above_9(logT)/normalization
@@ -285,6 +285,7 @@ class DeepRegressor(object):
         bin_edges = np.linspace(9, top, num=bins)
         cum_values = [0] + list(np.cumsum(prior(bin_edges)*(bin_edges[1] - bin_edges[0]))) + [1]
         bin_edges = [9.] +list(bin_edges)+[top]
+        # Numerically interpolate the inverse cumulative distribution function:
         inv_cdf = interp1d(cum_values, bin_edges)
         r = np.random.rand(n_samples)
         t_inst_samples = inv_cdf(r)
