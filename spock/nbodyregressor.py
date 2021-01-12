@@ -109,7 +109,10 @@ class NbodyRegressor():
  
         tinst, lower, upper = self.predict_instability_time(sim, tmax, archive_filename, archive_interval, n_jobs, match_training) 
         # If tmax == None, each sim can have different tmaxs
-        # Use fact that if confidence intervals != 0, we hit an instability
-        # (lower = np.nan if error, 0 if hit tmax)
+        # Use fact that if confidence intervals == 0, we hit tmax limit
+        # (lower = np.nan if error, >0 if hit instability)
         stable = (lower == 0) 
-        return np.int(stable)
+        try:
+            return stable.astype(int)
+        except:
+            return int(stable) # single simulation
