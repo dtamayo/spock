@@ -10,6 +10,7 @@ def check_hyperbolic(sim):
         return False
 
 def check_valid_sim(sim):
+    assert isinstance(sim, rebound.Simulation)
     ps = sim.particles
     ms = np.array([p.m for p in sim.particles[:sim.N_real]])
     if np.min(ms) < 0: # at least one body has a mass < 0
@@ -34,7 +35,9 @@ def set_integrator_and_timestep(sim):
     else:
         sim.integrator = "whfast"
 
-def init_sim_parameters(sim, megno=True): 
+def init_sim_parameters(sim, megno=True, safe_mode=1): 
+    # if megno=False and safe_mode=0, integration will be 2x faster. But means we won't get the same trajectory realization for the systems in the training set, but rather a different equally valid realization. We've tested that this doesn't affect the performance of the model (as it shouldn't!).
+
     check_valid_sim(sim)
 
     try:
@@ -46,7 +49,7 @@ def init_sim_parameters(sim, megno=True):
     sim.exit_max_distance = 100*maxd
                 
     sim.ri_whfast.keep_unsynchronized = 0
-    sim.ri_whfast.safe_mode = 1
+    sim.ri_whfast.safe_mode = safe_mode 
 
     if sim.N_var == 0 and megno: # no variational particles
         sim.init_megno(seed=0)
