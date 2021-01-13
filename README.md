@@ -13,7 +13,9 @@
 
 # Quickstart
 
-Let's predict the probability that a given 3-planet system is stable:
+Let's predict the probability that a given 3-planet system is stable
+past 1 billion orbits with the XGBoost-based classifier, and then compute its
+median expected instability time with the deep regressor:
 
 ```python
 import rebound
