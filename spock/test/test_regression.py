@@ -5,6 +5,69 @@ import numpy as np
 
 SAMPLE_SETTINGS = dict(samples=1000, max_model_samples=30)
 
+def unstablesim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, P=1)
+    sim.add(m=1.e-4, P=1.3)
+    sim.add(m=1.e-4, P=1.6)
+    return sim
+
+def longstablesim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-7, P=1)
+    sim.add(m=1.e-7, P=2.1)
+    sim.add(m=1.e-7, P=4.5)
+    return sim
+
+def solarsystemsim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.7e-7, a=0.39, e=0.21)
+    sim.add(m=2.4e-6, a=0.72, e=0.007)
+    sim.add(m=3.e-6, a=1, e=0.017)
+    sim.add(m=3.2e-7, a=1.52, e=0.09)
+    sim.add(m=1.e-3, a=5.2, e=0.049)
+    sim.add(m=2.9e-4, a=9.54, e=0.055)
+    sim.add(m=4.4e-5, a=19.2, e=0.047)
+    sim.add(m=5.2e-5, a=30.1, e=0.009)
+    return sim
+
+def hyperbolicsim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-5, a=-1., e=1.2)
+    sim.add(m=1.e-5, a=2.)
+    sim.add(m=1.e-5, a=3.)
+    return sim
+
+def escapesim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-12, P=3.14, e=0.03, l=0.5)
+    sim.add(m=1.e-12, P=4.396, e=0.03, l=4.8)
+    sim.add(m=1.e-12, a=100, e=0.999)
+    return sim
+
+def vstablesim():
+    sim = rebound.Simulation()
+    sim.add(m=1)
+    sim.add(m=1e-7, P=1.)
+    sim.add(m=1e-7, P=1.8)
+    sim.add(m=1e-7, P=3.2)
+    return sim
+
+def rescale(sim, dscale, tscale, mscale):                                                                      
+    simr = rebound.Simulation()
+    vscale = dscale/tscale 
+    simr.G *= mscale*tscale**2/dscale**3
+
+    for p in sim.particles:
+        simr.add(m=p.m/mscale, x=p.x/dscale, y=p.y/dscale, z=p.z/dscale, vx=p.vx/vscale, vy=p.vy/vscale, vz=p.vz/vscale, r=p.r/dscale)
+
+    return simr
+
 class TestRegressor(unittest.TestCase):
     def setUp(self):
         self.model = DeepRegressor(cuda=False)
@@ -54,51 +117,38 @@ class TestRegressor(unittest.TestCase):
 
         times = np.log10(self.model.predict_instability_time(sim, prior_above_9=prior, **SAMPLE_SETTINGS)[0])
         self.assertAlmostEqual(times, expected_center, delta=1e-2)
-
     
-def unstablesim():
-    sim = rebound.Simulation()
-    sim.add(m=1.)
-    sim.add(m=1.e-4, P=1)
-    sim.add(m=1.e-4, P=1.3)
-    sim.add(m=1.e-4, P=1.6)
-    return sim
-
-def longstablesim():
-    sim = rebound.Simulation()
-    sim.add(m=1.)
-    sim.add(m=1.e-7, P=1)
-    sim.add(m=1.e-7, P=2.1)
-    sim.add(m=1.e-7, P=4.5)
-    return sim
-
-def solarsystemsim():
-    sim = rebound.Simulation()
-    sim.add(m=1.)
-    sim.add(m=1.7e-7, a=0.39, e=0.21)
-    sim.add(m=2.4e-6, a=0.72, e=0.007)
-    sim.add(m=3.e-6, a=1, e=0.017)
-    sim.add(m=3.2e-7, a=1.52, e=0.09)
-    sim.add(m=1.e-3, a=5.2, e=0.049)
-    sim.add(m=2.9e-4, a=9.54, e=0.055)
-    sim.add(m=4.4e-5, a=19.2, e=0.047)
-    sim.add(m=5.2e-5, a=30.1, e=0.009)
-    return sim
-
-def rescale(sim, dscale, tscale, mscale):                                                                      
-    simr = rebound.Simulation()
-    vscale = dscale/tscale 
-    simr.G *= mscale*tscale**2/dscale**3
-
-    for p in sim.particles:
-        simr.add(m=p.m/mscale, x=p.x/dscale, y=p.y/dscale, z=p.z/dscale, vx=p.vx/vscale, vy=p.vy/vscale, vz=p.vz/vscale, r=p.r/dscale)
-
-    return simr
+    def test_list_time(self):
+        tinst, lower, upper = self.model.predict_instability_time([hyperbolicsim(), escapesim(), unstablesim(), longstablesim()])
+        self.assertTrue(np.isnan(tinst[0]))
+        self.assertLess(tinst[1], 1e4)
+        self.assertLess(tinst[2], 1e4)
+        self.assertGreater(tinst[3], 1e4)
 
 class TestRegressorClassification(unittest.TestCase):
     def setUp(self):
         self.model = DeepRegressor(cuda=False)
     
+    def test_list_stable(self): # pass list of sims with same size list of tmax
+        tmax = [1e4, 1e4, 1, 1e4] # test that unstablesim in middle still classified as stable with tmax=1
+        stable_target = [0, 0, 1, 1]
+        stable = self.model.predict_stable([hyperbolicsim(), escapesim(), unstablesim(), longstablesim()], tmax=tmax)
+        self.assertSequenceEqual(stable.tolist(), stable_target)
+    
+    def test_list_no_tmax(self): # pass list of sims, tmax = None
+        stable = self.model.predict_stable([vstablesim(), vstablesim()])
+        self.assertGreater(stable[0], 0.9)
+        self.assertGreater(stable[1], 0.9)
+    
+    def test_single_no_tmax(self): # pass list of sims, tmax = None
+        stable = self.model.predict_stable(vstablesim())
+        self.assertGreater(stable, 0.9)
+    
+    def test_mismatched_lists(self):
+        tmax = [1e4, 1e4, 1] # test that unstablesim in middle still classified as stable with tmax=1
+        with self.assertRaises(ValueError):
+            stable = self.model.predict_stable([hyperbolicsim(), escapesim(), unstablesim(), longstablesim()], tmax=tmax)
+
     def test_sim_unchanged(self):
         sim = rebound.Simulation()
         sim.add(m=1.)

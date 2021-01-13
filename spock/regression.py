@@ -44,7 +44,7 @@ profile = lambda _: _
 
 def generate_dataset(sim): 
     sim = sim.copy()
-    init_sim_parameters(sim, megno=False)
+    init_sim_parameters(sim, megno=False, safe_mode=0)
     if sim.N_real < 4:
         raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
     trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
@@ -186,7 +186,7 @@ class DeepRegressor(object):
         return out
 
     def predict_instability_time(self, sim, samples=1000, seed=None,
-            max_model_samples=100, return_samples=False, prior_above_9=fitted_prior()):
+            max_model_samples=100, return_samples=False, prior_above_9=fitted_prior(), Ncpus=None):
         """Estimate instability time for given simulation(s), and the 68% confidence
             interval.
 
@@ -205,6 +205,7 @@ class DeepRegressor(object):
         prior_above_9 (function): function defining the probability density
             function of instability times above 1e9 orbits. By default
             is a decaying prior which was fit to the training dataset.
+        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
 
         Returns:
 
@@ -217,7 +218,7 @@ class DeepRegressor(object):
         batched = self.is_batched(sim)
         t_inst_samples = self.sample_instability_time(sim,
                 samples=samples, seed=seed, max_model_samples=max_model_samples,
-                prior_above_9=prior_above_9)
+                prior_above_9=prior_above_9, Ncpus=Ncpus)
         if batched:
             center_estimate = np.median(t_inst_samples, axis=1)
             upper = np.percentile(t_inst_samples, 100-16, axis=1)
@@ -233,7 +234,7 @@ class DeepRegressor(object):
             return center_estimate, lower, upper
 
     def predict_stable(self, sim, tmax=None, samples=1000, seed=None, 
-            return_samples=False, max_model_samples=100, prior_above_9=fitted_prior()):
+            return_samples=False, max_model_samples=100, prior_above_9=fitted_prior(), Ncpus=None):
         """Estimate chance of stability for given simulation(s).
 
         Parameters:
@@ -249,6 +250,7 @@ class DeepRegressor(object):
         prior_above_9 (function): function defining the probability density
             function of instability times above 1e9 orbits. By default
             is a decaying prior which was fit to the training dataset.
+        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
 
         Returns:
 
@@ -310,14 +312,11 @@ class DeepRegressor(object):
             nsim = len(sim)
             if len(set([s.N_real for s in sim])) != 1:
                 raise ValueError("If running over many sims at once, they must have the same number of particles!")
-        else:
-            assert isinstance(sim, rebound.Simulation)
         return batched
-
 
     @profile
     def sample_instability_time(self, sim, samples=1000, seed=None,
-            max_model_samples=100, prior_above_9=fitted_prior()):
+            max_model_samples=100, prior_above_9=fitted_prior(), Ncpus=None):
         """Return samples from a posterior over log instability time (base 10) for
             given simulation(s). This returns samples from a simple prior for
             all times greater than 10^9 orbits.
@@ -332,6 +331,7 @@ class DeepRegressor(object):
         prior_above_9 (function): function defining the probability density
             function of instability times above 1e9 orbits. By default
             is a decaying prior which was fit to the training dataset.
+        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
 
         Returns:
 
@@ -344,8 +344,9 @@ class DeepRegressor(object):
 
         if batched:
             n_sims = len(sim)
-
-            with Pool(cpu_count()) as pool:
+            if Ncpus is None:
+                Ncpus = cpu_count()
+            with Pool(Ncpus) as pool:
                 pool_out = pool.map(generate_dataset, sim)
 
             Xs = np.array([X for X in pool_out if isinstance(X, np.ndarray)])
