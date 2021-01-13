@@ -51,6 +51,22 @@ def solarsystemsim():
     sim.dt = 0.05
     return sim
 
+def hyperbolicsim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-5, a=-1., e=1.2)
+    sim.add(m=1.e-5, a=2.)
+    sim.add(m=1.e-5, a=3.)
+    return sim
+
+def escapesim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-12, P=3.14, e=0.03, l=0.5)
+    sim.add(m=1.e-12, P=4.396, e=0.03, l=4.8)
+    sim.add(m=1.e-12, a=100, e=0.999)
+    return sim
+
 def rescale(sim, dscale, tscale, mscale):                                                                      
     simr = rebound.Simulation()
     vscale = dscale/tscale 
@@ -64,6 +80,14 @@ def rescale(sim, dscale, tscale, mscale):
 class TestClassifier(unittest.TestCase):
     def setUp(self):
         self.model = FeatureClassifier()
+    
+    def test_list(self):
+        stable_target = [0, 0, 0, 0.7]
+        stable = self.model.predict_stable([hyperbolicsim(), escapesim(), unstablesim(), longstablesim()])
+        self.assertEqual(stable[0], 0)
+        self.assertEqual(stable[1], 0)
+        self.assertEqual(stable[2], 0)
+        self.assertGreater(stable[3], 0.7) 
     
     def test_sim_unchanged(self):
         sim = rebound.Simulation()
@@ -140,19 +164,11 @@ class TestClassifier(unittest.TestCase):
         self.assertAlmostEqual(p0, p1, delta=1.e-2)
     
     def test_hyperbolic(self):
-        sim = rebound.Simulation()
-        sim.add(m=1.)
-        sim.add(m=1.e-5, a=-1., e=1.2)
-        sim.add(m=1.e-5, a=2.)
-        sim.add(m=1.e-5, a=3.)
+        sim = hyperbolicsim()
         self.assertEqual(self.model.predict_stable(sim), 0)
     
     def test_escape(self):
-        sim = rebound.Simulation()
-        sim.add(m=1.)
-        sim.add(m=1.e-12, P=3.14, e=0.03, l=0.5)
-        sim.add(m=1.e-12, P=4.396, e=0.03, l=4.8)
-        sim.add(m=1.e-12, a=100, e=0.999)
+        sim = escapesim()
         self.assertEqual(self.model.predict_stable(sim), 0)
     
     def test_unstable_in_short_integration(self):
