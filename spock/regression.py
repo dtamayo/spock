@@ -239,7 +239,7 @@ class DeepRegressor(object):
         Parameters:
 
         sim (rebound.Simulation or list): Orbital configuration(s) to test
-        tmax (float): Time at which the system is queried as stable,
+        tmax (float or list): Time at which the system is queried as stable,
             in units of initial orbit of innermost planet
         samples (int): Number of samples to use
         seed (int): Random seed
@@ -262,10 +262,21 @@ class DeepRegressor(object):
                 prior_above_9=prior_above_9)
 
         if tmax is None:
-            tmax = 1e9
+            if batched:
+                tmax = np.ones(len(sim)) * 1e9
+            else:
+                tmax = 1e9
+        elif batched:
+            if isinstance(tmax, list):
+                tmax = np.array(tmax)
+            elif isinstance(tmax, np.ndarray):
+                ...
+            else:
+                tmax = np.ones(len(sim)) * tmax
+            assert len(tmax) == len(sim)
 
         if batched:
-            out = np.average(t_inst_samples > tmax, 1)
+            out = np.average(t_inst_samples[:, :] > tmax[:, None], 1)
         else:
             out = np.average(t_inst_samples > tmax)
         
@@ -324,7 +335,7 @@ class DeepRegressor(object):
 
         Returns:
 
-        np.array: samples of the posterior
+        np.array: samples of the posterior (nsamples,) or (nsim, nsamples)
         """
         batched = self.is_batched(sim)
 
