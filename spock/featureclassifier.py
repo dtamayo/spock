@@ -83,15 +83,15 @@ class FeatureClassifier():
         args = []
         if len(set([s.N_real for s in sim])) != 1:
             raise ValueError("If running over many sims at once, they must have the same number of particles!")
-        for i, s in enumerate(sim):
+        for s in sim:
             s = s.copy()
             init_sim_parameters(s)
             minP = np.min([p.P for p in s.particles[1:s.N_real]])
             self.check_errors(s)
-            trios = [[i,i+1,i+2] for i in range(1,s.N_real-2)] # list of adjacent trios   
+            trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
             featureargs = [10000, 80, trios]
             args.append([s, featureargs])
-      
+
         def run(params):
             sim, featureargs = params
             triofeatures, stable = features(sim, featureargs)

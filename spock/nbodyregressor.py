@@ -49,7 +49,13 @@ class NbodyRegressor():
             if archive_filename:
                 if archive_interval is None:
                     archive_interval = tmax[i]/1000
-                s.automateSimulationArchive("{0}_{1}.bin".format(archive_filename, i), archive_interval, deletefile=True)
+                if len(sim) == 1: # single sim
+                    s.automateSimulationArchive(archive_filename, archive_interval, deletefile=True)
+                else: # strip final extension and add an index for each simarchive
+                    ext = archive_filename.split('.')[-1]
+                    len_ext = len(ext)+1
+                    filename = "{0}_{1}.{2}".format(archive_filename[:-len_ext], i, ext)
+                    s.automateSimulationArchive(filename, archive_interval, deletefile=True)
             args.append([s, tmax[i]])
         
         def run(params):
