@@ -103,7 +103,7 @@ class FeatureClassifier():
 
             if n_jobs == -1:
                 n_jobs = cpu_count()
-            pool = ThreadPool(n_jobs)
-            res = pool.map(run, args)
+            #pool = ThreadPool(n_jobs)
+            res = map(run, args)
        
-        return res
+        return list(res)
