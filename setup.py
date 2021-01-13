@@ -47,6 +47,9 @@ regression_models = [
 'models/regression/steps=300000_megno=0_angles=1_power=0_hidden=40_latent=20_nommr=1_nonan=1_noeplusminus=1_v50_9_output.pkl'
 ]
 
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
 exec(open('spock/version.py').read())
 setup(name='spock',
     version=__version__,
@@ -56,6 +59,8 @@ setup(name='spock',
     author='Daniel Tamayo',
     author_email='tamayo.daniel@gmail.com',
     license='GPL',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     classifiers=[
         # How mature is this project? Common values are
         #   3 - Alpha
