@@ -146,7 +146,7 @@ class TestRegressorClassification(unittest.TestCase):
     
     def test_mismatched_lists(self):
         tmax = [1e4, 1e4, 1] # test that unstablesim in middle still classified as stable with tmax=1
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             stable = self.model.predict_stable([hyperbolicsim(), escapesim(), unstablesim(), longstablesim()], tmax=tmax)
 
     def test_sim_unchanged(self):
