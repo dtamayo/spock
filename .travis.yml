@@ -16,8 +16,8 @@ before_install:
   - export PATH=/home/travis/mc/bin:$PATH
 
 install:
-  - conda update --yes conda
-  - conda create -n testenv --yes numpy scipy matplotlib setuptools python=$TRAVIS_PYTHON_VERSION
+  - conda update --yes conda > conda_install.txt
+  - conda create -q -y --name testenv -c pytorch -c conda-forge python=3.7 numpy scipy pandas scikit-learn matplotlib torchvision pytorch xgboost rebound einops jupyter pytorch-lightning ipython h5py
   - source activate testenv
   - python setup.py install
 

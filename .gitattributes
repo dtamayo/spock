@@ -1,0 +1,3 @@
+*.pkl binary
+*.ipynb linguist-documentation
+paper_plots/* linguist-documentation

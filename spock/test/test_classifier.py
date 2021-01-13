@@ -64,6 +64,17 @@ def rescale(sim, dscale, tscale, mscale):
 class TestClassifier(unittest.TestCase):
     def setUp(self):
         self.model = FeatureClassifier()
+    
+    def test_sim_unchanged(self):
+        sim = rebound.Simulation()
+        sim.add(m=1.)
+        sim.add(m=1.e-5, P=1.)
+        sim.add(m=1.e-5, P=2.)
+        sim.add(m=1.e-5, P=3.)
+        sim.integrate(1.2)
+        x0 = sim.particles[1].x
+        p1 = self.model.predict_stable(sim)
+        self.assertEqual(sim.particles[1].x, x0)
 
     def test_repeat(self):
         sim = rebound.Simulation()
@@ -83,11 +94,11 @@ class TestClassifier(unittest.TestCase):
 
         sim = longstablesim()
         nbody = NbodyRegressor()
-        nbody.predict_stable(sim, tmax=1e4, archive_filename='temp.bin', archive_interval=1.e4)
-        sa = rebound.SimulationArchive('temp.bin')
+        nbody.predict_stable(sim, tmax=1e4, archive_filename='temp', archive_interval=1.e4)
+        sa = rebound.SimulationArchive('temp_0.bin')
         sim = sa[-1]
         x2 = sim.particles[1].x
-        self.assertEqual(x1, x2)
+        self.assertAlmostEqual(x1, x2, delta=1.e-5)
    
     # when chaotic realization matters, probs will vary more (eg t_inst=2e4)
     def test_galilean_transformation(self):

@@ -1,0 +1,47 @@
+#@ def base_url():
+#@    if env.READTHEDOCS:
+#@      return "https://pysr.readthedocs.io/en/" + env.READTHEDOCS_VERSION + "/"
+#@    else:
+#@      return None
+#@ end
+
+
+loaders:
+  - type: python
+
+processors:
+  - type: filter
+  - type: smart
+  - type: crossref
+renderer:
+  type: hugo
+
+  markdown:
+    source_linker:
+      type: github
+      repo: dtamayo/spock
+
+  config:
+    baseURL: #@ base_url()
+    title: spock
+    theme: {clone_url: "https://github.com/alex-shpak/hugo-book.git"}
+  # The "book" theme only renders pages in "content/docs" into the nav.
+
+  build_directory: docs/build
+  content_directory: content/docs
+
+  default_preamble: {menu: main}
+  pages:
+    - title: Home
+      name: index
+      source: README.md
+      directory: '..'
+    - title: Getting started
+      name: getting-started
+      source: docs/start.md
+      preamble: {weight: 1}
+    - title: API Documentation
+      contents:
+        - spock.featureclassifier.FeatureClassifier.*
+      preamble: {weight: 2}
+
