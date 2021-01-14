@@ -1,6 +1,6 @@
 #@ def base_url():
 #@    if env.READTHEDOCS:
-#@      return "https://pysr.readthedocs.io/en/" + env.READTHEDOCS_VERSION + "/"
+#@      return "https://spock-instability.readthedocs.io/en/" + env.READTHEDOCS_VERSION + "/"
 #@    else:
 #@      return None
 #@ end
