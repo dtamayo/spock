@@ -116,7 +116,7 @@ class TestRegressor(unittest.TestCase):
         prior = lambda logT: np.exp(-(logT - expected_center)**2/2/0.1**2)
 
         times = np.log10(self.model.predict_instability_time(sim, prior_above_9=prior, **SAMPLE_SETTINGS)[0])
-        self.assertAlmostEqual(times, expected_center, delta=1e-2)
+        self.assertAlmostEqual(times, expected_center, delta=1e-1)
     
     def test_list_time(self):
         tinst, lower, upper = self.model.predict_instability_time([hyperbolicsim(), escapesim(), unstablesim(), longstablesim()])
