@@ -203,8 +203,9 @@ class DeepRegressor(object):
             Larger number increases accuracy but greatly decreases speed.
         return_samples (bool): return the raw samples as a second argument
         prior_above_9 (function): function defining the probability density
-            function of instability times above 1e9 orbits. By default
-            is a decaying prior which was fit to the training dataset.
+            function of instability times above 1e9 orbits. Should take a numpy array as input
+            over log_10(T), and return a numpy array of probabilities. By default
+            this is a decaying prior which was fit to the training dataset.
         Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
 
         Returns:
@@ -241,7 +242,7 @@ class DeepRegressor(object):
 
         sim (rebound.Simulation or list): Orbital configuration(s) to test
         tmax (float or list): Time at which the system is queried as stable,
-            in units of initial orbit of innermost planet
+            in units of orbits of the innermost planet
         samples (int): Number of samples to use
         seed (int): Random seed
         max_model_samples (int): maximum number of times to re-generate model parameters.
@@ -250,7 +251,8 @@ class DeepRegressor(object):
         prior_above_9 (function): function defining the probability density
             function of instability times above 1e9 orbits. By default
             is a decaying prior which was fit to the training dataset.
-        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
+        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation).
+            Default: Use all available cpus. 
 
         Returns:
 
