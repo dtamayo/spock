@@ -340,7 +340,7 @@ class VarModel(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         if 'seed' not in hparams: hparams['seed'] = 0
-        pl.seed_everything(hparams['seed'])
+        # pl.seed_everything(hparams['seed'])
 
         hparams['include_derivatives'] = False if 'include_derivatives' not in hparams else hparams['include_derivatives']
 
