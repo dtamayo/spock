@@ -319,7 +319,7 @@ class DeepRegressor(object):
     @profile
     def sample_instability_time(self, sim, samples=1000, seed=None,
             max_model_samples=100, prior_above_9=fitted_prior(), Ncpus=None):
-        """Return samples from a posterior over log instability time (base 10) for
+        """Return samples from a posterior over instability time for
             given simulation(s). This returns samples from a simple prior for
             all times greater than 10^9 orbits.
 

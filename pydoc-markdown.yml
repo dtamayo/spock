@@ -51,9 +51,8 @@ renderer:
     - title: Deep Regressor API
       contents:
         - spock.regression.DeepRegressor
-        - spock.regression.DeepRegressor.*
-        - spock.regression.fitted_prior
-        - spock.regression.flat_prior
-        - spock.regression.exponential_decaying_prior
+        - spock.regression.DeepRegressor.predict_instability_time
+        - spock.regression.DeepRegressor.predict_stable
+        - spock.regression.DeepRegressor.sample_instability_time
       preamble: {weight: 2}
 
