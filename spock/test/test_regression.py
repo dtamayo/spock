@@ -103,6 +103,30 @@ class TestRegressor(unittest.TestCase):
         self.assertTrue(times[0] < 4.0)
         # Should get more stable:
         self.assertTrue(np.all(times[1:] > times[:-1]))
+   
+    def test_rescale_distances(self):
+        sim = longstablesim()
+        t, upper, lower = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
+
+        simr = rescale(sim, dscale=1e10, tscale=1, mscale=1)
+        tr, upperr, lowerr = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
+        self.assertAlmostEqual(t/sim.particles[1].P, tr/simr.particles[1].P, delta=np.abs((upper-lower)/10/sim.particles[1].P))
+    
+    def test_rescale_times(self):
+        sim = longstablesim()
+        t, upper, lower = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
+
+        simr = rescale(sim, dscale=1, tscale=1e10, mscale=1)
+        tr, upperr, lowerr = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
+        self.assertAlmostEqual(t/sim.particles[1].P, tr/simr.particles[1].P, delta=np.abs((upper-lower)/10/sim.particles[1].P))
+
+    def test_rescale_masses(self):
+        sim = longstablesim()
+        t, upper, lower = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
+
+        simr = rescale(sim, dscale=1, tscale=1, mscale=1e10)
+        tr, upperr, lowerr = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
+        self.assertAlmostEqual(t/sim.particles[1].P, tr/simr.particles[1].P, delta=np.abs((upper-lower)/10/sim.particles[1].P))
 
     def test_custom_prior(self):
         mass = 1e-7

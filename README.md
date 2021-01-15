@@ -38,6 +38,9 @@ print(feature_model.predict_stable(sim))
 median, lower, upper = deep_model.predict_instability_time(sim, samples=10000)
 print(int(median))
 # >>> 419759
+
+# This time in the time units you used in setting up the REBOUND Simulation above
+# Since we set the innermost planet orbit to unity, this corresponds to 419759 innermost planet orbits
 ```
 
 # Examples
