@@ -267,9 +267,13 @@ class DeepRegressor(object):
 
         if tmax is None:
             if batched:
-                tmax = np.ones(len(sim)) * 1e9
+                tmax = np.array([
+                    1e9 *  
+                    np.min([np.abs(p.P) for p in s.particles[1:s.N_real]])
+                    for s in sim])
             else:
-                tmax = 1e9
+                minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
+                tmax = 1e9 * minP
         elif batched:
             if isinstance(tmax, list):
                 tmax = np.array(tmax)
