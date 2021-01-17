@@ -333,7 +333,8 @@ class DeepRegressor(object):
         prior_above_9 (function): function defining the probability density
             function of instability times above 1e9 orbits. By default
             is a decaying prior which was fit to the training dataset.
-        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
+        Ncpus (int): Number of CPUs to use for calculation (only if
+            passing more than one simulation). Default: Use all available cpus. 
 
         Returns:
 
@@ -357,7 +358,8 @@ class DeepRegressor(object):
         else:
             out = generate_dataset(sim)
             if not isinstance(out, np.ndarray):
-                return np.ones(samples) * out
+                minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
+                return np.ones(samples) * out * minP
             Xs = np.array([out])
 
         if len(Xs) > 0:
@@ -404,17 +406,21 @@ class DeepRegressor(object):
             # print(time_estimates.shape)
             #HACK TODO - need already computed estimates
 
-        if not batched: return time_estimates[0]
+        if not batched:
+            minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
+            return time_estimates[0] * minP
 
         j = 0
         k = 0
         correct_order_results = []
         for i in range(n_sims):
+            cur_sim = sim[i]
+            minP = np.min([np.abs(p.P) for p in cur_sim.particles[1:cur_sim.N_real]])
             if i in already_computed_results_idx:
-                correct_order_results.append(already_computed_results_times[k] * np.ones(samples))
+                correct_order_results.append(already_computed_results_times[k] * np.ones(samples) * minP)
                 k += 1
             else:
-                correct_order_results.append(time_estimates[j])
+                correct_order_results.append(time_estimates[j] * minP)
                 j += 1
 
         correct_order_results = np.array(correct_order_results, dtype=np.float64)

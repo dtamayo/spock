@@ -78,10 +78,10 @@ def get_extended_tseries(sim, args, mmr=True, megno=True):
     trios = args[2]
    
     a10s = [sim.particles[trio[0]].a for trio in trios]
-    minP = np.min([p.P for p in sim.particles[1:sim.N_real]])
+    minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
 
     # want hyperbolic case to run so it raises exception
-    times = np.linspace(0, Norbits*np.abs(minP), Nout)
+    times = np.linspace(0, Norbits*minP, Nout)
     triopairs, triotseries = [], []
     # axis_labels = ['']*26
     # axis_labels[0] = 'time'
