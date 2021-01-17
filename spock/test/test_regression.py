@@ -104,6 +104,40 @@ class TestRegressor(unittest.TestCase):
         # Should get more stable:
         self.assertTrue(np.all(times[1:] > times[:-1]))
 
+    def test_time_scaling(self):
+        times = []
+        sims = []
+        mass = 3e-5
+        for P in [1, 10]:
+            sim = rebound.Simulation()
+            sim.add(m=1.)
+            sim.add(m=mass, P=1*P)
+            sim.add(m=mass, P=1.3*P)
+            sim.add(m=mass, P=1.6*P)
+            sims.append(sim)
+
+        # Second time should have ~10x larger inst time.
+        times = self.model.predict_instability_time(sims, seed=0, **SAMPLE_SETTINGS)[0]
+        # Should be much larger time:
+        self.assertGreater(times[1], 5*times[0])
+
+    def test_time_scaling_from_integration(self):
+        times = []
+        sims = []
+        mass = 1e-3
+        for P in [1, 10]:
+            sim = rebound.Simulation()
+            sim.add(m=1.)
+            sim.add(m=mass, P=1*P)
+            sim.add(m=mass, P=1.3*P)
+            sim.add(m=mass, P=1.6*P)
+            sims.append(sim)
+
+        # Second time should have ~10x larger inst time.
+        times = self.model.predict_instability_time(sims, seed=0, **SAMPLE_SETTINGS)[0]
+        # Should be much larger time:
+        self.assertGreater(times[1], 5*times[0])
+
     def test_custom_prior(self):
         mass = 1e-7
 
