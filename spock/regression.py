@@ -203,15 +203,18 @@ class DeepRegressor(object):
             Larger number increases accuracy but greatly decreases speed.
         return_samples (bool): return the raw samples as a second argument
         prior_above_9 (function): function defining the probability density
-            function of instability times above 1e9 orbits. Should take a numpy array as input
-            over log_10(T), and return a numpy array of probabilities. By default
-            this is a decaying prior which was fit to the training dataset.
-        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
+            function of instability times above 1e9 orbits of the innermost
+            planet. By default is a decaying prior which was fit to the training dataset.
+            This takes as input time in terms of the orbits of the innermost planet.
+        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation).
+            Default: Use all available cpus. 
 
         Returns:
 
-        center_estimate (float): instability time in units of initial orbit
-            of the innermost planet
+        center_estimate (float): instability time in units of
+            the rebound simulation's time units (e.g., if P=1.
+            for the innermost planet, this estimate will be
+            in units of orbits)
         lower (float): 16th percentile instability time
         upper (float): 84th percentile instability time
         [t_inst_samples (array): raw samples of the posterior]
@@ -242,22 +245,23 @@ class DeepRegressor(object):
 
         sim (rebound.Simulation or list): Orbital configuration(s) to test
         tmax (float or list): Time at which the system is queried as stable,
-            in units of orbits of the innermost planet
+            in rebound simulation time units.
         samples (int): Number of samples to use
         seed (int): Random seed
         max_model_samples (int): maximum number of times to re-generate model parameters.
             Larger number increases accuracy but greatly decreases speed.
         return_samples (bool): return the raw samples as a second argument
         prior_above_9 (function): function defining the probability density
-            function of instability times above 1e9 orbits. By default
-            is a decaying prior which was fit to the training dataset.
+            function of instability times above 1e9 orbits of the innermost
+            planet. By default is a decaying prior which was fit to the training dataset.
+            This takes as input time in terms of the orbits of the innermost planet.
         Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation).
             Default: Use all available cpus. 
 
         Returns:
 
         p (float): probability of stability past the given tmax
-            (default 1e9 orbits)
+            (default 1e9*min(P) orbits)
         [t_inst_samples (array): raw samples of the posterior]
         """
         batched = self.is_batched(sim)
@@ -335,14 +339,16 @@ class DeepRegressor(object):
         max_model_samples (int): maximum number of times to re-generate model parameters.
             Larger number increases accuracy but greatly decreases speed.
         prior_above_9 (function): function defining the probability density
-            function of instability times above 1e9 orbits. By default
-            is a decaying prior which was fit to the training dataset.
+            function of instability times above 1e9 orbits of the innermost
+            planet. By default is a decaying prior which was fit to the training dataset.
+            This takes as input time in terms of the orbits of the innermost planet.
         Ncpus (int): Number of CPUs to use for calculation (only if
             passing more than one simulation). Default: Use all available cpus. 
 
         Returns:
 
-        np.array: samples of the posterior (nsamples,) or (nsim, nsamples)
+        np.array: samples of the posterior (nsamples,) or (nsim, nsamples) for
+            instability time, in units of the rebound simulation.
         """
         batched = self.is_batched(sim)
 
