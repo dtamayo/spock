@@ -23,6 +23,6 @@ install:
 
 script:
     - if [[ $TESTPART == "PYTHON1" ]]; then cd $TRAVIS_BUILD_DIR/ && python setup.py test; fi
-      #- if [[ $TESTPART == "PYTHON1" ]]; then cd $TRAVIS_BUILD_DIR/jupyter_examples/ && python ipynb2py.py ComparingToNbody.ipynb; fi
-    - if [[ $TESTPART == "PYTHON1" ]]; then cd $TRAVIS_BUILD_DIR/jupyter_examples/ && python ipynb2py.py QuickStart.ipynb; fi
+    - if [[ $TESTPART == "PYTHON2" ]]; then cd $TRAVIS_BUILD_DIR/jupyter_examples/ && python ipynb2py.py ComparingToNbody.ipynb; fi
+    - if [[ $TESTPART == "PYTHON2" ]]; then cd $TRAVIS_BUILD_DIR/jupyter_examples/ && python ipynb2py.py QuickStart.ipynb; fi
     - if [[ $TESTPART == "PYTHON2" ]]; then cd $TRAVIS_BUILD_DIR/jupyter_examples/ && python ipynb2py.py GridOfStabilityPredictions.ipynb; fi
