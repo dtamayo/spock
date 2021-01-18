@@ -203,14 +203,18 @@ class DeepRegressor(object):
             Larger number increases accuracy but greatly decreases speed.
         return_samples (bool): return the raw samples as a second argument
         prior_above_9 (function): function defining the probability density
-            function of instability times above 1e9 orbits. By default
-            is a decaying prior which was fit to the training dataset.
-        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
+            function of instability times above 1e9 orbits of the innermost
+            planet. By default is a decaying prior which was fit to the training dataset.
+            This takes as input time in terms of the orbits of the innermost planet.
+        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation).
+            Default: Use all available cpus. 
 
         Returns:
 
-        center_estimate (float): instability time in units of initial orbit
-            of the innermost planet
+        center_estimate (float): instability time in units of
+            the rebound simulation's time units (e.g., if P=1.
+            for the innermost planet, this estimate will be
+            in units of orbits)
         lower (float): 16th percentile instability time
         upper (float): 84th percentile instability time
         [t_inst_samples (array): raw samples of the posterior]
@@ -241,21 +245,23 @@ class DeepRegressor(object):
 
         sim (rebound.Simulation or list): Orbital configuration(s) to test
         tmax (float or list): Time at which the system is queried as stable,
-            in units of initial orbit of innermost planet
+            in rebound simulation time units.
         samples (int): Number of samples to use
         seed (int): Random seed
         max_model_samples (int): maximum number of times to re-generate model parameters.
             Larger number increases accuracy but greatly decreases speed.
         return_samples (bool): return the raw samples as a second argument
         prior_above_9 (function): function defining the probability density
-            function of instability times above 1e9 orbits. By default
-            is a decaying prior which was fit to the training dataset.
-        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
+            function of instability times above 1e9 orbits of the innermost
+            planet. By default is a decaying prior which was fit to the training dataset.
+            This takes as input time in terms of the orbits of the innermost planet.
+        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation).
+            Default: Use all available cpus. 
 
         Returns:
 
         p (float): probability of stability past the given tmax
-            (default 1e9 orbits)
+            (default 1e9*min(P) orbits)
         [t_inst_samples (array): raw samples of the posterior]
         """
         batched = self.is_batched(sim)
@@ -265,9 +271,13 @@ class DeepRegressor(object):
 
         if tmax is None:
             if batched:
-                tmax = np.ones(len(sim)) * 1e9
+                tmax = np.array([
+                    1e9 *  
+                    np.min([np.abs(p.P) for p in s.particles[1:s.N_real]])
+                    for s in sim])
             else:
-                tmax = 1e9
+                minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
+                tmax = 1e9 * minP
         elif batched:
             if isinstance(tmax, list):
                 tmax = np.array(tmax)
@@ -317,7 +327,7 @@ class DeepRegressor(object):
     @profile
     def sample_instability_time(self, sim, samples=1000, seed=None,
             max_model_samples=100, prior_above_9=fitted_prior(), Ncpus=None):
-        """Return samples from a posterior over log instability time (base 10) for
+        """Return samples from a posterior over instability time for
             given simulation(s). This returns samples from a simple prior for
             all times greater than 10^9 orbits.
 
@@ -329,13 +339,16 @@ class DeepRegressor(object):
         max_model_samples (int): maximum number of times to re-generate model parameters.
             Larger number increases accuracy but greatly decreases speed.
         prior_above_9 (function): function defining the probability density
-            function of instability times above 1e9 orbits. By default
-            is a decaying prior which was fit to the training dataset.
-        Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation). Default: Use all available cpus. 
+            function of instability times above 1e9 orbits of the innermost
+            planet. By default is a decaying prior which was fit to the training dataset.
+            This takes as input time in terms of the orbits of the innermost planet.
+        Ncpus (int): Number of CPUs to use for calculation (only if
+            passing more than one simulation). Default: Use all available cpus. 
 
         Returns:
 
-        np.array: samples of the posterior (nsamples,) or (nsim, nsamples)
+        np.array: samples of the posterior (nsamples,) or (nsim, nsamples) for
+            instability time, in units of the rebound simulation.
         """
         batched = self.is_batched(sim)
 
@@ -355,7 +368,8 @@ class DeepRegressor(object):
         else:
             out = generate_dataset(sim)
             if not isinstance(out, np.ndarray):
-                return np.ones(samples) * out
+                minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
+                return np.ones(samples) * out * minP
             Xs = np.array([out])
 
         if len(Xs) > 0:
@@ -402,17 +416,21 @@ class DeepRegressor(object):
             # print(time_estimates.shape)
             #HACK TODO - need already computed estimates
 
-        if not batched: return time_estimates[0]
+        if not batched:
+            minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
+            return time_estimates[0] * minP
 
         j = 0
         k = 0
         correct_order_results = []
         for i in range(n_sims):
+            cur_sim = sim[i]
+            minP = np.min([np.abs(p.P) for p in cur_sim.particles[1:cur_sim.N_real]])
             if i in already_computed_results_idx:
-                correct_order_results.append(already_computed_results_times[k] * np.ones(samples))
+                correct_order_results.append(already_computed_results_times[k] * np.ones(samples) * minP)
                 k += 1
             else:
-                correct_order_results.append(time_estimates[j])
+                correct_order_results.append(time_estimates[j] * minP)
                 j += 1
 
         correct_order_results = np.array(correct_order_results, dtype=np.float64)

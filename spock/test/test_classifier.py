@@ -152,7 +152,7 @@ class TestClassifier(unittest.TestCase):
         sim = longstablesim()
         sim = rescale(sim, dscale=1, tscale=1e10, mscale=1)
         p1 = self.model.predict_stable(sim)
-        self.assertAlmostEqual(p0, p1, delta=1.e-2)
+        self.assertAlmostEqual(p0, p1, delta=1.e-1)
 
     def test_rescale_masses(self):
         sim = longstablesim()

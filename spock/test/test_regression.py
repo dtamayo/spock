@@ -128,6 +128,40 @@ class TestRegressor(unittest.TestCase):
         tr, upperr, lowerr = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
         self.assertAlmostEqual(t/sim.particles[1].P, tr/simr.particles[1].P, delta=np.abs((upper-lower)/10/sim.particles[1].P))
 
+    def test_time_scaling(self):
+        times = []
+        sims = []
+        mass = 3e-5
+        for P in [1, 10]:
+            sim = rebound.Simulation()
+            sim.add(m=1.)
+            sim.add(m=mass, P=1*P)
+            sim.add(m=mass, P=1.3*P)
+            sim.add(m=mass, P=1.6*P)
+            sims.append(sim)
+
+        # Second time should have ~10x larger inst time.
+        times = self.model.predict_instability_time(sims, seed=0, **SAMPLE_SETTINGS)[0]
+        # Should be much larger time:
+        self.assertGreater(times[1], 5*times[0])
+
+    def test_time_scaling_from_integration(self):
+        times = []
+        sims = []
+        mass = 1e-3
+        for P in [1, 10]:
+            sim = rebound.Simulation()
+            sim.add(m=1.)
+            sim.add(m=mass, P=1*P)
+            sim.add(m=mass, P=1.3*P)
+            sim.add(m=mass, P=1.6*P)
+            sims.append(sim)
+
+        # Second time should have ~10x larger inst time.
+        times = self.model.predict_instability_time(sims, seed=0, **SAMPLE_SETTINGS)[0]
+        # Should be much larger time:
+        self.assertGreater(times[1], 5*times[0])
+
     def test_custom_prior(self):
         mass = 1e-7
 
@@ -140,7 +174,7 @@ class TestRegressor(unittest.TestCase):
         prior = lambda logT: np.exp(-(logT - expected_center)**2/2/0.1**2)
 
         times = np.log10(self.model.predict_instability_time(sim, prior_above_9=prior, **SAMPLE_SETTINGS)[0])
-        self.assertAlmostEqual(times, expected_center, delta=1e-2)
+        self.assertAlmostEqual(times, expected_center, delta=1e-1)
     
     def test_list_time(self):
         tinst, lower, upper = self.model.predict_instability_time([hyperbolicsim(), escapesim(), unstablesim(), longstablesim()])

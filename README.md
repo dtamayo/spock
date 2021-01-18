@@ -11,6 +11,8 @@
 
 ![image](https://raw.githubusercontent.com/dtamayo/spock/master/paper_plots/spockpr.jpg)
 
+[Documentation](https://spock-instability.readthedocs.io/en/latest/)
+
 # Quickstart
 
 Let's predict the probability that a given 3-planet system is stable

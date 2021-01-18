@@ -1,6 +1,6 @@
 #@ def base_url():
 #@    if env.READTHEDOCS:
-#@      return "https://pysr.readthedocs.io/en/" + env.READTHEDOCS_VERSION + "/"
+#@      return "https://spock-instability.readthedocs.io/en/" + env.READTHEDOCS_VERSION + "/"
 #@    else:
 #@      return None
 #@ end
@@ -40,8 +40,19 @@ renderer:
       name: getting-started
       source: docs/start.md
       preamble: {weight: 1}
-    - title: API Documentation
+    - title: Feature Classifier API
       contents:
+        - spock.featureclassifier.FeatureClassifier
         - spock.featureclassifier.FeatureClassifier.*
+    - title: Nbody Regressor API
+      contents:
+        - spock.nbodyregressor.NbodyRegressor
+        - spock.nbodyregressor.NbodyRegressor.*
+    - title: Deep Regressor API
+      contents:
+        - spock.regression.DeepRegressor
+        - spock.regression.DeepRegressor.predict_instability_time
+        - spock.regression.DeepRegressor.predict_stable
+        - spock.regression.DeepRegressor.sample_instability_time
       preamble: {weight: 2}
 
