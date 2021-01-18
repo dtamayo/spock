@@ -34,8 +34,8 @@ class FeatureClassifier():
         """
         res = self.generate_features(sim, n_jobs=n_jobs)
 
-        try:
-            stable = np.array([r[1] for r in res]) 
+        try: # separate the feature dictionaries from the bool for whether it was stable over short integration
+            stable = np.array([r[1] for r in res])
             features = [r[0] for r in res]
             Nsims = len(sim)
         except:
@@ -43,7 +43,7 @@ class FeatureClassifier():
             features = [res[0]]
             Nsims = 1
 
-        # We take the negligible hit of evaluating XGBoost for all systems, and overwrite prob=0 for ones that went unstable in the short integration at the end
+        # We take the small hit of evaluating XGBoost for all systems, and overwrite prob=0 for ones that went unstable in the short integration at the end
         # array of Ntrios x 10 features to evaluate with XGboost (Nsims*Ntriospersim x 10 features)
         featurevals = np.array([[val for val in trio.values()] for system in features for trio in system]) 
         probs = self.model.predict_proba(featurevals)[:,1] # take 2nd column for probability it belongs to stable class
@@ -82,7 +82,7 @@ class FeatureClassifier():
         
         args = []
         if len(set([s.N_real for s in sim])) != 1:
-            raise ValueError("If running over many sims at once, they must have the same number of particles!")
+            raise ValueError("If running over many sims at once, they must have the same number of particles")
         for s in sim:
             s = s.copy()
             init_sim_parameters(s)
@@ -100,10 +100,10 @@ class FeatureClassifier():
         if len(args) == 1: # single sim
             res = run(args[0])    # stable will be 0 if an orbit is hyperbolic
         else:
-
             if n_jobs == -1:
                 n_jobs = cpu_count()
             pool = ThreadPool(n_jobs)
             res = pool.map(run, args)
-       
+            pool.terminate()
+            pool.join()
         return res

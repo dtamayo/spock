@@ -109,7 +109,7 @@ class TestRegressor(unittest.TestCase):
         t, upper, lower = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
 
         simr = rescale(sim, dscale=1e10, tscale=1, mscale=1)
-        tr, upperr, lowerr = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
+        tr, upperr, lowerr = self.model.predict_instability_time(simr, seed=0, **SAMPLE_SETTINGS)
         self.assertAlmostEqual(t/sim.particles[1].P, tr/simr.particles[1].P, delta=np.abs((upper-lower)/10/sim.particles[1].P))
     
     def test_rescale_times(self):
@@ -117,7 +117,7 @@ class TestRegressor(unittest.TestCase):
         t, upper, lower = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
 
         simr = rescale(sim, dscale=1, tscale=1e10, mscale=1)
-        tr, upperr, lowerr = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
+        tr, upperr, lowerr = self.model.predict_instability_time(simr, seed=0, **SAMPLE_SETTINGS)
         self.assertAlmostEqual(t/sim.particles[1].P, tr/simr.particles[1].P, delta=np.abs((upper-lower)/10/sim.particles[1].P))
 
     def test_rescale_masses(self):
@@ -125,7 +125,7 @@ class TestRegressor(unittest.TestCase):
         t, upper, lower = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
 
         simr = rescale(sim, dscale=1, tscale=1, mscale=1e10)
-        tr, upperr, lowerr = self.model.predict_instability_time(sim, seed=0, **SAMPLE_SETTINGS)
+        tr, upperr, lowerr = self.model.predict_instability_time(simr, seed=0, **SAMPLE_SETTINGS)
         self.assertAlmostEqual(t/sim.particles[1].P, tr/simr.particles[1].P, delta=np.abs((upper-lower)/10/sim.particles[1].P))
 
     def test_time_scaling(self):
