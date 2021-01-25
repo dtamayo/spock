@@ -26,6 +26,7 @@ from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool as Pool
 import rebound
+import random
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
 def fitted_prior():
@@ -353,7 +354,12 @@ class DeepRegressor(object):
         batched = self.is_batched(sim)
 
         if seed is not None:
-            pl.seed_everything(seed)
+            os.environ["PL_GLOBAL_SEED"] = str(seed)
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            if self.cuda:
+                torch.cuda.manual_seed_all(seed)
 
         if batched:
             n_sims = len(sim)
