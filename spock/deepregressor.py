@@ -5,7 +5,6 @@ import os
 from collections import OrderedDict
 from .tseries_feature_functions import get_extended_tseries
 from copy import deepcopy as copy
-from sklearn.preprocessing import StandardScaler
 import torch
 from torch import nn
 from torch.nn import Parameter
@@ -139,10 +138,8 @@ class DeepRegressor(object):
             load_swag(fname).cpu()
             for i, fname in enumerate(glob.glob(pwd + '/' + filebase)) #0.78, 0.970
         ]
-        self.ssX = StandardScaler()
-
         #Data scaling parameters:
-        self.ssX.scale_ = np.array([2.88976974e+03, 6.10019661e-02, 4.03849732e-02, 4.81638693e+01,
+        self.scale_ = np.array([2.88976974e+03, 6.10019661e-02, 4.03849732e-02, 4.81638693e+01,
                    6.72583662e-02, 4.17939679e-02, 8.15995339e+00, 2.26871589e+01,
                    4.73612029e-03, 7.09223721e-02, 3.06455099e-02, 7.10726478e-01,
                    7.03392022e-01, 7.07873597e-01, 7.06030923e-01, 7.04728204e-01,
@@ -153,7 +150,7 @@ class DeepRegressor(object):
                    7.03646004e-01, 7.08017286e-01, 7.06162814e-01, 2.12569430e-05,
                    2.35019125e-05, 2.04211110e-05, 7.51048890e-02, 3.94254400e-01,
                    7.11351099e-02])
-        self.ssX.mean_ = np.array([ 4.95458585e+03,  5.67411891e-02,  3.83176945e-02,  2.97223474e+00,
+        self.mean_ = np.array([ 4.95458585e+03,  5.67411891e-02,  3.83176945e-02,  2.97223474e+00,
                    6.29733979e-02,  3.50074471e-02,  6.72845676e-01,  9.92794768e+00,
                    9.99628430e-01,  5.39591547e-02,  2.92795061e-02,  2.12480714e-03,
                   -1.01500319e-02,  1.82667162e-02,  1.00813201e-02,  5.74404197e-03,
@@ -164,7 +161,6 @@ class DeepRegressor(object):
                   -6.00523246e-04,  6.53016990e-03, -1.72038113e-03,  1.24807860e-05,
                    1.60314173e-05,  1.21732696e-05,  5.67292645e-03,  1.92488263e-01,
                    5.08607199e-03])
-        self.ssX.var_ = self.ssX.scale_**2
 
     def sample_full_swag(self, X_sample):
         """Pick a random model from the ensemble and sample from it
@@ -383,7 +379,7 @@ class DeepRegressor(object):
             ntrios = Xs.shape[1]
             nt = 100
             X = E.rearrange(Xs, 'batch trio () time feature -> (batch trio time) feature')
-            Xp = self.ssX.transform(X)
+            Xp = (X - self.mean_[None, :]) / self.scale_[None, :]
             Xp = E.rearrange(Xp, '(batch trio time) feature -> (batch trio) time feature',
                              batch=nbatch, trio=ntrios, time=nt)
 
