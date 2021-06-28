@@ -92,9 +92,6 @@ class AnalyticalClassifier():
         Nsims = len(sim)
         
         tau = self.calc_tau(sim)
-        probs = np.maximum(1-tau, 0) 
-
-        if Nsims == 1:
-            return probs[0]
-        else:
-            return probs 
+        prob = np.maximum(1-tau, 0) 
+        
+        return prob
