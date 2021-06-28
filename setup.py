@@ -5,9 +5,6 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
-analytical_requirements = [
-    'rebound>=3.14.0', 'numpy', 'celmech'
-]
 classifier_requirements = [
     'rebound>=3.14.0', 'scikit-learn', 'xgboost>=1.1.0'
 ]
@@ -15,6 +12,9 @@ regression_requirements = [
     'matplotlib', 'pytorch_lightning>=1.0.0', 'torch>=1.5.1', 'torchvision',
     'scipy', 'rebound>=3.14.0', 'scikit-learn', 'einops', 'matplotlib', 'numpy',
     'pandas'
+]
+analytical_requirements = [
+    'rebound>=3.14.0', 'numpy', 'celmech'
 ]
 
 regression_models = [
@@ -83,7 +83,7 @@ setup(name='spock',
     keywords='astronomy astrophysics exoplanets stability',
     packages=['spock'],
     package_data={'spock': ['models/featureclassifier.json'] + regression_models},
-    install_requires=list(set(analytical_requirements + classifier_requirements + regression_requirements)),
+    install_requires=list(set(classifier_requirements + regression_requirements + analytical_requirements)),
     tests_require=["numpy"],
     test_suite="spock.test",
     zip_safe=False)
