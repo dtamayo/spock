@@ -52,7 +52,7 @@ print(int(median))
 The returned time is expressed in the time units used in setting up the REBOUND Simulation above.
 Since we set the innermost planet orbit to unity, this corresponds to 242570 innermost planet orbits.
 
-Finally, we can compare these results to the semi-analytic criterion of [Tamayo et al., 2021]() for how likely the configuration is to be dynamically chaotic.
+Finally, we can compare these results to the semi-analytic criterion of [Tamayo et al., 2021]() for how likely the configuration is to be dynamically chaotic. .
 This is not a one-to-one comparison, but configurations that are chaotic through two-body MMR overlap are generally unstable on long timescales (see paper and examples).
 
 ```python
@@ -63,7 +63,9 @@ print(analytical_model.predict_stable(sim))
 # >>> 0.0
 ```
 
-See Quickstart.ipynb in jupyter\_examples for more information about the analytical model.
+To match up with the above classifiers, the analytical classifier returns the probability the configuration is *regular*, i.e., not chaotic.
+A probability of zero therefore corresponds to confidently chaotic.
+See [this example](https://github.com/dtamayo/spock/blob/master/jupyter_examples/QuickStart.ipynb) for more information about the analytical model.
 
 # Examples
 
