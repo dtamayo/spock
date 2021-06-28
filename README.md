@@ -13,37 +13,57 @@
 
 [Documentation](https://spock-instability.readthedocs.io/en/latest/)
 
+The SPOCK package incorporates several machine learning and analytical tools for estimating the stability of compact planetary configurations.
+All estimators use a common API to facilitate comparisons between them and with N-body integrations.
+
 # Quickstart
 
 Let's predict the probability that a given 3-planet system is stable
-past 1 billion orbits with the XGBoost-based classifier, and then compute its
-median expected instability time with the deep regressor:
+past 1 billion orbits with the XGBoost-based classifier of [Tamayo et al., 2020](http://arxiv.org/abs/2007.06521).
 
 ```python
 import rebound
-from spock import FeatureClassifier, DeepRegressor
+from spock import FeatureClassifier
 feature_model = FeatureClassifier()
-deep_model = DeepRegressor()
 
 sim = rebound.Simulation()
 sim.add(m=1.)
-sim.add(m=1.e-5, P=1., e=0.03, l=0.3)
-sim.add(m=1.e-5, P=1.2, e=0.03, l=2.8)
-sim.add(m=1.e-5, P=1.5, e=0.03, l=-0.5)
+sim.add(m=1.e-5, P=1., e=0.03, pomega=2., l=0.5)
+sim.add(m=1.e-5, P=1.2, e=0.03, pomega=3., l=3.)
+sim.add(m=1.e-5, P=1.5, e=0.03, pomega=1.5, l=2.)
 sim.move_to_com()
 
-# XGBoost-based classifier
 print(feature_model.predict_stable(sim))
-# >>> 0.011505529
+# >>> 0.06591137
+```
 
-# Bayesian neural net-based regressor
+That model provides a simple scalar probability of stability over a billion orbits. 
+We can instead estimate its median expected instability time using the deep regressor from [Cranmer et al., 2021](https://arxiv.org/abs/2101.04117).
+
+```python
+from spock import DeepRegressor
+deep_model = DeepRegressor()
+
 median, lower, upper = deep_model.predict_instability_time(sim, samples=10000)
 print(int(median))
-# >>> 419759
-
-# This time in the time units you used in setting up the REBOUND Simulation above
-# Since we set the innermost planet orbit to unity, this corresponds to 419759 innermost planet orbits
+# >>> 242570.1378387966
 ```
+
+The returned time is expressed in the time units used in setting up the REBOUND Simulation above.
+Since we set the innermost planet orbit to unity, this corresponds to 242570 innermost planet orbits.
+
+Finally, we can compare these results to the semi-analytic criterion of [Tamayo et al., 2021]() for how likely the configuration is to be dynamically chaotic.
+This is not a one-to-one comparison, but configurations that are chaotic through two-body MMR overlap are generally unstable on long timescales (see paper and examples).
+
+```python
+from spock import AnalyticalClassifier
+analytical_model = AnalyticalClassifier()
+
+print(analytical_model.predict_stable(sim))
+# >>> 0.0
+```
+
+See Quickstart.ipynb in jupyter\_examples for more information about the analytical model.
 
 # Examples
 
