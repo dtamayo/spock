@@ -8,7 +8,7 @@
 [![image](https://img.shields.io/badge/launch-binder-ff69b4.svg?style=flat)](http://mybinder.org/repo/dtamayo/spock)
 [![image](http://img.shields.io/badge/arXiv-2007.06521-green.svg?style=flat)](http://arxiv.org/abs/2007.06521)
 [![image](http://img.shields.io/badge/arXiv-2101.04117-green.svg?style=flat)](https://arxiv.org/abs/2101.04117)
-
+[![image](http://img.shields.io/badge/arXiv-2106.14863-green.svg?style=flat)](https://arxiv.org/abs/2106.14863)
 ![image](https://raw.githubusercontent.com/dtamayo/spock/master/paper_plots/spockpr.jpg)
 
 [Documentation](https://spock-instability.readthedocs.io/en/latest/)
@@ -52,7 +52,7 @@ print(int(median))
 The returned time is expressed in the time units used in setting up the REBOUND Simulation above.
 Since we set the innermost planet orbit to unity, this corresponds to 242570 innermost planet orbits.
 
-Finally, we can compare these results to the semi-analytic criterion of [Tamayo et al., 2021]() for how likely the configuration is to be dynamically chaotic. .
+Finally, we can compare these results to the semi-analytic criterion of [Tamayo et al., 2021](https://arxiv.org/abs/2106.14863) for how likely the configuration is to be dynamically chaotic. .
 This is not a one-to-one comparison, but configurations that are chaotic through two-body MMR overlap are generally unstable on long timescales (see paper and examples).
 
 ```python
