@@ -3,7 +3,7 @@ import os
 import rebound
 from xgboost import XGBClassifier
 from .feature_functions import features
-from .simsetup import init_sim_parameters, check_valid_sim, check_hyperbolic
+from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
 
