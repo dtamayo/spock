@@ -6,16 +6,16 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 classifier_requirements = [
-    'rebound==3.16.0', 'scikit-learn', 'xgboost>=1.1.0'
-] # > 3.14.0
+    'rebound>=3.14.0', 'scikit-learn', 'xgboost>=1.1.0'
+]
 regression_requirements = [
     'matplotlib', 'pytorch_lightning>=1.0.0', 'torch>=1.5.1', 'torchvision',
-    'scipy', 'rebound==3.16.0', 'scikit-learn', 'einops', 'matplotlib', 'numpy',
+    'scipy', 'rebound>=3.14.0', 'scikit-learn', 'einops', 'matplotlib', 'numpy',
     'pandas'
-] # > 3.14.0
+]
 analytical_requirements = [
-    'rebound==3.16.0', 'numpy', 'celmech'
-] # > 3.14.0
+    'rebound>=3.14.0', 'numpy', 'celmech'
+]
 
 regression_models = [
 'models/regression/steps=300000_megno=0_angles=1_power=0_hidden=40_latent=20_nommr=1_nonan=1_noeplusminus=1_v50_0_output.pkl',
