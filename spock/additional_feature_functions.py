@@ -2,8 +2,8 @@ import rebound
 import numpy as np
 import pandas as pd
 from collections import OrderedDict
-from spock.feature_functions import get_pairs, find_strongest_MMR, populate_trio
-from spock.AMD_functions import AMD, AMD_crit
+from feature_functions import get_pairs, find_strongest_MMR, populate_trio
+from AMD_functions import AMD, AMD_crit
 
 def additional_get_tseries(sim, args):
     Norbits = args[0]

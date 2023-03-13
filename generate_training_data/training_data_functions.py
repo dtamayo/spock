@@ -2,7 +2,10 @@ import rebound
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
-from spock.simsetup import init_sim_parameters
+import sys
+sys.path.append('../spock')
+sys.path.append('../../spock')
+from simsetup import init_sim_parameters
 
 def training_data(row, safolder, runfunc, args):
     try:
@@ -30,5 +33,5 @@ def gen_training_data(outputfolder, safolder, runfunc, args):
     testres = training_data(df.loc[0], safolder, runfunc, args) # Choose formatting based on selected runfunc return type
 
     metadf = pd.DataFrame([testres]) # make single row dataframe to autodetect meta
-    res = ddf.apply(training_data, axis=1, meta=metadf, args=(safolder, runfunc, args)).compute(scheduler='processes')
+    res = ddf.apply(training_data, axis=1, meta=metadf, args=(safolder, runfunc, args)).compute()
     res.to_csv(outputfolder+'/trainingdata.csv')
