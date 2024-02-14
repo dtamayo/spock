@@ -50,12 +50,12 @@ class NbodyRegressor():
                 if archive_interval is None:
                     archive_interval = tmax[i]/1000
                 if len(sim) == 1: # single sim
-                    s.automateSimulationArchive(archive_filename, archive_interval, deletefile=True)
+                    s.save_to_file(archive_filename, archive_interval, delete_file=True)
                 else: # strip final extension and add an index for each simarchive
                     ext = archive_filename.split('.')[-1]
                     len_ext = len(ext)+1
                     filename = "{0}_{1}.{2}".format(archive_filename[:-len_ext], i, ext)
-                    s.automateSimulationArchive(filename, archive_interval, deletefile=True)
+                    s.save_to_file(filename, archive_interval, delete_file=True)
             args.append([s, tmax[i]])
         
         def run(params):
@@ -66,7 +66,7 @@ class NbodyRegressor():
                 sim.integrate(tmax, exact_finish_time=0)
             except (rebound.Collision, rebound.Escape):
                 if sim._simulationarchive_filename:
-                    sim.simulationarchive_snapshot(sim._simulationarchive_filename.decode('utf-8'))
+                    sim.save_to_file(sim._simulationarchive_filename.decode('utf-8'))
                 return sim.t
            
             return tmax

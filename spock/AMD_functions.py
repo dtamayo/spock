@@ -48,7 +48,7 @@ def AMD(sim2):
     except: # old version of REBOUND doesn't have a copy function (for random dataset), but all those were already moved to com so OK
         sim = sim2
     ps = sim.particles
-    Lx, Ly, Lz = sim.calculate_angular_momentum()
+    Lx, Ly, Lz = sim.angular_momentum()
     L = np.sqrt(Lx**2 + Ly**2 + Lz**2)
     Lcirc = 0
     Mint = ps[0].m
