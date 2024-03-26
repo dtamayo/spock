@@ -6,16 +6,16 @@ import sys
 import warnings
 warnings.filterwarnings('ignore') # to suppress warnings about REBOUND versions that I've already tested
 from collections import OrderedDict
-from training_data_functions import gen_training_data
 sys.path.append(os.path.join(sys.path[0], '..'))
+from training_data_functions import gen_training_data
 from feature_functions import features
 from additional_feature_functions import additional_features
 
 runfunc = features
-datapath = '../data/'
+csvpath = '../csvs/'
 repopath = '../'
 
-datasets = 'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
+datasets = ['resonant']#'all' # either a list of folders ([resonant, TTVsystems/Kepler-431]) or 'all' or 'ttv' to expand
 
 kwargs = OrderedDict()
 kwargs['Norbits'] = 1e4
@@ -40,28 +40,15 @@ if not already_exists: # store a copy of this script in generate_data so we can 
 # if it does exist don't overwrite since we don't want to overwrite history
 
 if datasets == 'all':
-    datasets = ['random', 'resonant', 'TTVsystems/KOI-1576/', 'nonressystems/Kepler-431/']
+    datasets = ['random', 'resonant']#, 'TTVsystems/KOI-1576/', 'nonressystems/Kepler-431/']
 
 for dataset in list(datasets):
-    if dataset == 'random':
-        if rebound.__githash__ != '4a6c79ae14ffde27828dd9d1f8d8afeba94ef048':
-            print('random dataset not run. Check out rebound commit 4a6c79ae14ffde27828dd9d1f8d8afeba94ef048 (HEAD of spockrandomintegrations branch on dtamayo/rebound fork) and rerun script if needed')
-            continue 
-    else:
-        if rebound.__githash__ != '6fb912f615ca542b670ab591375191d1ed914672':
-            print('{0} dataset not run. Check out rebound commit 6fb912f615ca542b670ab591375191d1ed914672 and rerun script if needed'.format(dataset))
-            continue 
+    outputfolder = repopath + 'training_data/' + dataset + '/' + foldername
+    csvfolder = csvpath + '/' + dataset + '/'
 
-    safolder = datapath + dataset + '/simulation_archives/runs/'
-    trainingdatafolder = repopath + 'training_data/' + dataset + '/'
-
-    already_exists = call('mkdir "' + trainingdatafolder + foldername + '"', shell=True)
+    already_exists = call('mkdir "' + outputfolder + '"', shell=True)
     if already_exists:
-        print('output folder already exists at {0}. Remove it if you want to regenerate'.format(trainingdatafolder+foldername))
+        print('output folder already exists at {0}. Remove it if you want to regenerate'.format(outputfolder))
         continue
-    call('cp "' + trainingdatafolder + 'labels.csv" "' + trainingdatafolder + foldername + '"', shell=True)
-    call('cp "' + trainingdatafolder + 'massratios.csv" "' + trainingdatafolder + foldername + '"', shell=True)
-    call('cp "' + trainingdatafolder + 'runstrings.csv" "' + trainingdatafolder + foldername + '"', shell=True)
-
-    print(trainingdatafolder + foldername)
-    gen_training_data(trainingdatafolder + foldername, safolder, runfunc, list(kwargs.values()))
+    
+    gen_training_data(outputfolder, csvfolder, runfunc, list(kwargs.values()))

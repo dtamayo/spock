@@ -20,7 +20,7 @@ for key, val in kwargs.items():
         foldername += '{0}{1}'.format(key, val)
 
 if datasets == 'all':
-    datasets = ['random', 'resonant', 'TTVsystems/KOI-1576/', 'nonressystems/Kepler-431/']
+    datasets = ['random', 'resonant']#, 'TTVsystems/KOI-1576/', 'nonressystems/Kepler-431/']
 
 for dataset in list(datasets):
     folder = datapath + dataset + '/'
