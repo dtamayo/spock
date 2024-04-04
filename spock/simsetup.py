@@ -1,7 +1,7 @@
 import numpy as np
 import rebound
 
-def get_sim(row, csvfolder='../csvs'):
+def get_sim(row, csvfolder):
     try:
         ics = np.loadtxt(csvfolder+'/initial_conditions.csv', delimiter=',',dtype=np.float64)
         # get corresponding row: ics is indexed using the index of runstrings.csv (which don't correspond with runstring, e.g.,
