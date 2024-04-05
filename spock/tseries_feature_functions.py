@@ -49,11 +49,11 @@ def populate_extended_trio(sim, trio, pairs, tseries, i, a10, axis_labels=None, 
         axis_labels[7] = 'megno'
 
     if megno:
-        tseries[i,7] = sim.calculate_megno() # megno
+        tseries[i,7] = sim.megno() # megno
     else:
         tseries[i,7] = 0.0
 
-    orbits = sim.calculate_orbits()
+    orbits = sim.orbits()
     for j, k in enumerate(trio):
         o = orbits[k-1]
         tseries[i, 8+6*j] = o.a/a10
@@ -127,7 +127,7 @@ def populate_trio(sim, trio, pairs, tseries, i):
         tseries[i,Ns*q+2] = np.sqrt((m1*e1x + m2*e2x)**2 + (m1*e1y + m2*e2y)**2)/(m1+m2)
         j, k, tseries[i,Ns*q+3] = find_strongest_MMR(sim, i1, i2) 
 
-    tseries[i,7] = sim.calculate_megno() # megno
+    tseries[i,7] = sim.megno() # megno
 
 def get_tseries(sim, args):
     Norbits = args[0]

@@ -2,7 +2,7 @@ import numpy as np
 import rebound
 
 def check_hyperbolic(sim):
-    orbits = sim.calculate_orbits()
+    orbits = sim.orbits()
     amin = np.min([o.a for o in orbits])
     if amin < 0: # at least one orbit is hyperbolic (a<0)
         return True

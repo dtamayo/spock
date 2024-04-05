@@ -17,9 +17,9 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 import math
 try:
-    from torch import inf
-except:
     from torch._six import inf
+except ModuleNotFoundError:
+    from torch import inf
 from functools import wraps
 import warnings
 from torch.optim.optimizer import Optimizer

@@ -93,7 +93,7 @@ def populate_trio(sim, trio, pairs, tseries, i):
         tseries[i,Ns*q+2] = np.sqrt((m1*e1x + m2*e2x)**2 + (m1*e1y + m2*e2y)**2)/(m1+m2)
         j, k, tseries[i,Ns*q+3] = find_strongest_MMR(sim, i1, i2) 
 
-    tseries[i,7] = sim.calculate_megno() # megno
+    tseries[i,7] = sim.megno() # megno
 
 def get_tseries(sim, args):
     Norbits = args[0]
