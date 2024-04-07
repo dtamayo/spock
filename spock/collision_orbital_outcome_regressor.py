@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import torch
-from .iterative_model import get_sim_copy, align_simulation, get_rad, perfect_merge
+from .giant_impact_phase_emulator import get_sim_copy, align_simulation, get_rad, perfect_merge
 
 #calculate log(1 + erf(x)) with an approx analytic continuation for x < -1 (from Cranmer et al. 2021)
 def safe_log_erf(x):
@@ -175,10 +175,9 @@ class reg_MLP(torch.nn.Module):
         return Ys
     
 #collision outcome model class
-class CollisionRegressor():
-    
+class CollisionOrbitalOutcomeRegressor():
     #load regression model
-    def __init__(self, class_model_file='col_regression.torch'):
+    def __init__(self, class_model_file='collision_orbital_outcome_regressor.torch'):
         pwd = os.path.dirname(__file__)
         self.reg_model = torch.load(pwd + '/models/' + class_model_file, map_location=torch.device('cpu'))
   

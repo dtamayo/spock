@@ -6,6 +6,7 @@ from .deepregressor import DeepRegressor
 from .nbodyregressor import NbodyRegressor
 from .analyticalclassifier import AnalyticalClassifier
 from .version import __version__
-from .classification_model import class_MLP, CollisionClassifier
-from .regression_model import reg_MLP, CollisionRegressor
-__all__ = ["FeatureClassifier", "DeepRegressor", "NbodyRegressor", "AnalyticalClassifier", "class_MLP", "reg_MLP", "CollisionClassifier", "CollisionRegressor"]
+from .collision_merger_classifier import class_MLP, CollisionMergerClassifier
+from .collision_orbital_outcome_regressor import reg_MLP, CollisionOrbitalOutcomeRegressor
+from .giant_impact_phase_emulator import GiantImpactPhaseEmulator
+__all__ = ["FeatureClassifier", "DeepRegressor", "NbodyRegressor", "AnalyticalClassifier", "class_MLP", "reg_MLP", "CollisionMergerClassifier", "CollisionOrbitalOutcomeRegressor", "GiantImpactPhaseEmulator"]

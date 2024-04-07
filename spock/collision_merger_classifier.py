@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import torch
-from .iterative_model import get_sim_copy, align_simulation, get_rad, perfect_merge
+from .giant_impact_phase_emulator import get_sim_copy, align_simulation, get_rad, perfect_merge
 
 #pytorch MLP class
 class class_MLP(torch.nn.Module):
@@ -144,10 +144,10 @@ class class_MLP(torch.nn.Module):
         return Ys
 
 #collision classification model class
-class CollisionClassifier():
+class CollisionMergerClassifier():
     
     #load classification model
-    def __init__(self, class_model_file='col_classification.torch'):
+    def __init__(self, class_model_file='collision_merger_classifier.torch'):
         pwd = os.path.dirname(__file__)
         self.class_model = torch.load(pwd + '/models/' + class_model_file, map_location=torch.device('cpu'))
   

@@ -11,13 +11,6 @@ def get_rad(m):
     rad = (m/(2.7*3.0e-6))**(1/1.3)
     return rad*4.26e-4 #units of innermost a (assumed to be ~0.1AU)
 
-#get number of planets for list of sims
-def get_Npls(sims):
-    Npls = []
-    for i in range(len(sims)):
-        Npls.append(len(sims[i].particles) - 1)
-    return Npls
-
 #calculate the angles by which system must be rotated to have z-axis aligned with L
 def _compute_transformation_angles(sim):
     Gtot_vec = np.array(sim.angular_momentum())
@@ -93,10 +86,9 @@ def perfect_merge(sim_pointer, collided_particles_index):
     return 2 #remove particle with index j
 
 #planet formation simulation model
-class PlanetFormationMap():
-    
+class GiantImpactPhaseEmulator():
     #initialize function
-    def __init__(self, reg_model_file='col_regression.torch', class_model_file='col_classification.torch'):
+    def __init__(self, sims, reg_model_file='collision_orbital_outcome_regressor.torch', class_model_file='collision_merger_classifier.torch'):
         #load regression and classification models
         pwd = os.path.dirname(__file__)
         self.reg_model = torch.load(pwd + '/models/' + reg_model_file, map_location=torch.device('cpu'))
@@ -104,6 +96,11 @@ class PlanetFormationMap():
 
         #load SPOCK model
         self.deep_model = DeepRegressor()
+
+        try:
+            self.sims = [self.run_short_sim(sim) for sim in sims]
+        except:
+            self.sims = [self.run_short_sim(sims)] # single simulation
 
     #replace particle in sim with new state (in place)
     def replace_p(self, sim, p_ind, new_particle):
@@ -229,7 +226,8 @@ class PlanetFormationMap():
     def get_unstable_trios(self, sims):
         trio_sims = []
         trio_inds = []
-        Npls = get_Npls(sims)
+        Npls = [sim.N-1 for sim in sims]
+        
         for i in range(len(sims)):
             for j in range(Npls[i] - 2):
                 trio_inds.append([j+1, j+2, j+3])
@@ -252,7 +250,7 @@ class PlanetFormationMap():
         return min_t_insts, min_trio_inds
 
     #return new sims in which planets have been merged
-    def MLP_merge_planets(self, sims, trio_inds):
+    def MLP_merge_planets(self, sims, trio_inds, times_after_merge):
         mlp_inputs = []
         thetas = []
         done_sims = []
@@ -341,8 +339,11 @@ class PlanetFormationMap():
                 #replace trio with predicted duo (or single/zero if planets have unphysical orbital elements)
                 new_sims.append(self.replace_trio(sims[i], trio_inds[i], new_state_sim, thetas[k][0], thetas[k][1]))
                 k += 1
-                    
-        return new_sims
+        
+        for i, sim in enumerate(sims):
+            idx = self.sims.index(sim) # find index in original list
+            self.sims[idx] = new_sims[i]
+            self.sims[idx].t = times_after_merge[i]
 
     def run_short_sim(self, original_sim):
         Npl = len(original_sim.particles) - 1
@@ -382,63 +383,35 @@ class PlanetFormationMap():
 
         return sim
     
-    #get predicted final system configuration for list of sims
-    def predict_final_system(self, sims, t_max=1e9, run_short_sim=True):
-        #check if input is a single sim or a list of sims
-        single_sim = False
-        if type(sims) != list:
-            sims = [sims]
-            single_sim = True
+    def integrate(self, tmax=1e9):
+        while np.min([sim.t for sim in self.sims]) < tmax: # take another step if any sims are still at t<tmax
+            self.step(tmax)
+    
+    def step(self, tmax):
+        for sim in self.sims:
+            if sim.N < 4:
+                sim.t = tmax
         
-        #before starting iterative loop, integrate the sims for 1e4 and handle collisions
-        if run_short_sim:
-            cur_sims = []
-            for i in range(len(sims)):
-                cur_sims.append(self.run_short_sim(sims[i]))
-        else:
-            cur_sims = sims
-        
-        #get instability times for initial conditions
-        t_insts, trio_inds = self.get_unstable_trios(cur_sims)
-
-        #iterative loop
-        while np.min(t_insts) < t_max:
-            #get list of sims for which planets need to be merged
-            merge_sims = []
-            merge_trio_inds = []
-            merge_sims_inds = []
-            for i in range(len(cur_sims)):
-                if t_insts[i] < t_max:
-                    merge_sims.append(cur_sims[i])
-                    merge_trio_inds.append(trio_inds[i])
-                    merge_sims_inds.append(i)
-
-            #get new sims with planets merged
-            new_merged_sims = self.MLP_merge_planets(merge_sims, merge_trio_inds)
-
-            #get list of sims for which we need to estimate instability times
-            cur_sims_sub = []
-            cur_sims_inds = []
-            for i in range(len(new_merged_sims)):
-                cur_sims[merge_sims_inds[i]] = new_merged_sims[i] #update cur_sims
-
-                if len(new_merged_sims[i].particles) > 3:
-                    cur_sims_sub.append(new_merged_sims[i])
-                    cur_sims_inds.append(merge_sims_inds[i])
-                else:
-                    t_insts[merge_sims_inds[i]] = t_max + 5.0
-
-            #estimate instability times for the subset of systems
-            if len(cur_sims_sub) > 0:
-                t_insts_sub, trio_inds_sub = self.get_unstable_trios(cur_sims_sub)
-
-                #update t_insts and trio_inds arrays
-                for i in range(len(t_insts_sub)):
-                    t_insts[cur_sims_inds[i]] = t_insts_sub[i]
-                    trio_inds[cur_sims_inds[i]] = trio_inds_sub[i]
-
-        #return sim object if the user passed a single sim
-        if single_sim:
-            cur_sims = cur_sims[0]
-        
-        return cur_sims
+        sims_to_update = [sim for sim in self.sims if sim.t < tmax]
+        #estimate instability times for the subset of systems
+        if len(sims_to_update) == 0:
+            return
+    
+        t_insts, trio_inds = self.get_unstable_trios(sims_to_update)
+  
+        #get list of sims for which planets need to be merged
+        sims_to_merge = []
+        trios_to_merge = []
+        times_after_merge = []
+        for i, sim in enumerate(sims_to_update):
+            idx = self.sims.index(sim)      # get index in original list
+            time_after_merge = sim.t + t_insts[i]
+            if time_after_merge > tmax:   # won't merge before tmax, so update to tmax
+                self.sims[idx].t = tmax
+            else:
+                sims_to_merge.append(sim)
+                trios_to_merge.append(trio_inds[i])
+                times_after_merge.append(time_after_merge)
+                
+        #get new sims with planets merged
+        self.MLP_merge_planets(sims_to_merge, trios_to_merge, times_after_merge)
