@@ -388,7 +388,7 @@ class GiantImpactPhaseEmulator():
             self.step(tmax)
     
     def step(self, tmax):
-        for sim in self.sims:
+        for sim in self.sims: # assume all 2 planet systems (N=3) are stable (could modify to Hill stability criterion)
             if sim.N < 4:
                 sim.t = tmax
         
