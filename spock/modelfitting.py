@@ -4,54 +4,19 @@ from sklearn.metrics import roc_curve, confusion_matrix, auc
 from sklearn import metrics
 import numpy as np
 
-def hasnull(row):
-    numnulls = row.isnull().sum()
-    if numnulls == 0:
-        return 0
-    else:
-        return 1
-
-def train_test_split(trainingdatafolder, features=None, labelname='Stable', filter=False, filtertimes=False):
-    dataset = pd.read_csv(trainingdatafolder+"trainingdata.csv", index_col = 0)
-    if features is None:
-        features = dataset.columns.values
-    dataset['hasnull'] = dataset.apply(hasnull, axis=1)
-
-    labels = pd.read_csv(trainingdatafolder+"labels.csv", index_col=0)
-    if filter:
-        y = labels[(labels['instability_time'] > 1.e4) & (dataset['hasnull'] == 0)][labelname]
-        X = dataset[(labels['instability_time'] > 1.e4) & (dataset['hasnull'] == 0)][features]
-    elif filtertimes:
-        y = labels[labels['instability_time'] > 1.e4][labelname]
-        X = dataset[labels['instability_time'] > 1.e4][features]
-    else:
-        y = labels[labelname]
-        X = dataset[features]
-
-    Nrows = int(0.8*X.shape[0])
-    trainX = X.iloc[:Nrows, :]
-    trainy = y.iloc[:Nrows]
-    testX = X.iloc[Nrows:, :]
-    testy = y.iloc[Nrows:]
-
-    return trainX, trainy, testX, testy
-
-def ROC_curve(trainingdatafolder, model, features=None, filter=False, filtertimes=False):
-    trainX, trainy, testX, testy = train_test_split(trainingdatafolder, features, filter=filter, filtertimes=filtertimes)
+def ROC_curve(model, testX, testy):
     preds = model.predict_proba(testX)[:,1]
     fpr, tpr, ROCthresholds = roc_curve(testy, preds)
     roc_auc = metrics.roc_auc_score(testy, preds)
     return roc_auc, fpr, tpr, ROCthresholds
 
-def PR_curve(trainingdatafolder, model, features=None, filter=False, filtertimes=False):
-    trainX, trainy, testX, testy = train_test_split(trainingdatafolder, features, filter=filter, filtertimes=filtertimes)
+def PR_curve(model, testX, testy):
     preds = model.predict_proba(testX)[:,1]
     precision, recall, PRthresholds = precision_recall_curve(testy, preds)
     pr_auc = metrics.auc(recall, precision)
     return pr_auc, precision, recall, PRthresholds
 
-def tnr_npv_curve(trainingdatafolder, model, features=None, filter=False, filtertimes=False, N=1000):
-    trainX, trainy, testX, testy = train_test_split(trainingdatafolder, features, filter=filter, filtertimes=filtertimes)
+def tnr_npv_curve(model, testX, testy, N=1000):
     preds = model.predict_proba(testX)[:,1]
     npv, tnr = np.zeros(N), np.zeros(N)
     thresholds = np.linspace(0, 1, N)
@@ -65,15 +30,13 @@ def tnr_npv_curve(trainingdatafolder, model, features=None, filter=False, filter
     aucval = auc(tnr, npv)
     return aucval, npv, tnr, thresholds
 
-def stable_unstable_hist(trainingdatafolder, model, features=None, filter=False, filtertimes=False):
-    trainX, trainy, testX, testy = train_test_split(trainingdatafolder, features, filter=filter, filtertimes=filtertimes)
+def stable_unstable_hist(model, testX, testy):
     preds = model.predict_proba(testX)[:,1]
     stablepreds = preds[np.where(testy==1)]
     unstablepreds = preds[np.where(testy==0)]
     return stablepreds, unstablepreds 
 
-def calibration_plot(trainingdatafolder, model, features=None, bins=10, filter=False, filtertimes=False):
-    trainX, trainy, testX, testy = train_test_split(trainingdatafolder, features, filter=filter, filtertimes=filtertimes)
+def calibration_plot(model, testX, testy, bins=10):
     preds = model.predict_proba(testX)[:,1]
 
     hist, edges = np.histogram(preds, bins=bins)
@@ -91,11 +54,9 @@ def calibration_plot(trainingdatafolder, model, features=None, bins=10, filter=F
 
     return np.array(bincenters), np.array(fracstable), np.array(errorbars)
 
-def unstable_error_fraction(trainingdatafolder, model, thresh, features=None, bins=10, filter=False, filtertimes=False):
-    trainX, trainy, testX, testy = train_test_split(trainingdatafolder, features, filter=filter, filtertimes=filtertimes)
+def unstable_error_fraction(model, testX, testy, test_tinst, thresh, bins=10): 
     preds = model.predict_proba(testX)[:,1]
-    dummy, dummy, dummy, inst_times = train_test_split(trainingdatafolder, features, labelname='instability_time', filter=filter, filtertimes=filtertimes)
-    log_inst_times = np.log10(inst_times)
+    log_inst_times = np.log10(test_tinst)
     
     unstable = log_inst_times < 8.99
     preds = preds[unstable]
