@@ -11,7 +11,10 @@ readme-content-type = "text/markdown"
 requires-python = ">=3.6"
 license = {file = "LICENSE"}
 authors = [
-    {name = "Daniel Tamayo", email = "tamayo.daniel@gmail.com"}
+    {name = "Daniel Tamayo", email = "tamayo.daniel@gmail.com"},
+    {name = "Miles Cranmer", email = "miles.cranmer@gmail.com"},
+    {name = "Hanno Rein", email = "hanno@hanno-rein.de"},
+    {name = "Caleb Lammers", email = "cl5968@princeton.edu"}
 ]
 keywords = ["astronomy", "astrophysics", "exoplanets", "stability"]
 classifiers = [
