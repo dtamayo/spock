@@ -32,12 +32,11 @@ dependencies = [
     "matplotlib",                #            regressor
     "pytorch_lightning>=1.0.0",  #            regressor
     "torch>=1.5.1",              #            regressor
-    "torchvision",               #            regressor
     "scipy",                     #            regressor
     "einops",                    #            regressor
     "numpy",                     #            regressor analytical
     "pandas",                    #            regressor
-    "celmech"                    #                      analytical
+    "celmech>=1.5.0,<1.6.0"      #                      analytical
 ]
 
 [project.urls]
