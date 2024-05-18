@@ -1,9 +1,9 @@
 import numpy as np
 import os
 import torch
-from .giant_impact_phase_emulator import get_sim_copy, align_simulation, get_rad, perfect_merge
+from .simsetup import get_sim_copy, align_simulation, get_rad, perfect_merge
 
-#calculate log(1 + erf(x)) with an approx analytic continuation for x < -1 (from Cranmer et al. 2021)
+# calculate log(1 + erf(x)) with an approx analytic continuation for x < -1 (from Cranmer et al. 2021)
 def safe_log_erf(x):
     base_mask = x < -1
     value_giving_zero = torch.zeros_like(x, device=x.device)
@@ -18,7 +18,7 @@ def safe_log_erf(x):
     
     return f_under(x_under) + f_over(x_over)
 
-#custom loss function that uses MSE + a log(erf) term
+# custom loss function that uses MSE + a log(erf) term
 class Loss_Func(torch.nn.Module):
     def __init__(self, maxes):
         super(Loss_Func, self).__init__()
@@ -27,11 +27,11 @@ class Loss_Func(torch.nn.Module):
     def forward(self, predictions, targets):
         return torch.mean(safe_log_erf(self.maxes - predictions) + (predictions - targets)**2)
         
-#pytorch MLP
+# pytorch MLP
 class reg_MLP(torch.nn.Module):
     
-    #initialize pytorch MLP with specified number of input/hidden/output nodes
-    def __init__(self, n_feature, n_hidden, n_output, num_hidden_layers, dropout_p):
+    # initialize pytorch MLP with specified number of input/hidden/output nodes
+    def __init__(self, n_feature, n_hidden, n_output, num_hidden_layers):
         super(reg_MLP, self).__init__()
         self.input = torch.nn.Linear(n_feature, n_hidden).to("cuda")
         self.predict = torch.nn.Linear(n_hidden, n_output).to("cuda")
@@ -40,11 +40,7 @@ class reg_MLP(torch.nn.Module):
         for i in range(num_hidden_layers-1):
             self.hiddens.append(torch.nn.Linear(n_hidden, n_hidden).to("cuda"))
 
-        self.dropouts = []
-        for i in range(num_hidden_layers):
-            self.dropouts.append(torch.nn.Dropout(dropout_p).to("cuda"))
-
-        #means and standard deviations for re-scaling inputs
+        # means and standard deviations for re-scaling inputs
         self.mass_means = np.array([-5.47074599, -5.50485362, -5.55107994])
         self.mass_stds = np.array([0.86575343, 0.86634857, 0.80166568])
         self.orb_means = np.array([1.10103604e+00, 1.34531896e+00, 1.25862804e+00, -1.44014696e+00,
@@ -65,25 +61,23 @@ class reg_MLP(torch.nn.Module):
         self.input_means = np.concatenate((self.mass_means, np.tile(self.orb_means, 100)))
         self.input_stds = np.concatenate((self.mass_stds, np.tile(self.orb_stds, 100)))
 
-    #function to compute output pytorch tensors from input
+    # function to compute output pytorch tensors from input
     def forward(self, x):
         x = torch.relu(self.input(x))
-        x = self.dropouts[0](x)
 
-        for i in range(len(self.hiddens)):
-            x = torch.relu(self.hiddens[i](x))
-            x = self.dropouts[i+1](x)
+        for hidden_layer in self.hiddens:
+             x = torch.relu(hidden_layer(x))
 
         x = self.predict(x)
         return x
 
-    #function to get means and stds from time series inputs
+    # function to get means and stds from time series inputs
     def get_means_stds(self, inputs, min_nt=5):
         masses = inputs[:,:3]
         orb_elements = inputs[:,3:].reshape((len(inputs), 100, 21))
 
         if self.training:
-            #add statistical noise
+            # add statistical noise
             nt = np.random.randint(low=min_nt, high=101) #select nt randomly from 5-100
             rand_inds = np.random.choice(100, size=nt, replace=False) #choose timesteps without replacement
             means = torch.mean(orb_elements[:,rand_inds,:], dim=1)
@@ -93,69 +87,68 @@ class reg_MLP(torch.nn.Module):
             rand_stds = torch.normal(stds, stds/((2*nt - 2)**0.5))
             pooled_inputs = torch.concatenate((masses, rand_means, rand_stds), dim=1)
         else:
-            #no statistical noise
+            # no statistical noise
             means = torch.mean(orb_elements, dim=1)
             stds = torch.std(orb_elements, dim=1)
             pooled_inputs = torch.concatenate((masses, means, stds), dim=1)
 
         return pooled_inputs
 
-    #training function
+    # training function
     def train_model(self, Xs, Ys, learning_rate=1e-3, weight_decay=0.0, min_nt=5, epochs=1000, batch_size=2000):
-        #normalize inputs and outputs
+        # normalize inputs and outputs
         Xs = (Xs - self.input_means)/self.input_stds
         Ys = (Ys - self.output_means)/self.output_stds
 
-        #split training data
+        # split training data
         x_train, x_eval, y_train, y_eval = train_test_split(Xs, Ys, test_size=0.2, shuffle=False)
         x_train_var, y_train_var = torch.tensor(x_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.float32)
         x_validate, y_validate = torch.tensor(x_eval, dtype=torch.float32), torch.tensor(y_eval, dtype=torch.float32)
 
-        #create Data Loader
+        # create Data Loader
         dataset = TensorDataset(x_train_var, y_train_var)
         train_loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
 
-        #specify loss function and optimizer
+        # specify loss function and optimizer
         loss_fn = Loss_Func(self.output_maxes)
-        #loss_fn = torch.nn.MSELoss()
         optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-        #main training loop
+        # main training loop
         lossvals, test_lossvals = np.zeros((epochs,)), np.zeros((epochs,))
         num_steps = 0
         for i in range(epochs):
             cur_losses = []
             cur_test_losses = []
             for inputs, labels in train_loader:
-                #clear gradient buffers
+                # clear gradient buffers
                 optimizer.zero_grad()
 
-                #get model predictions on training batch
+                # get model predictions on training batch
                 self.train()
                 inputs  = inputs.to("cuda")
                 pooled_inputs = self.get_means_stds(inputs, min_nt=min_nt)
                 output = self(pooled_inputs)
 
-                #get model predictions on full test set
+                # get model predictions on full test set
                 self.eval()
                 x_validate = x_validate.to("cuda")
                 with torch.no_grad():
                     pooled_x_validate = self.get_means_stds(x_validate, min_nt=min_nt)
                     test_output = self(pooled_x_validate)
 
-                #get losses
+                # get losses
                 output, labels, y_validate  = output.to("cuda"), labels.to("cuda"), y_validate.to("cuda")
                 loss = loss_fn(output, labels)
                 test_loss = loss_fn(test_output, y_validate)
 
-                #get gradients with respect to parameters
+                # get gradients with respect to parameters
                 loss.backward()
 
-                #save losses
+                # save losses
                 cur_losses.append(loss.item())
                 cur_test_losses.append(test_loss.item())
 
-                #update parameters
+                # update parameters
                 optimizer.step()
                 num_steps += 1
 
@@ -164,7 +157,7 @@ class reg_MLP(torch.nn.Module):
 
         return lossvals, test_lossvals, num_steps
 
-    #function to make predictions with trained model (takes and return numpy array)
+    # function to make predictions with trained model (takes and return numpy array)
     def make_pred(self, Xs):
         self.eval()
         Xs = (Xs - self.input_means)/self.input_stds
@@ -174,27 +167,27 @@ class reg_MLP(torch.nn.Module):
         
         return Ys
     
-#collision outcome model class
+# collision outcome model class
 class CollisionOrbitalOutcomeRegressor():
-    #load regression model
+    # load regression model
     def __init__(self, class_model_file='collision_orbital_outcome_regressor.torch'):
         pwd = os.path.dirname(__file__)
         self.reg_model = torch.load(pwd + '/models/' + class_model_file, map_location=torch.device('cpu'))
   
-    #function to run short integration
+    # function to run short integration
     def generate_input(self, sim, trio_inds=[1, 2, 3]):
-        #get three-planet sim
-        trio_sim = get_sim_copy(sim, len(sim.particles)-1, trio_inds)
+        # get three-planet sim
+        trio_sim = get_sim_copy(sim, trio_inds)
         ps = trio_sim.particles
         
-        #align z-axis with direction of angular momentum
+        # align z-axis with direction of angular momentum
         _, _ = align_simulation(trio_sim)
 
-        #assign planet radii
+        # assign planet radii
         for i in range(1, len(ps)):
             ps[i].r = get_rad(ps[i].m)
 
-        #set integration settings
+        # set integration settings
         trio_sim.integrator = 'mercurius'
         trio_sim.collision = 'direct'
         trio_sim.collision_resolve = perfect_merge
@@ -205,12 +198,14 @@ class CollisionOrbitalOutcomeRegressor():
 
         times = np.linspace(0.0, 1e4, 100)
         states = [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]
-        for i in range(len(times)):
-            trio_sim.integrate(times[i], exact_finish_time=0)
+        
+        for t in times:
+            trio_sim.integrate(t, exact_finish_time=0)
 
-            #check for merger
+            # check for merger
             if len(ps) == 4:
-                if ps[1].inc == 0.0 or ps[2].inc == 0.0 or ps[3].inc == 0.0: #use very small inclinations to avoid -inf
+                if ps[1].inc == 0.0 or ps[2].inc == 0.0 or ps[3].inc == 0.0:
+                    # use very small inclinations to avoid -inf
                     states.extend([ps[1].a, ps[2].a, ps[3].a,
                                    np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
                                    -3.0, -3.0, -3.0,
@@ -219,7 +214,7 @@ class CollisionOrbitalOutcomeRegressor():
                                    np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
                                    np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
                 else:
-                    states.extend([ps[1].a, ps[2].a, ps[3].a, #save state
+                    states.extend([ps[1].a, ps[2].a, ps[3].a,
                                    np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
                                    np.log10(ps[1].inc), np.log10(ps[2].inc), np.log10(ps[3].inc),
                                    np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
@@ -236,40 +231,40 @@ class CollisionOrbitalOutcomeRegressor():
 
         return np.array(states)
     
-    #function to predict collision outcomes given one or more rebound sims
+    # function to predict collision outcomes given one or more rebound sims
     def predict_collision_outcome(self, sims, trio_inds=None, collision_inds=None):
-        #check if input is a single sim or a list of sims
+        # check if input is a single sim or a list of sims
         single_sim = False
         if type(sims) != list:
             sims = [sims]
             collision_inds = [collision_inds]
             single_sim = True
 
-        #if trio_inds was not provided, assume first three planets
+        # if trio_inds was not provided, assume first three planets
         if trio_inds is None:
             trio_inds = []
             for i in range(len(sims)):
                 trio_inds.append([1, 2, 3])
                 
-        #if collision_inds was not provided, assume collisions occur between planets 1 and 2
+        # if collision_inds was not provided, assume collisions occur between planets 1 and 2
         if collision_inds is None:
             collision_inds = []
             for i in range(len(sims)):
                 collision_inds.append([1, 2])
                 
-        #record a1s
+        # record a1s
         a1s = np.zeros(len(sims))
-        for i in range(len(sims)):
-            a1s[i] = sims[i].particles[1].a
+        for sim in sims:
+            a1s[i] = sim.particles[1].a
         
         mlp_inputs = []
         outcomes = []
         done_inds = []
-        for i in range(len(sims)):
-            out = self.generate_input(sims[i], trio_inds[i])
+        for i, sim in enumerate(sims):
+            out = self.generate_input(sim, trio_inds[i])
 
             if len(out) > 6:
-                #re-order input states based on which two planets collide
+                # re-order input states based on which two planets collide
                 masses = out[:3]
                 orb_elements = out[3:]
                 if collision_inds[i] == [1, 2] or collision_inds[i] == [2, 1]:
@@ -286,7 +281,7 @@ class CollisionOrbitalOutcomeRegressor():
                 
                 mlp_inputs.append(np.concatenate((ordered_masses, ordered_orb_elements)))
             else:
-                #planets collided in less than 10^4 orbits
+                # planets collided in less than 10^4 orbits
                 outcomes.append(out)
                 done_inds.append(i)
 
@@ -295,8 +290,8 @@ class CollisionOrbitalOutcomeRegressor():
             mlp_outcomes = self.reg_model.make_pred(mlp_inputs)
 
         final_outcomes = []
-        j = 0 #ind for new sims array
-        k = 0 #ind for mlp prediction arrays
+        j = 0 # index for new sims array
+        k = 0 # index for mlp prediction arrays
         for i in range(len(sims)):
             if i in done_inds:
                 final_outcomes.append(outcomes[j])
@@ -305,7 +300,7 @@ class CollisionOrbitalOutcomeRegressor():
                 final_outcomes.append(mlp_outcomes[k])
                 k += 1
         
-        #convert back to units of a1 and from log(e) -> e, log(inc) -> inc
+        # convert back to units of a1 and from log(e) -> e, log(inc) -> inc
         final_outcomes = np.array(final_outcomes)
         final_outcomes[:,0] = a1s*final_outcomes[:,0]
         final_outcomes[:,1] = a1s*final_outcomes[:,1]
@@ -314,7 +309,7 @@ class CollisionOrbitalOutcomeRegressor():
         final_outcomes[:,4] = 10**final_outcomes[:,4]
         final_outcomes[:,5] = 10**final_outcomes[:,5]
         
-        #re-order outputs based on semi-major axes
+        # re-order outputs based on semi-major axes
         for i in range(len(final_outcomes)):
             if final_outcomes[i][1] < final_outcomes[i][0]:
                 final_outcomes[i] = np.array([final_outcomes[i][1], final_outcomes[i][0], final_outcomes[i][3],\
