@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,6 @@ name = "spock"
 version = "1.6.0"
 description = "Stability of Planetary Orbital Configurations Klassifier"
 readme = "README.md"
-readme-content-type = "text/markdown"
 requires-python = ">=3.6"
 license = {file = "LICENSE"}
 authors = [
@@ -44,12 +43,6 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/dtamayo/spock"
 
-[tool.setuptools.package-data]
-"spock" = [
-    "models/featureclassifier.json",
-    "models/regression/steps=300000*.pkl"
-]
-
 [tool.setuptools]
-test_suite = "spock.test"
-zip_safe = false
+packages = ["spock"]
+package-data = {spock = ["models/featureclassifier.json", "models/regression/steps=300000*.pkl"]}

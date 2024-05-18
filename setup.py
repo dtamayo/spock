@@ -1,8 +1,14 @@
 import os
 from setuptools import setup
 
+kwargs = dict(
+    test_suite="spock.test",
+    zip_safe=False,
+)
+
 if os.path.exists(".git"):
     kwargs = {
+        **kwargs,
         "use_scm_version": {
             "write_to": "spock/version.py",
         },
@@ -22,6 +28,7 @@ else:
         f.write(f'__version__ = "{version}"')
 
     kwargs = {
+        **kwargs,
         "use_scm_version": False,
         "version": version,
     }
