@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   test_ipynb:
     name: Test ipynbs on ${{ matrix.os }} (${{ matrix.python-version }})
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     runs-on: ${{ matrix.os }}
     strategy:

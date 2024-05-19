@@ -6,7 +6,7 @@ jobs:
   unit_tests:
     name: Unit tests on ${{ matrix.os }} (${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 30
     strategy:
       matrix:
         os: [ubuntu-latest, macos-11]
