@@ -2,8 +2,6 @@ import pickle as pkl
 from copy import deepcopy as copy
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, PowerTransformer
-import matplotlib as mpl
-mpl.use('agg')
 import numpy as np
 import torch
 from torch import nn

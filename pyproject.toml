@@ -29,7 +29,6 @@ dependencies = [
     "rebound>=3.14.0",           # classifier regressor analytical
     "scikit-learn",              # classifier regressor
     "xgboost>=1.1.0",            # classifier 
-    "matplotlib",                #            regressor
     "torch>=1.5.1",              #            regressor
     "safetensors>=0.4.0,<0.5.0", #            regressor
     "scipy",                     #            regressor
@@ -51,6 +50,7 @@ rye = { dev-dependencies = [
     "ipython>=8.24.0",
     "jupyter>=1.0.0",
     "ipykernel>=6.29.4",
+    "matplotlib>=3.9.0",
 ] }
 
 [tool.setuptools_scm]
