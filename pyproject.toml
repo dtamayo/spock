@@ -30,7 +30,6 @@ dependencies = [
     "scikit-learn",              # classifier regressor
     "xgboost>=1.1.0",            # classifier 
     "matplotlib",                #            regressor
-    "pytorch_lightning>=1.0.0",  #            regressor
     "torch>=1.5.1",              #            regressor
     "scipy",                     #            regressor
     "einops",                    #            regressor

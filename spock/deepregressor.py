@@ -12,7 +12,6 @@ from torch.autograd import Variable
 from torch.functional import F
 import glob
 from .spock_reg_model import load_swag
-from pytorch_lightning import Trainer
 import torch
 import time
 import pickle as pkl
@@ -20,7 +19,6 @@ import warnings
 import einops as E
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
-import pytorch_lightning as pl
 from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool as Pool

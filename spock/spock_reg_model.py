@@ -12,9 +12,8 @@ from torch.autograd import Variable
 import sys
 import torch.nn.functional as F
 from torch.nn import Parameter
-import math
-import pytorch_lightning as pl
-from pytorch_lightning import Trainer
+from safetensors.torch import load_file as load_safetensors
+import json
 import math
 try:
     from torch._six import inf
@@ -338,7 +337,7 @@ def safe_log_erf(x):
 
 EPSILON = 1e-5
 
-class VarModel(pl.LightningModule):
+class VarModel(nn.Module):
     """Bayesian Neural Network model for predicting instability time"""
     def __init__(self, hparams):
         super().__init__()
@@ -931,4 +930,20 @@ def load_swag(path):
     swag_model.w2_avg = save_items['w2_avg']
     swag_model.pre_D = save_items['pre_D']
     
+    return swag_model
+
+def load_swag_safetensors(basepath):
+    json_path = basepath + ".json"
+    with open(json_path, "r") as f:
+        params = json.load(f)
+    tensors = load_safetensors(basepath + ".safetensors", device="cpu")
+
+    swag_model = (
+        SWAGModel(params['hparams'])
+        .init_params(params['swa_params'])
+    )
+    swag_model.w_avg = tensors['w_avg']
+    swag_model.w2_avg = tensors['w2_avg']
+    swag_model.pre_D = tensors['pre_D']
+
     return swag_model
