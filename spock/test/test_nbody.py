@@ -1,9 +1,12 @@
-import numpy as np
 import unittest
+
+import numpy as np
 import rebound
+
 from spock import NbodyRegressor
-from spock.simsetup import init_sim_parameters
 from spock.feature_functions import features
+from spock.simsetup import init_sim_parameters
+
 
 def unstablesim():
     sim = rebound.Simulation()

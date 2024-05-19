@@ -1,11 +1,14 @@
-import numpy as np
 import os
-import rebound
-from xgboost import XGBClassifier
-from .feature_functions import features
-from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
+
+import numpy as np
+import rebound
+from xgboost import XGBClassifier
+
+from .feature_functions import features
+from .simsetup import init_sim_parameters
+
 
 class FeatureClassifier():
     def __init__(self, modelfile='featureclassifier.json'):

@@ -1,11 +1,14 @@
-import rebound
+import sys
+
+import dask.dataframe as dd
 import numpy as np
 import pandas as pd
-import dask.dataframe as dd
-import sys
+import rebound
+
 sys.path.append('../spock')
 sys.path.append('../../spock')
 from simsetup import init_sim_parameters
+
 
 def training_data(row, safolder, runfunc, args):
     try:

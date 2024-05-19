@@ -1,7 +1,9 @@
-import rebound
 import unittest
-from spock import NbodyRegressor, DeepRegressor
+
 import numpy as np
+import rebound
+
+from spock import DeepRegressor, NbodyRegressor
 
 SAMPLE_SETTINGS = dict(samples=1000, max_model_samples=30)
 

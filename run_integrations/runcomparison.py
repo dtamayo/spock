@@ -1,10 +1,11 @@
-import rebound
-from multiprocessing import Pool
-from itertools import repeat
-from runfunctions import run_random
-import pandas as pd
-import sys
 import math
+import sys
+from itertools import repeat
+from multiprocessing import Pool
+
+import pandas as pd
+import rebound
+from runfunctions import run_random
 
 N_systems=2000
 tmax = 1.e6

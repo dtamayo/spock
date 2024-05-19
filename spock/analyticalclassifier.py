@@ -1,11 +1,14 @@
-import rebound
-import numpy as np
-from celmech.secular import LaplaceLagrangeSystem
-from celmech import Poincare
+from itertools import combinations
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
-from itertools import combinations
+
+import numpy as np
+import rebound
+from celmech import Poincare
+from celmech.secular import LaplaceLagrangeSystem
+
 from .simsetup import init_sim_parameters
+
 
 def eminus_max(lsys, Lambda, i1, i2):
     if i1 > i2:

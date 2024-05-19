@@ -1,5 +1,6 @@
-from runfunctions import run_resonant
 import sys
+
+from runfunctions import run_resonant
 
 seed = int(sys.argv[1])
 runstring = sys.argv[2]
