@@ -11,7 +11,7 @@ from torch.nn import Parameter
 from torch.autograd import Variable
 from torch.functional import F
 import glob
-from .spock_reg_model import load_swag
+from .spock_reg_model import load_swag_safetensors
 import torch
 import time
 import pickle as pkl
@@ -125,16 +125,19 @@ def fast_truncnorm(
     return t_inst_samples.reshape(*oldscale.shape)
 
 class DeepRegressor(object):
-    def __init__(self, cuda=False, filebase='*v50_*output.pkl'):
-        super(DeepRegressor, self).__init__()
+    def __init__(self, cuda=False, filebase='ensemble_part_*json'):
+        super().__init__()
         pwd = os.path.dirname(__file__)
         pwd = pwd + '/models/regression'
         self.cuda = cuda
 
         #Load model
+        all_model_param_filenames = glob.glob(pwd + '/' + filebase)
+        all_model_param_filenames.sort()
+        model_basenames = [".".join(fname.split(".")[:-1]) for fname in all_model_param_filenames]
         self.swag_ensemble = [
-            load_swag(fname).cpu()
-            for i, fname in enumerate(glob.glob(pwd + '/' + filebase)) #0.78, 0.970
+            load_swag_safetensors(base_fname)
+            for base_fname in model_basenames
         ]
         #Data scaling parameters:
         self.scale_ = np.array([2.88976974e+03, 6.10019661e-02, 4.03849732e-02, 4.81638693e+01,
