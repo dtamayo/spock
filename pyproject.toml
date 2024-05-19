@@ -47,6 +47,13 @@ test = [
 [project.urls]
 Homepage = "https://github.com/dtamayo/spock"
 
+[tool]
+rye = { dev-dependencies = [
+    "ipython>=8.24.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.29.4",
+] }
+
 [tool.setuptools_scm]
 version_scheme = "release-branch-semver"
 
