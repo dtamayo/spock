@@ -47,6 +47,9 @@ test = [
 [project.urls]
 Homepage = "https://github.com/dtamayo/spock"
 
+[tool.setuptools_scm]
+version_scheme = "release-branch-semver"
+
 [tool.setuptools]
 packages = ["spock"]
 package-data = {spock = ["models/featureclassifier.json", "models/regression/steps=300000*.pkl"]}
