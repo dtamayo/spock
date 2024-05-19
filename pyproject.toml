@@ -7,7 +7,7 @@ name = "spock"
 version = "1.7.1"
 description = "Stability of Planetary Orbital Configurations Klassifier"
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.9"  # Limited by pytensor (<= celmech)
 license = {file = "LICENSE"}
 authors = [
     {name = "Daniel Tamayo", email = "tamayo.daniel@gmail.com"},
