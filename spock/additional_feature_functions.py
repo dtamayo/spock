@@ -1,8 +1,9 @@
 from collections import OrderedDict
 
 import numpy as np
-from AMD_functions import AMD, AMD_crit
-from feature_functions import find_strongest_MMR, get_pairs, populate_trio
+
+from .AMD_functions import AMD, AMD_crit
+from .feature_functions import find_strongest_MMR, get_pairs, populate_trio
 
 
 def additional_get_tseries(sim, args):
