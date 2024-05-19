@@ -52,4 +52,4 @@ version_scheme = "release-branch-semver"
 
 [tool.setuptools]
 packages = ["spock"]
-package-data = {spock = ["models/featureclassifier.json", "models/regression/steps=300000*.pkl"]}
+package-data = {spock = ["models/featureclassifier.json", "models/regression/ensemble_part_*"]}
