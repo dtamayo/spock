@@ -3,7 +3,7 @@
 
 ## Installation
 
-SPOCK is compatible with both Linux and Mac. 
+SPOCK is compatible with both Linux and Mac.
 
 Install with:
 

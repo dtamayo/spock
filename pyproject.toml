@@ -28,7 +28,7 @@ classifiers = [
 dependencies = [
     "rebound>=3.14.0",           # classifier regressor analytical
     "scikit-learn",              # classifier regressor
-    "xgboost>=1.1.0",            # classifier 
+    "xgboost>=1.1.0",            # classifier
     "torch>=1.5.1",              #            regressor
     "safetensors>=0.4.0,<0.5.0", #            regressor
     "scipy",                     #            regressor
@@ -48,13 +48,17 @@ test = [
 [project.urls]
 Homepage = "https://github.com/dtamayo/spock"
 
-[tool]
-rye = { dev-dependencies = [
+[tool.rye]
+dev-dependencies = [
     "ipython>=8.24.0",
     "jupyter>=1.0.0",
     "ipykernel>=6.29.4",
     "matplotlib>=3.9.0",
-] }
+    "pre-commit>=3.7.1",
+]
+
+[tool.isort]
+profile = "black"
 
 [tool.setuptools_scm]
 version_scheme = "release-branch-semver"
