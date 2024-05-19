@@ -76,8 +76,8 @@ class NbodyRegressor():
         else:
             if n_jobs == -1:
                 n_jobs = cpu_count()
-            pool = ThreadPool(n_jobs)
-            tinst = np.array(pool.map(run, args))
+            with ThreadPool(n_jobs) as pool:
+                tinst = np.array(pool.map(run, args))
         
         # Uncertainty estimates come from Hussain & Tamayo 2020. Extra factor of sqrt(2) comes from fact that in addition to having a spread in instability times from chaos, we don't know where the mean is from a single integration. See paper
         lower = 10**(np.log10(tinst)-np.sqrt(2)*0.43)
