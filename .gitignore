@@ -14,3 +14,4 @@ spock/models/nbody.json
 dist/*
 temp.bin
 spock/test/temp.bin
+spock/version.py

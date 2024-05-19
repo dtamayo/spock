@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spock"
+version = "1.6.0"
+description = "Stability of Planetary Orbital Configurations Klassifier"
+readme = "README.md"
+requires-python = ">=3.6"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Daniel Tamayo", email = "tamayo.daniel@gmail.com"},
+    {name = "Miles Cranmer", email = "miles.cranmer@gmail.com"},
+    {name = "Hanno Rein", email = "hanno@hanno-rein.de"},
+    {name = "Caleb Lammers", email = "cl5968@princeton.edu"}
+]
+keywords = ["astronomy", "astrophysics", "exoplanets", "stability"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3"
+]
+dependencies = [
+    "rebound>=3.14.0",           # classifier regressor analytical
+    "scikit-learn",              # classifier regressor
+    "xgboost>=1.1.0",            # classifier 
+    "matplotlib",                #            regressor
+    "pytorch_lightning>=1.0.0",  #            regressor
+    "torch>=1.5.1",              #            regressor
+    "scipy",                     #            regressor
+    "einops",                    #            regressor
+    "numpy",                     #            regressor analytical
+    "pandas",                    #            regressor
+    "celmech>=1.5.0,<1.6.0"      #                      analytical
+]
+
+[project.optional-dependencies]
+test = [
+    "IPython"
+]
+
+[project.urls]
+Homepage = "https://github.com/dtamayo/spock"
+
+[tool.setuptools]
+packages = ["spock"]
+package-data = {spock = ["models/featureclassifier.json", "models/regression/steps=300000*.pkl"]}
