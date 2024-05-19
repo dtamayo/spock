@@ -2,25 +2,17 @@ import pickle as pkl
 from copy import deepcopy as copy
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, PowerTransformer
-import matplotlib as mpl
-mpl.use('agg')
 import numpy as np
-from matplotlib import pyplot as plt
 import torch
 from torch import nn
 from torch.autograd import Variable
-import sys
-import torch.nn.functional as F
-from torch.nn import Parameter
-import math
-import pytorch_lightning as pl
-from pytorch_lightning import Trainer
+from safetensors.torch import load_file as load_safetensors
+import json
 import math
 try:
     from torch._six import inf
 except ModuleNotFoundError:
     from torch import inf
-from functools import wraps
 import warnings
 from torch.optim.optimizer import Optimizer
 from collections import OrderedDict
@@ -338,7 +330,7 @@ def safe_log_erf(x):
 
 EPSILON = 1e-5
 
-class VarModel(pl.LightningModule):
+class VarModel(nn.Module):
     """Bayesian Neural Network model for predicting instability time"""
     def __init__(self, hparams):
         super().__init__()
@@ -382,8 +374,8 @@ class VarModel(pl.LightningModule):
         hparams['weight_decay'] = 1e-4 if 'weight_decay' not in hparams else hparams['weight_decay']
         hparams['noisy_val'] = True if 'noisy_val' not in hparams else hparams['noisy_val']
 
-        # self.hparams = hparams
-        self.save_hyperparameters()
+        self.hparams = hparams
+        # self.save_hyperparameters()
         self.steps = hparams['steps']
         self.batch_size = hparams['batch_size']
         self.lr = hparams['lr'] #init_lr
@@ -691,7 +683,8 @@ class VarModel(pl.LightningModule):
 
 class SWAGModel(VarModel):
     """Use .load_from_checkpoint(checkpoint_path) to initialize a SWAG model"""
-    def init_params(self, swa_params):
+    def __init__(self, hparams, swa_params):
+        super().__init__(hparams)
         self.swa_params = swa_params
         self.swa_params['swa_lr'] = 0.001 if 'swa_lr' not in self.swa_params else self.swa_params['swa_lr']
         self.swa_params['swa_start'] = 1000 if 'swa_start' not in self.swa_params else self.swa_params['swa_start']
@@ -705,8 +698,6 @@ class SWAGModel(VarModel):
         self.c = 2 if 'c' not in self.swa_params else self.swa_params['c']
         self.swa_params['c'] = self.c
         self.swa_params['K'] = self.K
-
-        return self
 
     def configure_optimizers(self):
         opt1 = torch.optim.SGD(self.parameters(), lr=self.swa_params['swa_lr'], momentum=self.hparams['momentum'], weight_decay=self.hparams['weight_decay'])
@@ -785,6 +776,10 @@ class SWAGModel(VarModel):
                     
 
         self.n_models += 1
+
+    @property
+    def device(self):
+        return next(self.parameters()).device
 
     def validation_step(self, batch, batch_idx):
         X_sample, y_sample = batch
@@ -923,12 +918,22 @@ def save_swag(swag_model, path):
     
 def load_swag(path):
     save_items = torch.load(path)
-    swag_model = (
-        SWAGModel(save_items['hparams'])
-        .init_params(save_items['swa_params'])
-    )
+    swag_model = SWAGModel(save_items['hparams'], save_items['swa_params'])
     swag_model.w_avg = save_items['w_avg']
     swag_model.w2_avg = save_items['w2_avg']
     swag_model.pre_D = save_items['pre_D']
     
+    return swag_model
+
+def load_swag_safetensors(basepath):
+    json_path = basepath + ".json"
+    with open(json_path, "r") as f:
+        params = json.load(f)
+    tensors = load_safetensors(basepath + ".safetensors", device="cpu")
+
+    swag_model = SWAGModel(params['hparams'], params['swa_params'])
+    swag_model.w_avg = tensors['w_avg']
+    swag_model.w2_avg = tensors['w2_avg']
+    swag_model.pre_D = tensors['pre_D']
+
     return swag_model

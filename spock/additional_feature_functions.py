@@ -1,6 +1,4 @@
-import rebound
 import numpy as np
-import pandas as pd
 from collections import OrderedDict
 from feature_functions import get_pairs, find_strongest_MMR, populate_trio
 from AMD_functions import AMD, AMD_crit

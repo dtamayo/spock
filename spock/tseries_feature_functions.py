@@ -1,10 +1,7 @@
 import rebound
 import numpy as np
-import itertools
 from scipy.optimize import brenth
 from collections import OrderedDict
-import warnings
-import pandas as pd
 from .feature_functions import find_strongest_MMR
 
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer

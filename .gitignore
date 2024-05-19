@@ -4,6 +4,7 @@
 __pycache__/
 */.ipynb_checkpoints/
 spock.egg-info/
+build
 training_data/
 data*
 paper_plots/*.csv
