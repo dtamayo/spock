@@ -1,4 +1,3 @@
-import pandas as pd
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import roc_curve, confusion_matrix, auc
 from sklearn import metrics
@@ -12,6 +11,7 @@ def hasnull(row):
         return 1
 
 def train_test_split(trainingdatafolder, features=None, labelname='Stable', filter=False, filtertimes=False):
+    import pandas as pd
     dataset = pd.read_csv(trainingdatafolder+"trainingdata.csv", index_col = 0)
     if features is None:
         features = dataset.columns.values

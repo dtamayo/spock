@@ -35,7 +35,6 @@ dependencies = [
     "scipy",                     #            regressor
     "einops",                    #            regressor
     "numpy",                     #            regressor analytical
-    "pandas",                    #            regressor
     "celmech>=1.5.0,<1.6.0"      #                      analytical
 ]
 
