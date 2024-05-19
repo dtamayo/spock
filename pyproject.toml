@@ -39,7 +39,10 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "IPython"
+    "IPython",
+    "matplotlib",
+    "pandas",
+    "jupyter"
 ]
 
 [project.urls]
