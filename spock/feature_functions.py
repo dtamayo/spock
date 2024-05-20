@@ -1,6 +1,8 @@
-import rebound
-import numpy as np
 from collections import OrderedDict
+
+import numpy as np
+import rebound
+
 
 ######################### Taken from celmech github.com/shadden/celmech
 def farey_sequence(n):

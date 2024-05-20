@@ -37,22 +37,28 @@ print(feature_model.predict_stable(sim))
 # >>> 0.06591137
 ```
 
-That model provides a simple scalar probability of stability over a billion orbits. 
+That model provides a simple scalar probability of stability over a billion orbits.
 We can instead estimate its median expected instability time using the deep regressor from [Cranmer et al., 2021](https://arxiv.org/abs/2101.04117).
 
 ```python
+import numpy as np
 from spock import DeepRegressor
 deep_model = DeepRegressor()
 
-median, lower, upper = deep_model.predict_instability_time(sim, samples=10000)
-print(int(median))
-# >>> 242570.1378387966
+median, lower, upper, samples = deep_model.predict_instability_time(
+    sim, samples=10000, return_samples=True, seed=0
+)
+print(10**np.average(np.log10(samples)))  # Expectation of log-normal
+# >>> 414208.4307974086
+
+print(median)
+# >>> 223792.38826507595
 ```
 
 The returned time is expressed in the time units used in setting up the REBOUND Simulation above.
 Since we set the innermost planet orbit to unity, this corresponds to 242570 innermost planet orbits.
 
-Finally, we can compare these results to the semi-analytic criterion of [Tamayo et al., 2021](https://arxiv.org/abs/2106.14863) for how likely the configuration is to be dynamically chaotic. .
+Finally, we can compare these results to the semi-analytic criterion of [Tamayo et al., 2021](https://arxiv.org/abs/2106.14863) for how likely the configuration is to be dynamically chaotic.
 This is not a one-to-one comparison, but configurations that are chaotic through two-body MMR overlap are generally unstable on long timescales (see paper and examples).
 
 ```python

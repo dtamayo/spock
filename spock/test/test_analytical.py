@@ -1,8 +1,11 @@
-import rebound
 import unittest
+
+import rebound
+
 from spock import AnalyticalClassifier, NbodyRegressor
 from spock.feature_functions import get_tseries
 from spock.simsetup import init_sim_parameters
+
 
 def unstablesimecc():
     sim = rebound.Simulation()
@@ -91,7 +94,7 @@ class TestClassifier(unittest.TestCase):
         sim = longstablesim()
         nbody = NbodyRegressor()
         nbody.predict_stable(sim, tmax=1e4, archive_filename='temp.bin', archive_interval=1.e4)
-        sa = rebound.SimulationArchive('temp.bin')
+        sa = rebound.Simulationarchive('temp.bin')
         sim = sa[-1]
         x2 = sim.particles[1].x
         self.assertAlmostEqual(x1, x2, delta=1.e-5)

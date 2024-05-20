@@ -1,6 +1,7 @@
-import rebound
 import numpy as np
+import rebound
 from scipy.optimize import brenth
+
 
 def F(e,alpha,gamma):
     """Equation 35 of Laskar & Petit (2017)"""

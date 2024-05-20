@@ -1,6 +1,7 @@
 import numpy as np
 import rebound
 
+
 def check_hyperbolic(sim):
     orbits = sim.orbits()
     amin = np.min([o.a for o in orbits])

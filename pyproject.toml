@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spock"
+version = "1.7.3"
+description = "Stability of Planetary Orbital Configurations Klassifier"
+readme = "README.md"
+requires-python = ">=3.9"  # Limited by pytensor (<= celmech)
+license = {file = "LICENSE"}
+authors = [
+    {name = "Daniel Tamayo", email = "tamayo.daniel@gmail.com"},
+    {name = "Miles Cranmer", email = "miles.cranmer@gmail.com"},
+    {name = "Hanno Rein", email = "hanno@hanno-rein.de"},
+    {name = "Caleb Lammers", email = "cl5968@princeton.edu"}
+]
+keywords = ["astronomy", "astrophysics", "exoplanets", "stability"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3"
+]
+dependencies = [
+    "rebound>=4.0.1,<5.0.0",            # classifier regressor analytical
+    "scikit-learn<2.0.0",               # classifier regressor
+    "xgboost>=1.1.0,<2.0.0",            # classifier
+    "torch>=1.5.1,<2.0.0",              #            regressor
+    "safetensors>=0.4.0,<0.5.0",        #            regressor
+    "scipy<2.0.0",                      #            regressor
+    "einops<0.9.0",                     #            regressor
+    "numpy<2.0.0",                      #            regressor analytical
+    "celmech>=1.5.0,<1.6.0"             #                      analytical
+]
+
+[project.optional-dependencies]
+test = [
+    "IPython",
+    "matplotlib",
+    "pandas",
+    "jupyter"
+]
+
+[project.urls]
+Homepage = "https://github.com/dtamayo/spock"
+
+[tool.rye]
+dev-dependencies = [
+    "ipython>=8.24.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.29.4",
+    "matplotlib>=3.9.0",
+    "pre-commit>=3.7.1",
+    "pandas>=2.2.2",
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.setuptools_scm]
+version_scheme = "release-branch-semver"
+
+[tool.setuptools]
+packages = ["spock"]
+package-data = {spock = ["models/featureclassifier.json", "models/regression/ensemble_part_*"]}

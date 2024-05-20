@@ -1,5 +1,6 @@
-from runfunctions import run_random
 import sys
+
+from runfunctions import run_random
 
 sim_id = int(sys.argv[1])
 runstring = sys.argv[2]

@@ -1,0 +1,27 @@
+name: SPOCK (python)
+
+on: [push, pull_request]
+
+jobs:
+  unit_tests:
+    name: Unit tests on ${{ matrix.os }} (${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-11]
+        python-version: ["3.12", "3.9"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: "Install SPOCK"
+        run: |
+            python -m pip install --upgrade pip
+            pip install .[test]
+      - name: "Run unit tests"
+        run: python -m unittest discover

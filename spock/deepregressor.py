@@ -1,31 +1,22 @@
-import numpy as np
-import math
-from scipy.stats import truncnorm
-import os
-from collections import OrderedDict
-from .tseries_feature_functions import get_extended_tseries
-from copy import deepcopy as copy
-import torch
-from torch import nn
-from torch.nn import Parameter
-from torch.autograd import Variable
-from torch.functional import F
 import glob
-from .spock_reg_model import load_swag
-from pytorch_lightning import Trainer
-import torch
-import time
-import pickle as pkl
+import math
+import os
+import random
 import warnings
-import einops as E
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
-import pytorch_lightning as pl
-from .simsetup import init_sim_parameters
+from collections import OrderedDict
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool as Pool
-import rebound
-import random
+
+import einops as E
+import numpy as np
+import torch
+from scipy.integrate import quad
+from scipy.interpolate import interp1d
+
+from .simsetup import init_sim_parameters
+from .spock_reg_model import load_swag_safetensors
+from .tseries_feature_functions import get_extended_tseries
+
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
 def fitted_prior():
@@ -127,16 +118,19 @@ def fast_truncnorm(
     return t_inst_samples.reshape(*oldscale.shape)
 
 class DeepRegressor(object):
-    def __init__(self, cuda=False, filebase='*v50_*output.pkl'):
-        super(DeepRegressor, self).__init__()
+    def __init__(self, cuda=False, filebase='ensemble_part_*json'):
+        super().__init__()
         pwd = os.path.dirname(__file__)
         pwd = pwd + '/models/regression'
         self.cuda = cuda
 
         #Load model
+        all_model_param_filenames = glob.glob(pwd + '/' + filebase)
+        all_model_param_filenames.sort()
+        model_basenames = [".".join(fname.split(".")[:-1]) for fname in all_model_param_filenames]
         self.swag_ensemble = [
-            load_swag(fname).cpu()
-            for i, fname in enumerate(glob.glob(pwd + '/' + filebase)) #0.78, 0.970
+            load_swag_safetensors(base_fname)
+            for base_fname in model_basenames
         ]
         #Data scaling parameters:
         self.scale_ = np.array([2.88976974e+03, 6.10019661e-02, 4.03849732e-02, 4.81638693e+01,

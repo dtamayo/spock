@@ -1,9 +1,10 @@
-import rebound
-import numpy as np
-import pandas as pd
 from collections import OrderedDict
-from feature_functions import get_pairs, find_strongest_MMR, populate_trio
-from AMD_functions import AMD, AMD_crit
+
+import numpy as np
+
+from .AMD_functions import AMD, AMD_crit
+from .feature_functions import find_strongest_MMR, get_pairs, populate_trio
+
 
 def additional_get_tseries(sim, args):
     Norbits = args[0]

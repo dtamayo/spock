@@ -1,9 +1,11 @@
-import rebound
+import os
+import warnings
+from subprocess import call
+
 import numpy as np
 import pandas as pd
-import os
-from subprocess import call
-import warnings
+import rebound
+
 warnings.filterwarnings('ignore') # filter REBOUND warnings about version that I've already tested
 
 datapath = '../data/'
