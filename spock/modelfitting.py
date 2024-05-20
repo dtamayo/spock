@@ -1,7 +1,7 @@
-from sklearn.metrics import precision_recall_curve
-from sklearn.metrics import roc_curve, confusion_matrix, auc
-from sklearn import metrics
 import numpy as np
+from sklearn import metrics
+from sklearn.metrics import auc, confusion_matrix, precision_recall_curve, roc_curve
+
 
 def hasnull(row):
     numnulls = row.isnull().sum()

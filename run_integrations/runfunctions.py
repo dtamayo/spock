@@ -1,14 +1,15 @@
 # Run script with python run.py sim_id, where sim_id is an integer to use for the sim_id (and the RNG seed). Runs a base system and a shadow system
-import numpy as np
-import rebound
-from random import random, uniform, seed
-import time
-import sys
 import math
 import random
-from celmech import Andoyer, Poincare, AndoyerHamiltonian
+import time
+from random import random, seed, uniform
+
+import numpy as np
+import rebound
+from celmech import Andoyer, AndoyerHamiltonian, Poincare
 from celmech.andoyer import get_Xstarres
 from scipy.integrate import ode
+
 
 def logunif(r, mini, maxi):
     logmin = np.log10(mini)

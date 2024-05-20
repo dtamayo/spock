@@ -1,15 +1,19 @@
-import rebound
-import numpy as np
-from subprocess import call
 import os
 import sys
 import warnings
+from subprocess import call
+
+import numpy as np
+import rebound
+
 warnings.filterwarnings('ignore') # to suppress warnings about REBOUND versions that I've already tested
 from collections import OrderedDict
+
 from training_data_functions import gen_training_data
+
 sys.path.append(os.path.join(sys.path[0], '..'))
-from feature_functions import features
 from additional_feature_functions import additional_features
+from feature_functions import features
 
 runfunc = features
 datapath = '../data/'

@@ -37,7 +37,7 @@ print(feature_model.predict_stable(sim))
 # >>> 0.06591137
 ```
 
-That model provides a simple scalar probability of stability over a billion orbits. 
+That model provides a simple scalar probability of stability over a billion orbits.
 We can instead estimate its median expected instability time using the deep regressor from [Cranmer et al., 2021](https://arxiv.org/abs/2101.04117).
 
 ```python

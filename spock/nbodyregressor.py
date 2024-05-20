@@ -1,8 +1,11 @@
+from multiprocessing import cpu_count
+from multiprocessing.pool import ThreadPool
+
 import numpy as np
 import rebound
+
 from .simsetup import init_sim_parameters
-from multiprocessing.pool import ThreadPool
-from multiprocessing import cpu_count
+
 
 class NbodyRegressor():
     def __init__(self):

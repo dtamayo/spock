@@ -1,8 +1,9 @@
-import rebound
 import pandas as pd
+import rebound
+
 if rebound.__githash__ != '6fb912f615ca542b670ab591375191d1ed914672':
     print('Check out rebound commit 6fb912f615ca542b670ab591375191d1ed914672 and rerun script. See spock/training.md')
-    [
+
 datapath = '../data/'
 
 randompath = 'random/simulation_archives/runs/'

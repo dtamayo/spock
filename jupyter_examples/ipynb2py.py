@@ -1,5 +1,6 @@
 import json
 import sys
+
 exec("import matplotlib as mpl")
 exec("mpl.use(\"Agg\")")
 
@@ -17,6 +18,7 @@ for c in ipynb["cells"]:
             if s[0] != "%":
                 code += s.rstrip('\n')+"\n"
 import socket
+
 try:
     exec(code)
 except socket.error: 

@@ -1,7 +1,7 @@
-import numpy as np
 import sys
 from subprocess import call
-import time
+
+import numpy as np
 import pandas as pd
 
 Nruns = int(sys.argv[1])

@@ -1,6 +1,5 @@
-from subprocess import call
 from collections import OrderedDict
-import sys
+from subprocess import call
 
 datapath = '../training_data/'
 

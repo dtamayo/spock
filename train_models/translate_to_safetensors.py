@@ -1,8 +1,10 @@
 import argparse
-import torch
-import pytorch_lightning
 import json
+
+import pytorch_lightning  # pycl: ignore
+import torch
 from safetensors.torch import save_file
+
 
 def main():
     parser = argparse.ArgumentParser(description="Translate saved model to safetensors")

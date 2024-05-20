@@ -1,0 +1,12 @@
+repos:
+  # Unused imports
+  - repo: https://github.com/hadialqattan/pycln
+    rev: "v2.4.0"
+    hooks:
+      - id: pycln
+  # Sorted imports
+  - repo: https://github.com/PyCQA/isort
+    rev: "5.13.2"
+    hooks:
+      - id: isort
+        additional_dependencies: [toml]
