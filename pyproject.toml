@@ -26,15 +26,15 @@ classifiers = [
     "Programming Language :: Python :: 3"
 ]
 dependencies = [
-    "rebound>=3.14.0",           # classifier regressor analytical
-    "scikit-learn",              # classifier regressor
-    "xgboost>=1.1.0",            # classifier
-    "torch>=1.5.1",              #            regressor
-    "safetensors>=0.4.0,<0.5.0", #            regressor
-    "scipy",                     #            regressor
-    "einops",                    #            regressor
-    "numpy",                     #            regressor analytical
-    "celmech>=1.5.0,<1.6.0"      #                      analytical
+    "rebound>=4.0.1,<5.0.0",            # classifier regressor analytical
+    "scikit-learn<2.0.0",               # classifier regressor
+    "xgboost>=1.1.0,<2.0.0",            # classifier
+    "torch>=1.5.1,<2.0.0",              #            regressor
+    "safetensors>=0.4.0,<0.5.0",        #            regressor
+    "scipy<2.0.0",                      #            regressor
+    "einops<0.9.0",                     #            regressor
+    "numpy<2.0.0",                      #            regressor analytical
+    "celmech>=1.5.0,<1.6.0"             #                      analytical
 ]
 
 [project.optional-dependencies]
