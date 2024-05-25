@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import os
 import torch
 import time
@@ -8,11 +9,17 @@ from spock import DeepRegressor
 from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier
 from .simsetup import get_sim_copy, align_simulation, get_rad, perfect_merge, npEulerAnglesTransform
 
-# function to get planet radii from their masses (according to Wolfgang+2016)
 # planet formation simulation model
 class GiantImpactPhaseEmulator():
     # initialize function
-    def __init__(self, sims, tmax=None, reg_model_file='collision_orbital_outcome_regressor.torch', class_model_file='collision_merger_classifier.torch', run_short_sim=False):
+    def __init__(self, sims, tmax=None, seed=None):
+        # set random seed
+        if not seed is None:
+            os.environ["PL_GLOBAL_SEED"] = str(seed)
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+        
         # load regression and classification models
         pwd = os.path.dirname(__file__)
         self.reg_model = CollisionOrbitalOutcomeRegressor()#torch.load(pwd + '/models/' + reg_model_file, map_location=torch.device('cpu'))
