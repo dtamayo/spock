@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import torch
-from .simsetup import get_sim_copy, align_simulation, get_rad, perfect_merge
+from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge
 
 # pytorch MLP class
 class class_MLP(torch.nn.Module):
@@ -148,7 +148,7 @@ class CollisionMergerClassifier():
     # function to run short integration
     def generate_input(self, sim, trio_inds=[1, 2, 3]):
         # get three-planet sim
-        trio_sim = get_sim_copy(sim, trio_inds)
+        trio_sim = copy_sim(sim, trio_inds, scaled=True)
         ps = trio_sim.particles
         
         # align z-axis with direction of angular momentum

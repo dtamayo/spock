@@ -1,7 +1,6 @@
 import numpy as np
 import rebound
 
-
 def check_hyperbolic(sim):
     orbits = sim.orbits()
     amin = np.min([o.a for o in orbits])
@@ -113,21 +112,25 @@ def align_simulation(sim):
     return theta1, theta2
 
 # make a copy of sim that only includes the particles with inds in p_inds and (optionally) has a1 = M_star = 1.00
-def get_sim_copy(sim, p_inds, set_a1_to_unity=True):
+def copy_sim(sim, p_inds, scaled=False):
     sim_copy = rebound.Simulation()
     sim_copy.G = 4*np.pi**2 # use units in which a1=1.0, P1=1.0
-    sim_copy.add(m=1.00)
-    
     ps = sim.particles
-    a1 = ps[int(min(p_inds))].a
-    for i in range(1, sim.N):
-        if i in p_inds:
-            sim_copy.add(m=ps[i].m/sim.particles[0].m, a=ps[i].a/a1, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
+    
+    if scaled:
+        sim_copy.add(m=1.00)
+        a1 = ps[int(min(p_inds))].a
+        Mstar = sim.particles[0].m
+        for i in range(1, sim.N):
+            if i in p_inds:
+                sim_copy.add(m=ps[i].m/Mstar, a=ps[i].a/a1, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
 
-    if not set_a1_to_unity:
-        for i in range(1, sim_copy.N):
-            sim_copy.particles[i].a = a1*sim_copy.particles[i].a
-            
+    if not scaled:
+        sim_copy.add(m=sim.particles[0].m)
+        for i in range(1, sim.N):
+            if i in p_inds:
+                sim_copy.add(m=ps[i].m, a=ps[i].a, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
+        
     return sim_copy
 
 # perfect inelastic merger (taken from REBOUND)
@@ -149,4 +152,3 @@ def perfect_merge(sim_pointer, collided_particles_index):
 
     sim.stop() # stop sim
     return 2 # remove particle with index j
-

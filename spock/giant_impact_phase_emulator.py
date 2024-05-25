@@ -7,7 +7,7 @@ import warnings
 import rebound as rb
 from spock import DeepRegressor
 from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier
-from .simsetup import get_sim_copy, align_simulation, get_rad, perfect_merge, npEulerAnglesTransform
+from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge, npEulerAnglesTransform
 
 # planet formation simulation model
 class GiantImpactPhaseEmulator():
@@ -42,7 +42,7 @@ class GiantImpactPhaseEmulator():
             self.original_a1s[i] = sim.particles[1].a
             self.original_P1s[i] = sim.particles[1].P
         
-        self.sims = [get_sim_copy(sim, np.arange(1, sim.N)) for sim in sims]
+        self.sims = [copy_sim(sim, np.arange(1, sim.N), scaled=True) for sim in sims]
         self.orbsmax = self._get_orbsmax(tmax) # initialize array of max orbits for each simulation (default 1e9)
 
     # main function: predict giant impact outcomes, stop once all trios have t_inst < tmax (tmax has the same units as sim.t) 
@@ -146,7 +146,7 @@ class GiantImpactPhaseEmulator():
     # run short sim to get input for MLP model (returns a sim if merger/ejection occurs)
     def generate_input(self, sim, trio_inds):
         # get three-planet sim
-        trio_sim = get_sim_copy(sim, trio_inds)
+        trio_sim = copy_sim(sim, trio_inds, scaled=True)
         ps = trio_sim.particles
             
         # align z-axis with direction of angular momentum
@@ -214,7 +214,7 @@ class GiantImpactPhaseEmulator():
         for i in range(len(sims)):
             for j in range(Npls[i] - 2):
                 trio_inds.append([j+1, j+2, j+3])
-                trio_sims.append(get_sim_copy(sims[i], [j+1, j+2, j+3], set_a1_to_unity=False))
+                trio_sims.append(copy_sim(sims[i], [j+1, j+2, j+3]))
 
         # predict instability times
         t_insts, _, _ = self.deep_model.predict_instability_time(trio_sims, samples=1)
