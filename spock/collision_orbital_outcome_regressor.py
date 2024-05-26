@@ -1,7 +1,10 @@
 import numpy as np
+import random
 import os
 import torch
-from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge
+import warnings
+import rebound as rb
+from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge, replace_trio, revert_sim_units
 from .tseries_feature_functions import get_collision_tseries
 
 # calculate log(1 + erf(x)) with an approx analytic continuation for x < -1 (from Cranmer et al. 2021)
@@ -171,9 +174,16 @@ class reg_MLP(torch.nn.Module):
 # collision outcome model class
 class CollisionOrbitalOutcomeRegressor():
     # load regression model
-    def __init__(self, class_model_file='collision_orbital_outcome_regressor.torch'):
+    def __init__(self, class_model_file='collision_orbital_outcome_regressor.torch', seed=None):
         pwd = os.path.dirname(__file__)
         self.reg_model = torch.load(pwd + '/models/' + class_model_file, map_location=torch.device('cpu'))
+        
+        # set random seed
+        if not seed is None:
+            os.environ["PL_GLOBAL_SEED"] = str(seed)
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
   
     # function to run short integration
     def generate_input(self, sim, trio_inds=[1, 2, 3]):
@@ -253,76 +263,102 @@ class CollisionOrbitalOutcomeRegressor():
             for i in range(len(sims)):
                 collision_inds.append([1, 2])
                 
-        # record a1s
-        a1s = np.zeros(len(sims))
-        for sim in sims:
-            a1s[i] = sim.particles[1].a
+        # record units and G of input sims
+        original_units = sims[0].units
+        original_G = sims[0].G
+        
+        # record original M_stars, a1s, and P1s
+        original_Mstars = np.zeros(len(sims))
+        original_a1s = np.zeros(len(sims))
+        original_P1s = np.zeros(len(sims))
+        for i, sim in enumerate(sims):
+            original_Mstars[i] = sim.particles[0].m
+            original_a1s[i] = sim.particles[1].a
+            original_P1s[i] = sim.particles[1].P
+        
+        # re-scale input sims and convert units
+        sims = [copy_sim(sim, np.arange(1, sim.N), scaled=True) for sim in sims]
         
         mlp_inputs = []
-        outcomes = []
+        thetas = []
+        done_sims = []
         done_inds = []
         for i, sim in enumerate(sims):
-            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i]) # theta1 and theta2 should be used!
-
+            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
+            
             if len(trio_sim.particles) == 4:
-                # no merger/ejection; re-order input states based on which two planets are to be merged
-                masses = out[:3]
-                orb_elements = out[3:]
-                if collision_inds[i] == [1, 2] or collision_inds[i] == [2, 1]:
+                # no merger (or ejection)
+                mlp_inputs.append(out)
+                thetas.append([theta1, theta2])
+            else: 
+                # if merger/ejection occurred, save sim
+                done_sims.append(replace_trio(sim, trio_inds[i], trio_sim, theta1, theta2))
+                done_inds.append(i)
+                
+        if len(mlp_inputs) > 0:
+            # re-order input array based on input collision_inds
+            reg_inputs = []
+            for i, col_ind in enumerate(collision_inds):
+                masses = mlp_inputs[i][:3]
+                orb_elements = mlp_inputs[i][3:]
+
+                if col_ind == [1, 2] or col_ind == [2, 1]:# collision between planets 1 and 2
                     ordered_masses = masses
                     ordered_orb_elements = orb_elements
-                elif collision_inds[i] == [2, 3] or collision_inds[i] == [3, 2]:
+                elif col_ind == [2, 3] or col_ind == [3, 2]: # collision between planets 2 and 3
                     ordered_masses = np.array([masses[1], masses[2], masses[0]])
                     ordered_orb_elements = np.column_stack((orb_elements[1::3], orb_elements[2::3], orb_elements[0::3])).flatten()
-                elif collision_inds[i] == [1, 3] or collision_inds[i] == [3, 1]:
+                elif col_ind == [1, 3] or col_ind == [3, 1]: # collision between planets 1 and 3
                     ordered_masses = np.array([masses[0], masses[2], masses[1]])
                     ordered_orb_elements = np.column_stack((orb_elements[0::3], orb_elements[2::3], orb_elements[1::3])).flatten()
                 else:
                     warnings.warn('Invalid collision_inds')
-                
-                mlp_inputs.append(np.concatenate((ordered_masses, ordered_orb_elements)))
-            else:
-                # if merger/ejection occurred, save orbital elements
-                ps = trio_sim.particles
-                if ps[1].a < ps[2].a:
-                    outcomes.append(np.array([ps[1].a, ps[2].a, np.log10(ps[1].e),
-                                    np.log10(ps[2].e), np.log10(ps[1].inc), np.log10(ps[2].inc)]))
-                else:
-                    outcomes.append(np.array([ps[2].a, ps[1].a, np.log10(ps[2].e),
-                                    np.log10(ps[1].e), np.log10(ps[2].inc), np.log10(ps[1].inc)]))
-                done_inds.append(i)
 
-        if len(mlp_inputs) > 0:
-            mlp_inputs = np.array(mlp_inputs)
-            mlp_outcomes = self.reg_model.make_pred(mlp_inputs)
+                reg_inputs.append(np.concatenate((ordered_masses, ordered_orb_elements)))
 
-        final_outcomes = []
+            # predict orbital elements with regression model
+            reg_inputs = np.array(reg_inputs)
+            reg_outputs = self.reg_model.make_pred(reg_inputs)
+
+            m1s = 10**reg_inputs[:,0] + 10**reg_inputs[:,1] # new planet
+            m2s = 10**reg_inputs[:,2] # surviving planet
+            a1s = reg_outputs[:,0]
+            a2s = reg_outputs[:,1]
+            e1s = 10**reg_outputs[:,2]
+            e2s = 10**reg_outputs[:,3]
+            inc1s = 10**reg_outputs[:,4]
+            inc2s = 10**reg_outputs[:,5]
+            
+        new_sims = []
         j = 0 # index for new sims array
         k = 0 # index for mlp prediction arrays
         for i in range(len(sims)):
             if i in done_inds:
-                final_outcomes.append(outcomes[j])
+                new_sims.append(done_sims[j])
                 j += 1
-            else:
-                final_outcomes.append(mlp_outcomes[k])
+            else:                
+                # create sim that contains state of two predicted planets
+                new_state_sim = rb.Simulation()
+                new_state_sim.G = 4*np.pi**2 # units in which a1=1.0 and P1=1.0
+                new_state_sim.add(m=1.00)
+                try:
+                    new_state_sim.add(m=m1s[k], a=a1s[k], e=e1s[k], inc=inc1s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                except Exception as e:
+                    warnings.warn('Removing planet with unphysical orbital elements')
+                try:
+                    new_state_sim.add(m=m2s[k], a=a2s[k], e=e2s[k], inc=inc2s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                except Exception as e:
+                    warnings.warn('Removing planet with unphysical orbital elements')
+                new_state_sim.move_to_com()
+
+                # replace trio with predicted duo (or single/zero if planets have unphysical orbital elements)
+                new_sims.append(replace_trio(sims[i], trio_inds[i], new_state_sim, thetas[k][0], thetas[k][1]))
                 k += 1
         
-        # convert back to units of a1 and from log(e) -> e, log(inc) -> inc
-        final_outcomes = np.array(final_outcomes)
-        final_outcomes[:,0] = a1s*final_outcomes[:,0]
-        final_outcomes[:,1] = a1s*final_outcomes[:,1]
-        final_outcomes[:,2] = 10**final_outcomes[:,2]
-        final_outcomes[:,3] = 10**final_outcomes[:,3]
-        final_outcomes[:,4] = 10**final_outcomes[:,4]
-        final_outcomes[:,5] = 10**final_outcomes[:,5]
-        
-        # re-order outputs based on semi-major axes
-        for i in range(len(final_outcomes)):
-            if final_outcomes[i][1] < final_outcomes[i][0]:
-                final_outcomes[i] = np.array([final_outcomes[i][1], final_outcomes[i][0], final_outcomes[i][3],\
-                                              final_outcomes[i][2], final_outcomes[i][5], final_outcomes[i][4]])
+        # convert sims back to original units
+        new_sims = revert_sim_units(new_sims, original_Mstars, original_a1s, original_G, original_units)
         
         if single_sim:
-            final_outcomes = final_outcomes[0]
-
-        return final_outcomes
+            new_sims = new_sims[0]
+        
+        return new_sims
