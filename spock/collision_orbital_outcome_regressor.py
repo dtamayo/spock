@@ -6,7 +6,7 @@ import warnings
 import rebound as rb
 from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge, replace_trio, revert_sim_units
 from .tseries_feature_functions import get_collision_tseries
-        
+
 # pytorch MLP
 class reg_MLP(torch.nn.Module):
     
@@ -85,63 +85,6 @@ class CollisionOrbitalOutcomeRegressor():
             random.seed(seed)
             np.random.seed(seed)
             torch.manual_seed(seed)
-  
-    # function to run short integration
-    def generate_input(self, sim, trio_inds=[1, 2, 3]):
-        # get three-planet sim
-        trio_sim = copy_sim(sim, trio_inds, scaled=True)
-        ps = trio_sim.particles
-        
-        # align z-axis with direction of angular momentum
-        _, _ = align_simulation(trio_sim)
-
-        # assign planet radii
-        for i in range(1, len(ps)):
-            ps[i].r = get_rad(ps[i].m)
-
-        # set integration settings
-        trio_sim.integrator = 'mercurius'
-        trio_sim.collision = 'direct'
-        trio_sim.collision_resolve = perfect_merge
-        Ps = np.array([p.P for p in ps[1:len(ps)]])
-        es = np.array([p.e for p in ps[1:len(ps)]])
-        minTperi = np.min(Ps*(1 - es)**1.5/np.sqrt(1 + es))
-        trio_sim.dt = 0.05*minTperi
-
-        times = np.linspace(0.0, 1e4, 100)
-        states = [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]
-        
-        for t in times:
-            trio_sim.integrate(t, exact_finish_time=0)
-
-            # check for merger
-            if len(ps) == 4:
-                if ps[1].inc == 0.0 or ps[2].inc == 0.0 or ps[3].inc == 0.0:
-                    # use very small inclinations to avoid -inf
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   -3.0, -3.0, -3.0,
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-                else:
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   np.log10(ps[1].inc), np.log10(ps[2].inc), np.log10(ps[3].inc),
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-            else:
-                if ps[1].a < ps[2].a:
-                    return np.array([ps[1].a, ps[2].a, np.log10(ps[1].e),
-                                     np.log10(ps[2].e), np.log10(ps[1].inc), np.log10(ps[2].inc)])
-                else:
-                    return np.array([ps[2].a, ps[1].a, np.log10(ps[2].e),
-                                     np.log10(ps[1].e), np.log10(ps[2].inc), np.log10(ps[1].inc)])
-
-        return np.array(states)
     
     # function to predict collision outcomes given one or more rebound sims
     def predict_collision_outcome(self, sims, trio_inds=None, collision_inds=None):
@@ -203,13 +146,13 @@ class CollisionOrbitalOutcomeRegressor():
                 masses = mlp_inputs[i][:3]
                 orb_elements = mlp_inputs[i][3:]
 
-                if col_ind == [1, 2] or col_ind == [2, 1]:# collision between planets 1 and 2
+                if (col_ind[0] == 1 and col_ind[1] == 2) or (col_ind[0] == 2 and col_ind[1] == 1): # merge planets 1 and 2
                     ordered_masses = masses
                     ordered_orb_elements = orb_elements
-                elif col_ind == [2, 3] or col_ind == [3, 2]: # collision between planets 2 and 3
+                elif (col_ind[0] == 2 and col_ind[1] == 3) or (col_ind[0] == 3 and col_ind[1] == 2): # merge planets 2 and 3
                     ordered_masses = np.array([masses[1], masses[2], masses[0]])
                     ordered_orb_elements = np.column_stack((orb_elements[1::3], orb_elements[2::3], orb_elements[0::3])).flatten()
-                elif col_ind == [1, 3] or col_ind == [3, 1]: # collision between planets 1 and 3
+                elif (col_ind[0] == 1 and col_ind[1] == 3) or (col_ind[0] == 3 and col_ind[1] == 1): # merge planets 1 and 3
                     ordered_masses = np.array([masses[0], masses[2], masses[1]])
                     ordered_orb_elements = np.column_stack((orb_elements[0::3], orb_elements[2::3], orb_elements[1::3])).flatten()
                 else:

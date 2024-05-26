@@ -96,10 +96,10 @@ class CollisionMergerClassifier():
             if len(trio_sim.particles) == 4:
                 # no merger/ejection
                 mlp_inputs.append(out)
-            else:
+            elif len(trio_sim.particles) == 3:
                 # check for ejection or merger
                 ps = trio_sim.particles
-                if out[0] in [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)] and out[1] in [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]: # ejection
+                if np.log10(ps[1].m) in [out[0], out[1], out[2]] and np.log10(ps[2].m) in [out[0], out[1], out[2]]: #ejection
                     probs.append(np.array([0.0, 0.0, 0.0]))
                 elif out[0] == np.log10(ps[1].m) or out[0] == np.log10(ps[2].m): # planets 2 and 3 merged
                     probs.append(np.array([0.0, 1.0, 0.0]))
@@ -107,6 +107,9 @@ class CollisionMergerClassifier():
                     probs.append(np.array([0.0, 0.0, 1.0]))
                 elif out[2] == np.log10(ps[1].m) or out[2] == np.log10(ps[2].m): # planets 1 and 2 merged
                     probs.append(np.array([1.0, 0.0, 0.0]))
+                done_inds.append(i)
+            else:
+                probs.append(np.array([0.0, 0.0, 0.0]))
                 done_inds.append(i)
 
         if len(mlp_inputs) > 0:

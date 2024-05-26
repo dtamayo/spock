@@ -7,7 +7,7 @@ import warnings
 import rebound as rb
 from spock import DeepRegressor
 from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier
-from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge, npEulerAnglesTransform
+from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge, replace_trio, revert_sim_units
 from .tseries_feature_functions import get_collision_tseries
 
 # planet formation simulation model
@@ -21,10 +21,9 @@ class GiantImpactPhaseEmulator():
             np.random.seed(seed)
             torch.manual_seed(seed)
         
-        # load regression and classification models
-        pwd = os.path.dirname(__file__)
-        self.reg_model = CollisionOrbitalOutcomeRegressor()
+        # load classification and regression models
         self.class_model = CollisionMergerClassifier()
+        self.reg_model = CollisionOrbitalOutcomeRegressor()
 
         # load SPOCK model
         self.deep_model = DeepRegressor()
@@ -50,8 +49,9 @@ class GiantImpactPhaseEmulator():
     def predict(self):
         while np.any([sim.t < self.orbsmax[i] for i, sim in enumerate(self.sims)]): # take another step if any sims are still at t < tmax
             self.step(original_units=False) # keep dimensionless units until the end
-            
-        return self._revert_sim_units()     # convert units back to original units for final sims
+               
+        # convert units back to original units for final sims
+        return revert_sim_units(self.sims, self.original_Mstars, self.original_a1s, self.original_G, self.original_units, self.original_P1s)
 
     # take another step in the iterative process, merging any planets that go unstable with t_inst < tmax
     def step(self, original_units=True):
@@ -80,69 +80,11 @@ class GiantImpactPhaseEmulator():
                 instability_times.append(t_insts[i])
 
         # get new sims with planets merged
-        self.MLP_merge_planets(sims_to_merge, trios_to_merge, instability_times)
+        self.handle_mergers(sims_to_merge, trios_to_merge, instability_times)
        
+        # convert units back to original units for final sims
         if original_units:
-            self.sims = self._revert_sim_units() # convert units back to original units for final sims
-    
-    # replace particle in sim with new state (in place)
-    def replace_p(self, sim, p_ind, new_particle):
-        sim.particles[p_ind].m = new_particle.m
-        sim.particles[p_ind].a = new_particle.a
-        sim.particles[p_ind].e = new_particle.e
-        sim.particles[p_ind].inc = new_particle.inc
-        sim.particles[p_ind].pomega = new_particle.pomega
-        sim.particles[p_ind].Omega = new_particle.Omega
-        sim.particles[p_ind].l = new_particle.l
-    
-    # return sim in which planet trio has been replaced with two planets
-    def replace_trio(self, original_sim, trio_inds, new_state_sim, theta1, theta2):
-        # change back to units of original sim
-        original_a1 = original_sim.particles[int(trio_inds[0])].a
-        new_state_sim.G = original_sim.G
-        new_ps = new_state_sim.particles
-        for i in range(1, len(new_ps)):
-            new_ps[i].a = original_a1*new_ps[i].a
-
-        ind1, ind2, ind3 = int(trio_inds[0]), int(trio_inds[1]), int(trio_inds[2])
-        if len(new_ps) == 3:   
-            if new_ps[1].a < new_ps[2].a:
-                sorted_ps = [new_ps[1], new_ps[2]]
-            else:
-                sorted_ps = [new_ps[2], new_ps[1]]
-                
-            sim_copy = original_sim.copy()
-            self.replace_p(sim_copy, ind1, sorted_ps[0])
-            self.replace_p(sim_copy, ind2, sorted_ps[1])
-            sim_copy.remove(ind3)
-        if len(new_ps) == 2:
-            sim_copy = original_sim.copy()
-            self.replace_p(sim_copy, ind1, new_ps[1])
-            sim_copy.remove(ind3)
-            sim_copy.remove(ind2)
-        if len(new_ps) == 1:
-            sim_copy = original_sim.copy()
-            sim_copy.remove(ind3)
-            sim_copy.remove(ind2)
-            sim_copy.remove(ind1)
-        
-        # change axis orientation back to original sim here
-        for p in sim_copy.particles[:sim_copy.N_real]:
-            p.x, p.y, p.z = npEulerAnglesTransform(p.xyz, -theta1, -theta2, 0)
-            p.vx, p.vy, p.vz = npEulerAnglesTransform(p.vxyz, -theta1, -theta2, 0)
-        
-        # re-order particles in ascending semi-major axis
-        ps = sim_copy.particles
-        semi_as = []
-        for i in range(1, len(ps)):
-            semi_as.append(ps[i].a)
-        sort_inds = np.argsort(semi_as)
-
-        ordered_sim = sim_copy.copy()
-        for i, ind in enumerate(sort_inds):
-            self.replace_p(ordered_sim, i+1, ps[int(ind)+1])
-
-        return ordered_sim
+            self.sims = revert_sim_units(self.sims, self.original_Mstars, self.original_a1s, self.original_G, self.original_units, self.original_P1s)
 
     # get unstable trios for list of sims using SPOCK deep model
     def get_unstable_trios(self, sims):
@@ -174,128 +116,32 @@ class GiantImpactPhaseEmulator():
 
         return min_t_insts, min_trio_inds
 
-    # return new sims in which planets have been merged
-    def MLP_merge_planets(self, sims, trio_inds, updated_times):
-        mlp_inputs = []
-        thetas = []
-        done_sims = []
-        done_inds = []
-        for i, sim in enumerate(sims):
-            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
-            
-            if len(trio_sim.particles) == 4:
-                # no merger (or ejection)
-                mlp_inputs.append(out)
-                thetas.append([theta1, theta2])
-            else: 
-                # if merger/ejection occurred, save sim
-                done_sims.append(self.replace_trio(sim, trio_inds[i], trio_sim, theta1, theta2))
-                done_inds.append(i)
+    def handle_mergers(self, sims, trio_inds, updated_times):
+        # predict collision probabilities with classification model
+        pred_probs = self.class_model.predict_collision_probs(sims, trio_inds)
 
-        if len(mlp_inputs) > 0:
-            # predict which planets collide with classification model
-            class_inputs = np.array(mlp_inputs)
-            class_outputs = self.class_model.class_model.make_pred(class_inputs)
-
-            # sample predicted probabilities
-            rand_nums = np.random.rand(len(class_inputs))
-            col_inds = np.zeros(len(class_inputs))
-            for i, rand_num in enumerate(rand_nums):
-                if rand_num < class_outputs[i][0]:
-                    col_inds[i] = 0
-                elif rand_num < class_outputs[i][0] + class_outputs[i][1]:
-                    col_inds[i] = 1
-                else:
-                    col_inds[i] = 2
-
-            # re-order input array based on col_inds
-            reg_inputs = []
-            for i, col_ind in enumerate(col_inds):
-                masses = mlp_inputs[i][:3]
-                orb_elements = mlp_inputs[i][3:]
-
-                if col_ind == 0: # collision between planets 1 and 2
-                    ordered_masses = masses
-                    ordered_orb_elements = orb_elements
-                elif col_ind == 1: # collision between planets 2 and 3
-                    ordered_masses = np.array([masses[1], masses[2], masses[0]])
-                    ordered_orb_elements = np.column_stack((orb_elements[1::3], orb_elements[2::3], orb_elements[0::3])).flatten()
-                elif col_ind == 2: # collision between planets 1 and 3
-                    ordered_masses = np.array([masses[0], masses[2], masses[1]])
-                    ordered_orb_elements = np.column_stack((orb_elements[0::3], orb_elements[2::3], orb_elements[1::3])).flatten()
-
-                reg_inputs.append(np.concatenate((ordered_masses, ordered_orb_elements)))
-
-            # predict orbital elements with regression model
-            reg_inputs = np.array(reg_inputs)
-            reg_outputs = self.reg_model.reg_model.make_pred(reg_inputs)
-
-            m1s = 10**reg_inputs[:,0] + 10**reg_inputs[:,1] # new planet
-            m2s = 10**reg_inputs[:,2] # surviving planet
-            a1s = reg_outputs[:,0]
-            a2s = reg_outputs[:,1]
-            e1s = 10**reg_outputs[:,2]
-            e2s = 10**reg_outputs[:,3]
-            inc1s = 10**reg_outputs[:,4]
-            inc2s = 10**reg_outputs[:,5]
-
-        new_sims = []
-        j = 0 # index for new sims array
-        k = 0 # index for mlp prediction arrays
-        for i in range(len(sims)):
-            if i in done_inds:
-                new_sims.append(done_sims[j])
-                j += 1
-            else:                
-                # create sim that contains state of two predicted planets
-                new_state_sim = rb.Simulation()
-                new_state_sim.G = 4*np.pi**2 # units in which a1=1.0 and P1=1.0
-                new_state_sim.add(m=1.00)
-                try:
-                    new_state_sim.add(m=m1s[k], a=a1s[k], e=e1s[k], inc=inc1s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
-                except Exception as e:
-                    warnings.warn('Removing planet with unphysical orbital elements')
-                try:
-                    new_state_sim.add(m=m2s[k], a=a2s[k], e=e2s[k], inc=inc2s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
-                except Exception as e:
-                    warnings.warn('Removing planet with unphysical orbital elements')
-                new_state_sim.move_to_com()
-
-                # replace trio with predicted duo (or single/zero if planets have unphysical orbital elements)
-                new_sims.append(self.replace_trio(sims[i], trio_inds[i], new_state_sim, thetas[k][0], thetas[k][1]))
-                k += 1
+        # sample predicted probabilities
+        rand_nums = np.random.rand(len(pred_probs))
+        collision_inds = np.zeros((len(pred_probs), 2))
+        for i, rand_num in enumerate(rand_nums):
+            if rand_num < pred_probs[i][0]:
+                collision_inds[i] = [1, 2]
+            elif rand_num < pred_probs[i][0] + pred_probs[i][1]:
+                collision_inds[i] = [2, 3]
+            else:
+                collision_inds[i] = [1, 3]
         
+        # predict post-collision orbital states with regression model
+        new_sims = self.reg_model.predict_collision_outcome(sims, trio_inds, collision_inds)
+        
+        # update sims
         for i, sim in enumerate(sims):
             idx = self.sims.index(sim) # find index in original list
             self.sims[idx] = new_sims[i]
             self.sims[idx].t = updated_times[i]
     
-    # convert sim back to units of input sims
-    def _revert_sim_units(self):
-        revertedsims = []
-        for j, sim in enumerate(self.sims):
-            original_Mstar = self.original_Mstars[j]
-            original_a1 = self.original_a1s[j]
-            original_P1 = self.original_P1s[j]
-
-            sim_copy = rb.Simulation()
-            sim_copy.G = self.original_G # set G
-            
-            # set units
-            if not (self.original_units['length'] is None or self.original_units['mass'] is None or self.original_units['time'] is None):
-                sim_copy.units = self.original_units
-                
-            sim_copy.add(m=original_Mstar)
-            ps = sim.particles
-            for i in range(1, sim.N):
-                sim_copy.add(m=ps[i].m*original_Mstar, a=ps[i].a*original_a1, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
-                
-            sim_copy.t = sim.t*original_P1
-            revertedsims.append(sim_copy)
-  
-        return revertedsims
-
-    def _get_orbsmax(self, tmax): # internal function with logic for initializing orbsmax as an array and checking for warnings
+    # internal function with logic for initializing orbsmax as an array and checking for warnings
+    def _get_orbsmax(self, tmax):
         if tmax:    # used passed value
             try:
                 len(tmax) == len(self.sims)
