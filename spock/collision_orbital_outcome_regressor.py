@@ -6,30 +6,6 @@ import warnings
 import rebound as rb
 from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge, replace_trio, revert_sim_units
 from .tseries_feature_functions import get_collision_tseries
-
-# calculate log(1 + erf(x)) with an approx analytic continuation for x < -1 (from Cranmer et al. 2021)
-def safe_log_erf(x):
-    base_mask = x < -1
-    value_giving_zero = torch.zeros_like(x, device=x.device)
-    x_under = torch.where(base_mask, x, value_giving_zero)
-    x_over = torch.where(~base_mask, x, value_giving_zero)
-    
-    f_under = lambda x: (
-         0.485660082730562*x + 0.643278438654541*torch.exp(x) + 
-         0.00200084619923262*x**3 - 0.643250926022749 - 0.955350621183745*x**2
-    )
-    f_over = lambda x: torch.log(1.0 + torch.erf(x))
-    
-    return f_under(x_under) + f_over(x_over)
-
-# custom loss function that uses MSE + a log(erf) term
-class Loss_Func(torch.nn.Module):
-    def __init__(self, maxes):
-        super(Loss_Func, self).__init__()
-        self.maxes = maxes
-
-    def forward(self, predictions, targets):
-        return torch.mean(safe_log_erf(self.maxes - predictions) + (predictions - targets)**2)
         
 # pytorch MLP
 class reg_MLP(torch.nn.Module):
@@ -37,12 +13,12 @@ class reg_MLP(torch.nn.Module):
     # initialize pytorch MLP with specified number of input/hidden/output nodes
     def __init__(self, n_feature, n_hidden, n_output, num_hidden_layers):
         super(reg_MLP, self).__init__()
-        self.input = torch.nn.Linear(n_feature, n_hidden).to("cuda")
-        self.predict = torch.nn.Linear(n_hidden, n_output).to("cuda")
+        self.input = torch.nn.Linear(n_feature, n_hidden).to("cpu")
+        self.predict = torch.nn.Linear(n_hidden, n_output).to("cpu")
 
         self.hiddens = []
         for i in range(num_hidden_layers-1):
-            self.hiddens.append(torch.nn.Linear(n_hidden, n_hidden).to("cuda"))
+            self.hiddens.append(torch.nn.Linear(n_hidden, n_hidden).to("cpu"))
 
         # means and standard deviations for re-scaling inputs
         self.mass_means = np.array([-5.47074599, -5.50485362, -5.55107994])
@@ -79,87 +55,11 @@ class reg_MLP(torch.nn.Module):
     def get_means_stds(self, inputs, min_nt=5):
         masses = inputs[:,:3]
         orb_elements = inputs[:,3:].reshape((len(inputs), 100, 21))
-
-        if self.training:
-            # add statistical noise
-            nt = np.random.randint(low=min_nt, high=101) #select nt randomly from 5-100
-            rand_inds = np.random.choice(100, size=nt, replace=False) #choose timesteps without replacement
-            means = torch.mean(orb_elements[:,rand_inds,:], dim=1)
-            stds = torch.std(orb_elements[:,rand_inds,:], dim=1)
-
-            rand_means = torch.normal(means, stds/(nt**0.5))
-            rand_stds = torch.normal(stds, stds/((2*nt - 2)**0.5))
-            pooled_inputs = torch.concatenate((masses, rand_means, rand_stds), dim=1)
-        else:
-            # no statistical noise
-            means = torch.mean(orb_elements, dim=1)
-            stds = torch.std(orb_elements, dim=1)
-            pooled_inputs = torch.concatenate((masses, means, stds), dim=1)
+        means = torch.mean(orb_elements, dim=1)
+        stds = torch.std(orb_elements, dim=1)
+        pooled_inputs = torch.concatenate((masses, means, stds), dim=1)
 
         return pooled_inputs
-
-    # training function
-    def train_model(self, Xs, Ys, learning_rate=1e-3, weight_decay=0.0, min_nt=5, epochs=1000, batch_size=2000):
-        # normalize inputs and outputs
-        Xs = (Xs - self.input_means)/self.input_stds
-        Ys = (Ys - self.output_means)/self.output_stds
-
-        # split training data
-        x_train, x_eval, y_train, y_eval = train_test_split(Xs, Ys, test_size=0.2, shuffle=False)
-        x_train_var, y_train_var = torch.tensor(x_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.float32)
-        x_validate, y_validate = torch.tensor(x_eval, dtype=torch.float32), torch.tensor(y_eval, dtype=torch.float32)
-
-        # create Data Loader
-        dataset = TensorDataset(x_train_var, y_train_var)
-        train_loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
-
-        # specify loss function and optimizer
-        loss_fn = Loss_Func(self.output_maxes)
-        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
-
-        # main training loop
-        lossvals, test_lossvals = np.zeros((epochs,)), np.zeros((epochs,))
-        num_steps = 0
-        for i in range(epochs):
-            cur_losses = []
-            cur_test_losses = []
-            for inputs, labels in train_loader:
-                # clear gradient buffers
-                optimizer.zero_grad()
-
-                # get model predictions on training batch
-                self.train()
-                inputs  = inputs.to("cuda")
-                pooled_inputs = self.get_means_stds(inputs, min_nt=min_nt)
-                output = self(pooled_inputs)
-
-                # get model predictions on full test set
-                self.eval()
-                x_validate = x_validate.to("cuda")
-                with torch.no_grad():
-                    pooled_x_validate = self.get_means_stds(x_validate, min_nt=min_nt)
-                    test_output = self(pooled_x_validate)
-
-                # get losses
-                output, labels, y_validate  = output.to("cuda"), labels.to("cuda"), y_validate.to("cuda")
-                loss = loss_fn(output, labels)
-                test_loss = loss_fn(test_output, y_validate)
-
-                # get gradients with respect to parameters
-                loss.backward()
-
-                # save losses
-                cur_losses.append(loss.item())
-                cur_test_losses.append(test_loss.item())
-
-                # update parameters
-                optimizer.step()
-                num_steps += 1
-
-            lossvals[i] = np.mean(cur_losses)
-            test_lossvals[i] = np.mean(cur_test_losses)
-
-        return lossvals, test_lossvals, num_steps
 
     # function to make predictions with trained model (takes and return numpy array)
     def make_pred(self, Xs):
@@ -174,9 +74,10 @@ class reg_MLP(torch.nn.Module):
 # collision outcome model class
 class CollisionOrbitalOutcomeRegressor():
     # load regression model
-    def __init__(self, class_model_file='collision_orbital_outcome_regressor.torch', seed=None):
+    def __init__(self, model_file='collision_orbital_outcome_regressor.torch', seed=None):
+        self.reg_model = reg_MLP(45, 60, 6, 1)
         pwd = os.path.dirname(__file__)
-        self.reg_model = torch.load(pwd + '/models/' + class_model_file, map_location=torch.device('cpu'))
+        self.reg_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
         # set random seed
         if not seed is None:
