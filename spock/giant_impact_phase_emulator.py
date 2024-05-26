@@ -8,6 +8,7 @@ import rebound as rb
 from spock import DeepRegressor
 from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier
 from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge, npEulerAnglesTransform
+from .tseries_feature_functions import get_collision_tseries
 
 # planet formation simulation model
 class GiantImpactPhaseEmulator():
@@ -22,8 +23,8 @@ class GiantImpactPhaseEmulator():
         
         # load regression and classification models
         pwd = os.path.dirname(__file__)
-        self.reg_model = CollisionOrbitalOutcomeRegressor()#torch.load(pwd + '/models/' + reg_model_file, map_location=torch.device('cpu'))
-        self.class_model = CollisionMergerClassifier()#torch.load(pwd + '/models/' + class_model_file, map_location=torch.device('cpu'))
+        self.reg_model = CollisionOrbitalOutcomeRegressor()
+        self.class_model = CollisionMergerClassifier()
 
         # load SPOCK model
         self.deep_model = DeepRegressor()
@@ -143,67 +144,6 @@ class GiantImpactPhaseEmulator():
 
         return ordered_sim
 
-    # run short sim to get input for MLP model (returns a sim if merger/ejection occurs)
-    def generate_input(self, sim, trio_inds):
-        # get three-planet sim
-        trio_sim = copy_sim(sim, trio_inds, scaled=True)
-        ps = trio_sim.particles
-            
-        # align z-axis with direction of angular momentum
-        theta1, theta2 = align_simulation(trio_sim)
-
-        # assign planet radii
-        for i in range(1, len(ps)):
-            ps[i].r = get_rad(ps[i].m)
-
-        # set integration settings
-        trio_sim.integrator = 'mercurius'
-        trio_sim.collision = 'direct'
-        trio_sim.collision_resolve = perfect_merge
-        Ps = np.array([p.P for p in ps[1:len(ps)]])
-        es = np.array([p.e for p in ps[1:len(ps)]])
-        minTperi = np.min(Ps*(1 - es)**1.5/np.sqrt(1 + es))
-        trio_sim.dt = 0.05*minTperi
-
-        times = np.linspace(0.0, 1e4, 100)
-        states = [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]
-        
-        for t in times:
-            trio_sim.integrate(t, exact_finish_time=0)
-
-            # check for ejected planets
-            if len(ps) == 4:
-                if (not 0.0 < ps[1].a < 50.0) or (not 0.0 < ps[1].e < 1.0):
-                    trio_sim.remove(1)
-                elif (not 0.0 < ps[2].a < 50.0) or (not 0.0 < ps[2].e < 1.0):
-                    trio_sim.remove(2)
-                elif (not 0.0 < ps[3].a < 50.0) or (not 0.0 < ps[3].e < 1.0):
-                    trio_sim.remove(3)
-
-            # check for merger
-            if len(ps) == 4:
-                if ps[1].inc == 0.0 or ps[2].inc == 0.0 or ps[3].inc == 0.0:
-                    # use very small inclinations to avoid -inf
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   -3.0, -3.0, -3.0,
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-                else:
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   np.log10(ps[1].inc), np.log10(ps[2].inc), np.log10(ps[3].inc),
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-            else:
-                return self.replace_trio(sim, trio_inds, trio_sim, theta1, theta2), theta1, theta2
-
-        return np.array(states), theta1, theta2
-
     # get unstable trios for list of sims using SPOCK deep model
     def get_unstable_trios(self, sims):
         trio_sims = []
@@ -241,15 +181,15 @@ class GiantImpactPhaseEmulator():
         done_sims = []
         done_inds = []
         for i, sim in enumerate(sims):
-            out, theta1, theta2 = self.generate_input(sim, trio_inds[i])
-
-            if isinstance(out, np.ndarray):
-                # if integration completed, record MLP input
+            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
+            
+            if len(trio_sim.particles) == 4:
+                # no merger (or ejection)
                 mlp_inputs.append(out)
                 thetas.append([theta1, theta2])
-            else:
-                # if collision/merger occurred, save sim
-                done_sims.append(out)
+            else: 
+                # if merger/ejection occurred, save sim
+                done_sims.append(self.replace_trio(sim, trio_inds[i], trio_sim, theta1, theta2))
                 done_inds.append(i)
 
         if len(mlp_inputs) > 0:

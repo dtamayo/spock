@@ -2,6 +2,7 @@ import numpy as np
 import os
 import torch
 from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge
+from .tseries_feature_functions import get_collision_tseries
 
 # calculate log(1 + erf(x)) with an approx analytic continuation for x < -1 (from Cranmer et al. 2021)
 def safe_log_erf(x):
@@ -261,10 +262,10 @@ class CollisionOrbitalOutcomeRegressor():
         outcomes = []
         done_inds = []
         for i, sim in enumerate(sims):
-            out = self.generate_input(sim, trio_inds[i])
+            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i]) # theta1 and theta2 should be used!
 
-            if len(out) > 6:
-                # re-order input states based on which two planets collide
+            if len(trio_sim.particles) == 4:
+                # no merger/ejection; re-order input states based on which two planets are to be merged
                 masses = out[:3]
                 orb_elements = out[3:]
                 if collision_inds[i] == [1, 2] or collision_inds[i] == [2, 1]:
@@ -281,8 +282,14 @@ class CollisionOrbitalOutcomeRegressor():
                 
                 mlp_inputs.append(np.concatenate((ordered_masses, ordered_orb_elements)))
             else:
-                # planets collided in less than 10^4 orbits
-                outcomes.append(out)
+                # if merger/ejection occurred, save orbital elements
+                ps = trio_sim.particles
+                if ps[1].a < ps[2].a:
+                    outcomes.append(np.array([ps[1].a, ps[2].a, np.log10(ps[1].e),
+                                    np.log10(ps[2].e), np.log10(ps[1].inc), np.log10(ps[2].inc)]))
+                else:
+                    outcomes.append(np.array([ps[2].a, ps[1].a, np.log10(ps[2].e),
+                                    np.log10(ps[1].e), np.log10(ps[2].inc), np.log10(ps[1].inc)]))
                 done_inds.append(i)
 
         if len(mlp_inputs) > 0:

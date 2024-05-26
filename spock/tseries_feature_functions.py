@@ -1,10 +1,9 @@
 from collections import OrderedDict
-
 import numpy as np
 import rebound
 from scipy.optimize import brenth
-
 from .feature_functions import find_strongest_MMR
+from .simsetup import copy_sim, align_simulation
 
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
@@ -208,3 +207,64 @@ def features(sim, args):
         features['EPstdfar'] = EPfar.std() 
     
     return triofeatures, stable
+
+# run short sim to get input for MLP model (returns a sim if merger/ejection occurs)
+def get_collision_tseries(sim, trio_inds):
+    # get three-planet sim
+    trio_sim = copy_sim(sim, trio_inds, scaled=True)
+    ps = trio_sim.particles
+
+    # align z-axis with direction of angular momentum
+    theta1, theta2 = align_simulation(trio_sim)
+
+    # assign planet radii
+    for i in range(1, len(ps)):
+        ps[i].r = get_rad(ps[i].m)
+
+    # set integration settings
+    trio_sim.integrator = 'mercurius'
+    trio_sim.collision = 'direct'
+    trio_sim.collision_resolve = perfect_merge
+    Ps = np.array([p.P for p in ps[1:len(ps)]])
+    es = np.array([p.e for p in ps[1:len(ps)]])
+    minTperi = np.min(Ps*(1 - es)**1.5/np.sqrt(1 + es))
+    trio_sim.dt = 0.05*minTperi
+
+    times = np.linspace(0.0, 1e4, 100)
+    states = [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]
+
+    for t in times:
+        trio_sim.integrate(t, exact_finish_time=0)
+
+        # check for ejected planets
+        if len(ps) == 4:
+            if (not 0.0 < ps[1].a < 50.0) or (not 0.0 < ps[1].e < 1.0):
+                trio_sim.remove(1)
+            elif (not 0.0 < ps[2].a < 50.0) or (not 0.0 < ps[2].e < 1.0):
+                trio_sim.remove(2)
+            elif (not 0.0 < ps[3].a < 50.0) or (not 0.0 < ps[3].e < 1.0):
+                trio_sim.remove(3)
+
+        # check for merger
+        if len(ps) == 4:
+            if ps[1].inc == 0.0 or ps[2].inc == 0.0 or ps[3].inc == 0.0:
+                # use very small inclinations to avoid -inf
+                states.extend([ps[1].a, ps[2].a, ps[3].a,
+                               np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
+                               -3.0, -3.0, -3.0,
+                               np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
+                               np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
+                               np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
+                               np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
+            else:
+                states.extend([ps[1].a, ps[2].a, ps[3].a,
+                               np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
+                               np.log10(ps[1].inc), np.log10(ps[2].inc), np.log10(ps[3].inc),
+                               np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
+                               np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
+                               np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
+                               np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
+        else:
+            return np.array(states), trio_sim, theta1, theta2
+
+    return np.array(states), trio_sim, theta1, theta2

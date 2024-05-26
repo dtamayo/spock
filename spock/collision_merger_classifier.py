@@ -2,6 +2,7 @@ import numpy as np
 import os
 import torch
 from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge
+from .tseries_feature_functions import get_collision_tseries
 
 # pytorch MLP class
 class class_MLP(torch.nn.Module):
@@ -144,63 +145,6 @@ class CollisionMergerClassifier():
     def __init__(self, class_model_file='collision_merger_classifier.torch'):
         pwd = os.path.dirname(__file__)
         self.class_model = torch.load(pwd + '/models/' + class_model_file, map_location=torch.device('cpu'))
-  
-    # function to run short integration
-    def generate_input(self, sim, trio_inds=[1, 2, 3]):
-        # get three-planet sim
-        trio_sim = copy_sim(sim, trio_inds, scaled=True)
-        ps = trio_sim.particles
-        
-        # align z-axis with direction of angular momentum
-        _, _ = align_simulation(trio_sim)
-
-        # assign planet radii
-        for i in range(1, len(ps)):
-            ps[i].r = get_rad(ps[i].m)
-
-        # set integration settings
-        trio_sim.integrator = 'mercurius'
-        trio_sim.collision = 'direct'
-        trio_sim.collision_resolve = perfect_merge
-        Ps = np.array([p.P for p in ps[1:len(ps)]])
-        es = np.array([p.e for p in ps[1:len(ps)]])
-        minTperi = np.min(Ps*(1 - es)**1.5/np.sqrt(1 + es))
-        trio_sim.dt = 0.05*minTperi
-
-        times = np.linspace(0.0, 1e4, 100)
-        states = [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]
-        
-        for t in times:
-            trio_sim.integrate(t, exact_finish_time=0)
-
-            # check for merger
-            if len(ps) == 4:
-                if ps[1].inc == 0.0 or ps[2].inc == 0.0 or ps[3].inc == 0.0:
-                    # use very small inclinations to avoid -inf
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   -3.0, -3.0, -3.0,
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-                else:
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   np.log10(ps[1].inc), np.log10(ps[2].inc), np.log10(ps[3].inc),
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-            else:
-                if states[0] == np.log10(ps[1].m) or states[0] == np.log10(ps[2].m): #planets 2 and 3 merged
-                    return np.array([0.0, 1.0, 0.0])
-                elif states[1] == np.log10(ps[1].m) or states[1] == np.log10(ps[2].m): #planets 1 and 3 merged
-                    return np.array([0.0, 0.0, 1.0])
-                elif states[2] == np.log10(ps[1].m) or states[2] == np.log10(ps[2].m): #planets 1 and 2 merged
-                    return np.array([1.0, 0.0, 0.0])
-
-        return np.array(states)
         
     # function to predict collision probabilities given one or more rebound sims
     def predict_collision_probs(self, sims, trio_inds=None):
@@ -219,15 +163,23 @@ class CollisionMergerClassifier():
         mlp_inputs = []
         probs = []
         done_inds = []
-        
         for i, sim in enumerate(sims):
-            out = self.generate_input(sim, trio_inds[i])
-
-            if len(out) > 3:
+            out, trio_sim, _, _ = get_collision_tseries(sim, trio_inds[i])
+            
+            if len(trio_sim.particles) == 4:
+                # no merger/ejection
                 mlp_inputs.append(out)
             else:
-                # planets collided in less than 10^4 orbits
-                probs.append(out)
+                # check for ejection or merger
+                ps = trio_sim.particles
+                if out[0] in [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)] and out[1] in [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]: # ejection
+                    probs.append(np.array([0.0, 0.0, 0.0]))
+                elif out[0] == np.log10(ps[1].m) or out[0] == np.log10(ps[2].m): # planets 2 and 3 merged
+                    probs.append(np.array([0.0, 1.0, 0.0]))
+                elif out[1] == np.log10(ps[1].m) or out[1] == np.log10(ps[2].m): # planets 1 and 3 merged
+                    probs.append(np.array([0.0, 0.0, 1.0]))
+                elif out[2] == np.log10(ps[1].m) or out[2] == np.log10(ps[2].m): # planets 1 and 2 merged
+                    probs.append(np.array([1.0, 0.0, 0.0]))
                 done_inds.append(i)
 
         if len(mlp_inputs) > 0:
