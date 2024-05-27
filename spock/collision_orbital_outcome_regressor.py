@@ -87,7 +87,7 @@ class CollisionOrbitalOutcomeRegressor():
             torch.manual_seed(seed)
     
     # function to predict collision outcomes given one or more rebound sims
-    def predict_collision_outcome(self, sims, trio_inds=None, collision_inds=None):
+    def predict_collision_outcome(self, sims, trio_inds=None, collision_inds=None, mlp_inputs=None, thetas=None, done_inds=None):
         # check if input is a single sim or a list of sims
         single_sim = False
         if type(sims) != list:
@@ -123,21 +123,28 @@ class CollisionOrbitalOutcomeRegressor():
         # re-scale input sims and convert units
         sims = [copy_sim(sim, np.arange(1, sim.N), scaled=True) for sim in sims]
         
-        mlp_inputs = []
-        thetas = []
-        done_sims = []
-        done_inds = []
-        for i, sim in enumerate(sims):
-            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
-            
-            if len(trio_sim.particles) == 4:
-                # no merger (or ejection)
-                mlp_inputs.append(out)
-                thetas.append([theta1, theta2])
-            else: 
-                # if merger/ejection occurred, save sim
-                done_sims.append(replace_trio(sim, trio_inds[i], trio_sim, theta1, theta2))
-                done_inds.append(i)
+        # run short integrations (or re-use MLP inputs)
+        if mlp_inputs is None:
+            mlp_inputs = []
+            thetas = []
+            done_sims = []
+            done_inds = []
+            for i, sim in enumerate(sims):
+                out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
+
+                if len(trio_sim.particles) == 4:
+                    # no merger (or ejection)
+                    mlp_inputs.append(out)
+                    thetas.append([theta1, theta2])
+                else: 
+                    # if merger/ejection occurred, save sim
+                    done_sims.append(replace_trio(sim, trio_inds[i], trio_sim, theta1, theta2))
+                    done_inds.append(i)
+        else: # re-using inputs; integrate only systems that experience a merger
+            done_sims = []
+            for done_ind in done_inds:
+                out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
+                done_sims.append(replace_trio(sims[done_ind], trio_inds[done_ind], trio_sim, theta1, theta2))
                 
         if len(mlp_inputs) > 0:
             # re-order input array based on input collision_inds

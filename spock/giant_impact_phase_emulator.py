@@ -46,15 +46,15 @@ class GiantImpactPhaseEmulator():
         self.orbsmax = self._get_orbsmax(tmax) # initialize array of max orbits for each simulation (default 1e9)
 
     # main function: predict giant impact outcomes, stop once all trios have t_inst < tmax (tmax has the same units as sim.t) 
-    def predict(self):
+    def predict(self, reuse_inputs=True):
         while np.any([sim.t < self.orbsmax[i] for i, sim in enumerate(self.sims)]): # take another step if any sims are still at t < tmax
-            self.step(original_units=False) # keep dimensionless units until the end
+            self.step(original_units=False, reuse_inputs=reuse_inputs) # keep dimensionless units until the end
                
         # convert units back to original units for final sims
         return revert_sim_units(self.sims, self.original_Mstars, self.original_a1s, self.original_G, self.original_units, self.original_P1s)
 
     # take another step in the iterative process, merging any planets that go unstable with t_inst < tmax
-    def step(self, original_units=True):
+    def step(self, original_units=True, reuse_inputs=True):
         for i, sim in enumerate(self.sims): # assume all 2 planet systems (N=3) are stable (could use Hill stability criterion)
             if sim.N < 4:
                 sim.t = self.orbsmax[i]
@@ -80,7 +80,7 @@ class GiantImpactPhaseEmulator():
                 instability_times.append(t_insts[i])
 
         # get new sims with planets merged
-        self.handle_mergers(sims_to_merge, trios_to_merge, instability_times)
+        self.handle_mergers(sims_to_merge, trios_to_merge, instability_times, reuse_inputs=reuse_inputs)
        
         # convert units back to original units for final sims
         if original_units:
@@ -116,9 +116,12 @@ class GiantImpactPhaseEmulator():
 
         return min_t_insts, min_trio_inds
 
-    def handle_mergers(self, sims, trio_inds, updated_times):
+    def handle_mergers(self, sims, trio_inds, updated_times, reuse_inputs=True):
         # predict collision probabilities with classification model
-        pred_probs = self.class_model.predict_collision_probs(sims, trio_inds)
+        if reuse_inputs:
+            pred_probs, mlp_inputs, thetas, done_inds = self.class_model.predict_collision_probs(sims, trio_inds, return_inputs=reuse_inputs)
+        else:
+            pred_probs = self.class_model.predict_collision_probs(sims, trio_inds, return_inputs=reuse_inputs)
 
         # sample predicted probabilities
         rand_nums = np.random.rand(len(pred_probs))
@@ -132,7 +135,10 @@ class GiantImpactPhaseEmulator():
                 collision_inds[i] = [1, 3]
         
         # predict post-collision orbital states with regression model
-        new_sims = self.reg_model.predict_collision_outcome(sims, trio_inds, collision_inds)
+        if reuse_inputs:
+            new_sims = self.reg_model.predict_collision_outcome(sims, trio_inds, collision_inds, mlp_inputs=mlp_inputs, thetas=thetas, done_inds=done_inds)
+        else:
+            new_sims = self.reg_model.predict_collision_outcome(sims, trio_inds, collision_inds)
         
         # update sims
         for i, sim in enumerate(sims):
