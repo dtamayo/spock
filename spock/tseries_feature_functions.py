@@ -3,7 +3,7 @@ import numpy as np
 import rebound
 from scipy.optimize import brenth
 from .feature_functions import find_strongest_MMR
-from .simsetup import copy_sim, align_simulation
+from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge
 
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
