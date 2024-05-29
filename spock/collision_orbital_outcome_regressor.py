@@ -1,44 +1,24 @@
 import numpy as np
+import random
 import os
 import torch
-from .simsetup import get_sim_copy, align_simulation, get_rad, perfect_merge
+import warnings
+import rebound as rb
+from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge, replace_trio, revert_sim_units
+from .tseries_feature_functions import get_collision_tseries
 
-# calculate log(1 + erf(x)) with an approx analytic continuation for x < -1 (from Cranmer et al. 2021)
-def safe_log_erf(x):
-    base_mask = x < -1
-    value_giving_zero = torch.zeros_like(x, device=x.device)
-    x_under = torch.where(base_mask, x, value_giving_zero)
-    x_over = torch.where(~base_mask, x, value_giving_zero)
-    
-    f_under = lambda x: (
-         0.485660082730562*x + 0.643278438654541*torch.exp(x) + 
-         0.00200084619923262*x**3 - 0.643250926022749 - 0.955350621183745*x**2
-    )
-    f_over = lambda x: torch.log(1.0 + torch.erf(x))
-    
-    return f_under(x_under) + f_over(x_over)
-
-# custom loss function that uses MSE + a log(erf) term
-class Loss_Func(torch.nn.Module):
-    def __init__(self, maxes):
-        super(Loss_Func, self).__init__()
-        self.maxes = maxes
-
-    def forward(self, predictions, targets):
-        return torch.mean(safe_log_erf(self.maxes - predictions) + (predictions - targets)**2)
-        
 # pytorch MLP
 class reg_MLP(torch.nn.Module):
     
     # initialize pytorch MLP with specified number of input/hidden/output nodes
     def __init__(self, n_feature, n_hidden, n_output, num_hidden_layers):
         super(reg_MLP, self).__init__()
-        self.input = torch.nn.Linear(n_feature, n_hidden).to("cuda")
-        self.predict = torch.nn.Linear(n_hidden, n_output).to("cuda")
+        self.input = torch.nn.Linear(n_feature, n_hidden).to("cpu")
+        self.predict = torch.nn.Linear(n_hidden, n_output).to("cpu")
 
         self.hiddens = []
         for i in range(num_hidden_layers-1):
-            self.hiddens.append(torch.nn.Linear(n_hidden, n_hidden).to("cuda"))
+            self.hiddens.append(torch.nn.Linear(n_hidden, n_hidden).to("cpu"))
 
         # means and standard deviations for re-scaling inputs
         self.mass_means = np.array([-5.47074599, -5.50485362, -5.55107994])
@@ -75,87 +55,11 @@ class reg_MLP(torch.nn.Module):
     def get_means_stds(self, inputs, min_nt=5):
         masses = inputs[:,:3]
         orb_elements = inputs[:,3:].reshape((len(inputs), 100, 21))
-
-        if self.training:
-            # add statistical noise
-            nt = np.random.randint(low=min_nt, high=101) #select nt randomly from 5-100
-            rand_inds = np.random.choice(100, size=nt, replace=False) #choose timesteps without replacement
-            means = torch.mean(orb_elements[:,rand_inds,:], dim=1)
-            stds = torch.std(orb_elements[:,rand_inds,:], dim=1)
-
-            rand_means = torch.normal(means, stds/(nt**0.5))
-            rand_stds = torch.normal(stds, stds/((2*nt - 2)**0.5))
-            pooled_inputs = torch.concatenate((masses, rand_means, rand_stds), dim=1)
-        else:
-            # no statistical noise
-            means = torch.mean(orb_elements, dim=1)
-            stds = torch.std(orb_elements, dim=1)
-            pooled_inputs = torch.concatenate((masses, means, stds), dim=1)
+        means = torch.mean(orb_elements, dim=1)
+        stds = torch.std(orb_elements, dim=1)
+        pooled_inputs = torch.concatenate((masses, means, stds), dim=1)
 
         return pooled_inputs
-
-    # training function
-    def train_model(self, Xs, Ys, learning_rate=1e-3, weight_decay=0.0, min_nt=5, epochs=1000, batch_size=2000):
-        # normalize inputs and outputs
-        Xs = (Xs - self.input_means)/self.input_stds
-        Ys = (Ys - self.output_means)/self.output_stds
-
-        # split training data
-        x_train, x_eval, y_train, y_eval = train_test_split(Xs, Ys, test_size=0.2, shuffle=False)
-        x_train_var, y_train_var = torch.tensor(x_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.float32)
-        x_validate, y_validate = torch.tensor(x_eval, dtype=torch.float32), torch.tensor(y_eval, dtype=torch.float32)
-
-        # create Data Loader
-        dataset = TensorDataset(x_train_var, y_train_var)
-        train_loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
-
-        # specify loss function and optimizer
-        loss_fn = Loss_Func(self.output_maxes)
-        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
-
-        # main training loop
-        lossvals, test_lossvals = np.zeros((epochs,)), np.zeros((epochs,))
-        num_steps = 0
-        for i in range(epochs):
-            cur_losses = []
-            cur_test_losses = []
-            for inputs, labels in train_loader:
-                # clear gradient buffers
-                optimizer.zero_grad()
-
-                # get model predictions on training batch
-                self.train()
-                inputs  = inputs.to("cuda")
-                pooled_inputs = self.get_means_stds(inputs, min_nt=min_nt)
-                output = self(pooled_inputs)
-
-                # get model predictions on full test set
-                self.eval()
-                x_validate = x_validate.to("cuda")
-                with torch.no_grad():
-                    pooled_x_validate = self.get_means_stds(x_validate, min_nt=min_nt)
-                    test_output = self(pooled_x_validate)
-
-                # get losses
-                output, labels, y_validate  = output.to("cuda"), labels.to("cuda"), y_validate.to("cuda")
-                loss = loss_fn(output, labels)
-                test_loss = loss_fn(test_output, y_validate)
-
-                # get gradients with respect to parameters
-                loss.backward()
-
-                # save losses
-                cur_losses.append(loss.item())
-                cur_test_losses.append(test_loss.item())
-
-                # update parameters
-                optimizer.step()
-                num_steps += 1
-
-            lossvals[i] = np.mean(cur_losses)
-            test_lossvals[i] = np.mean(cur_test_losses)
-
-        return lossvals, test_lossvals, num_steps
 
     # function to make predictions with trained model (takes and return numpy array)
     def make_pred(self, Xs):
@@ -170,69 +74,20 @@ class reg_MLP(torch.nn.Module):
 # collision outcome model class
 class CollisionOrbitalOutcomeRegressor():
     # load regression model
-    def __init__(self, class_model_file='collision_orbital_outcome_regressor.torch'):
+    def __init__(self, model_file='collision_orbital_outcome_regressor.torch', seed=None):
+        self.reg_model = reg_MLP(45, 60, 6, 1)
         pwd = os.path.dirname(__file__)
-        self.reg_model = torch.load(pwd + '/models/' + class_model_file, map_location=torch.device('cpu'))
-  
-    # function to run short integration
-    def generate_input(self, sim, trio_inds=[1, 2, 3]):
-        # get three-planet sim
-        trio_sim = get_sim_copy(sim, trio_inds)
-        ps = trio_sim.particles
+        self.reg_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
-        # align z-axis with direction of angular momentum
-        _, _ = align_simulation(trio_sim)
-
-        # assign planet radii
-        for i in range(1, len(ps)):
-            ps[i].r = get_rad(ps[i].m)
-
-        # set integration settings
-        trio_sim.integrator = 'mercurius'
-        trio_sim.collision = 'direct'
-        trio_sim.collision_resolve = perfect_merge
-        Ps = np.array([p.P for p in ps[1:len(ps)]])
-        es = np.array([p.e for p in ps[1:len(ps)]])
-        minTperi = np.min(Ps*(1 - es)**1.5/np.sqrt(1 + es))
-        trio_sim.dt = 0.05*minTperi
-
-        times = np.linspace(0.0, 1e4, 100)
-        states = [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]
-        
-        for t in times:
-            trio_sim.integrate(t, exact_finish_time=0)
-
-            # check for merger
-            if len(ps) == 4:
-                if ps[1].inc == 0.0 or ps[2].inc == 0.0 or ps[3].inc == 0.0:
-                    # use very small inclinations to avoid -inf
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   -3.0, -3.0, -3.0,
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-                else:
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   np.log10(ps[1].inc), np.log10(ps[2].inc), np.log10(ps[3].inc),
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-            else:
-                if ps[1].a < ps[2].a:
-                    return np.array([ps[1].a, ps[2].a, np.log10(ps[1].e),
-                                     np.log10(ps[2].e), np.log10(ps[1].inc), np.log10(ps[2].inc)])
-                else:
-                    return np.array([ps[2].a, ps[1].a, np.log10(ps[2].e),
-                                     np.log10(ps[1].e), np.log10(ps[2].inc), np.log10(ps[1].inc)])
-
-        return np.array(states)
+        # set random seed
+        if not seed is None:
+            os.environ["PL_GLOBAL_SEED"] = str(seed)
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
     
     # function to predict collision outcomes given one or more rebound sims
-    def predict_collision_outcome(self, sims, trio_inds=None, collision_inds=None):
+    def predict_collision_outcome(self, sims, trio_inds=None, collision_inds=None, mlp_inputs=None, thetas=None, done_inds=None):
         # check if input is a single sim or a list of sims
         single_sim = False
         if type(sims) != list:
@@ -252,70 +107,109 @@ class CollisionOrbitalOutcomeRegressor():
             for i in range(len(sims)):
                 collision_inds.append([1, 2])
                 
-        # record a1s
-        a1s = np.zeros(len(sims))
-        for sim in sims:
-            a1s[i] = sim.particles[1].a
+        # record units and G of input sims
+        original_units = sims[0].units
+        original_G = sims[0].G
         
-        mlp_inputs = []
-        outcomes = []
-        done_inds = []
+        # record original M_stars, a1s, and P1s
+        original_Mstars = np.zeros(len(sims))
+        original_a1s = np.zeros(len(sims))
+        original_P1s = np.zeros(len(sims))
         for i, sim in enumerate(sims):
-            out = self.generate_input(sim, trio_inds[i])
+            original_Mstars[i] = sim.particles[0].m
+            original_a1s[i] = sim.particles[1].a
+            original_P1s[i] = sim.particles[1].P
+        
+        # re-scale input sims and convert units
+        sims = [copy_sim(sim, np.arange(1, sim.N), scaled=True) for sim in sims]
+        
+        # run short integrations (or re-use MLP inputs)
+        if mlp_inputs is None:
+            mlp_inputs = []
+            thetas = []
+            done_sims = []
+            done_inds = []
+            for i, sim in enumerate(sims):
+                out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
 
-            if len(out) > 6:
-                # re-order input states based on which two planets collide
-                masses = out[:3]
-                orb_elements = out[3:]
-                if collision_inds[i] == [1, 2] or collision_inds[i] == [2, 1]:
+                if len(trio_sim.particles) == 4:
+                    # no merger (or ejection)
+                    mlp_inputs.append(out)
+                    thetas.append([theta1, theta2])
+                else: 
+                    # if merger/ejection occurred, save sim
+                    done_sims.append(replace_trio(sim, trio_inds[i], trio_sim, theta1, theta2))
+                    done_inds.append(i)
+        else: # re-using inputs; integrate only systems that experience a merger
+            done_sims = []
+            for done_ind in done_inds:
+                out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
+                done_sims.append(replace_trio(sims[done_ind], trio_inds[done_ind], trio_sim, theta1, theta2))
+                
+        if len(mlp_inputs) > 0:
+            # re-order input array based on input collision_inds
+            reg_inputs = []
+            for i, col_ind in enumerate(collision_inds):
+                masses = mlp_inputs[i][:3]
+                orb_elements = mlp_inputs[i][3:]
+
+                if (col_ind[0] == 1 and col_ind[1] == 2) or (col_ind[0] == 2 and col_ind[1] == 1): # merge planets 1 and 2
                     ordered_masses = masses
                     ordered_orb_elements = orb_elements
-                elif collision_inds[i] == [2, 3] or collision_inds[i] == [3, 2]:
+                elif (col_ind[0] == 2 and col_ind[1] == 3) or (col_ind[0] == 3 and col_ind[1] == 2): # merge planets 2 and 3
                     ordered_masses = np.array([masses[1], masses[2], masses[0]])
                     ordered_orb_elements = np.column_stack((orb_elements[1::3], orb_elements[2::3], orb_elements[0::3])).flatten()
-                elif collision_inds[i] == [1, 3] or collision_inds[i] == [3, 1]:
+                elif (col_ind[0] == 1 and col_ind[1] == 3) or (col_ind[0] == 3 and col_ind[1] == 1): # merge planets 1 and 3
                     ordered_masses = np.array([masses[0], masses[2], masses[1]])
                     ordered_orb_elements = np.column_stack((orb_elements[0::3], orb_elements[2::3], orb_elements[1::3])).flatten()
                 else:
                     warnings.warn('Invalid collision_inds')
-                
-                mlp_inputs.append(np.concatenate((ordered_masses, ordered_orb_elements)))
-            else:
-                # planets collided in less than 10^4 orbits
-                outcomes.append(out)
-                done_inds.append(i)
 
-        if len(mlp_inputs) > 0:
-            mlp_inputs = np.array(mlp_inputs)
-            mlp_outcomes = self.reg_model.make_pred(mlp_inputs)
+                reg_inputs.append(np.concatenate((ordered_masses, ordered_orb_elements)))
 
-        final_outcomes = []
+            # predict orbital elements with regression model
+            reg_inputs = np.array(reg_inputs)
+            reg_outputs = self.reg_model.make_pred(reg_inputs)
+
+            m1s = 10**reg_inputs[:,0] + 10**reg_inputs[:,1] # new planet
+            m2s = 10**reg_inputs[:,2] # surviving planet
+            a1s = reg_outputs[:,0]
+            a2s = reg_outputs[:,1]
+            e1s = 10**reg_outputs[:,2]
+            e2s = 10**reg_outputs[:,3]
+            inc1s = 10**reg_outputs[:,4]
+            inc2s = 10**reg_outputs[:,5]
+            
+        new_sims = []
         j = 0 # index for new sims array
         k = 0 # index for mlp prediction arrays
         for i in range(len(sims)):
             if i in done_inds:
-                final_outcomes.append(outcomes[j])
+                new_sims.append(done_sims[j])
                 j += 1
-            else:
-                final_outcomes.append(mlp_outcomes[k])
+            else:                
+                # create sim that contains state of two predicted planets
+                new_state_sim = rb.Simulation()
+                new_state_sim.G = 4*np.pi**2 # units in which a1=1.0 and P1=1.0
+                new_state_sim.add(m=1.00)
+                try:
+                    new_state_sim.add(m=m1s[k], a=a1s[k], e=e1s[k], inc=inc1s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                except Exception as e:
+                    warnings.warn('Removing planet with unphysical orbital elements')
+                try:
+                    new_state_sim.add(m=m2s[k], a=a2s[k], e=e2s[k], inc=inc2s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                except Exception as e:
+                    warnings.warn('Removing planet with unphysical orbital elements')
+                new_state_sim.move_to_com()
+
+                # replace trio with predicted duo (or single/zero if planets have unphysical orbital elements)
+                new_sims.append(replace_trio(sims[i], trio_inds[i], new_state_sim, thetas[k][0], thetas[k][1]))
                 k += 1
         
-        # convert back to units of a1 and from log(e) -> e, log(inc) -> inc
-        final_outcomes = np.array(final_outcomes)
-        final_outcomes[:,0] = a1s*final_outcomes[:,0]
-        final_outcomes[:,1] = a1s*final_outcomes[:,1]
-        final_outcomes[:,2] = 10**final_outcomes[:,2]
-        final_outcomes[:,3] = 10**final_outcomes[:,3]
-        final_outcomes[:,4] = 10**final_outcomes[:,4]
-        final_outcomes[:,5] = 10**final_outcomes[:,5]
-        
-        # re-order outputs based on semi-major axes
-        for i in range(len(final_outcomes)):
-            if final_outcomes[i][1] < final_outcomes[i][0]:
-                final_outcomes[i] = np.array([final_outcomes[i][1], final_outcomes[i][0], final_outcomes[i][3],\
-                                              final_outcomes[i][2], final_outcomes[i][5], final_outcomes[i][4]])
+        # convert sims back to original units
+        new_sims = revert_sim_units(new_sims, original_Mstars, original_a1s, original_G, original_units)
         
         if single_sim:
-            final_outcomes = final_outcomes[0]
-
-        return final_outcomes
+            new_sims = new_sims[0]
+        
+        return new_sims

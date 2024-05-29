@@ -1,7 +1,9 @@
 import numpy as np
 import os
 import torch
-from .simsetup import get_sim_copy, align_simulation, get_rad, perfect_merge
+import warnings
+from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge
+from .tseries_feature_functions import get_collision_tseries
 
 # pytorch MLP class
 class class_MLP(torch.nn.Module):
@@ -9,12 +11,12 @@ class class_MLP(torch.nn.Module):
     # initialize MLP with specified number of input/hidden/output nodes
     def __init__(self, n_feature, n_hidden, n_output, num_hidden_layers):
         super(class_MLP, self).__init__()
-        self.input = torch.nn.Linear(n_feature, n_hidden).to("cuda")
-        self.predict = torch.nn.Linear(n_hidden, n_output).to("cuda")
+        self.input = torch.nn.Linear(n_feature, n_hidden).to("cpu")
+        self.predict = torch.nn.Linear(n_hidden, n_output).to("cpu")
 
         self.hiddens = []
         for i in range(num_hidden_layers-1):
-            self.hiddens.append(torch.nn.Linear(n_hidden, n_hidden).to("cuda"))
+            self.hiddens.append(torch.nn.Linear(n_hidden, n_hidden).to("cpu"))
 
         # means and standard deviations for re-scaling inputs
         self.mass_means = np.array([-5.47727975, -5.58391119, -5.46548861])
@@ -47,86 +49,11 @@ class class_MLP(torch.nn.Module):
     def get_means_stds(self, inputs, min_nt=5):
         masses = inputs[:,:3]
         orb_elements = inputs[:,3:].reshape((len(inputs), 100, 21))
-
-        if self.training:
-            # add statistical noise
-            nt = np.random.randint(low=min_nt, high=101) #select nt randomly from 5-100
-            rand_inds = np.random.choice(100, size=nt, replace=False) #choose timesteps without replacement
-            means = torch.mean(orb_elements[:,rand_inds,:], dim=1)
-            stds = torch.std(orb_elements[:,rand_inds,:], dim=1)
-
-            rand_means = torch.normal(means, stds/(nt**0.5))
-            rand_stds = torch.normal(stds, stds/((2*nt - 2)**0.5))
-            pooled_inputs = torch.concatenate((masses, rand_means, rand_stds), dim=1)
-        else:
-            # no statistical noise
-            means = torch.mean(orb_elements, dim=1)
-            stds = torch.std(orb_elements, dim=1)
-            pooled_inputs = torch.concatenate((masses, means, stds), dim=1)
+        means = torch.mean(orb_elements, dim=1)
+        stds = torch.std(orb_elements, dim=1)
+        pooled_inputs = torch.concatenate((masses, means, stds), dim=1)
 
         return pooled_inputs
-
-    # training function
-    def train_model(self, Xs, Ys, learning_rate=1e-3, weight_decay=0.0, min_nt=5, epochs=1000, batch_size=2000):
-        # normalize inputs
-        Xs = (Xs - self.input_means)/self.input_stds
-
-        # split training data
-        x_train, x_eval, y_train, y_eval = train_test_split(Xs, Ys, test_size=0.2, shuffle=False)
-        x_train_var, y_train_var = torch.tensor(x_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.float32)
-        x_validate, y_validate = torch.tensor(x_eval, dtype=torch.float32), torch.tensor(y_eval, dtype=torch.float32)
-
-        # create Data Loader
-        dataset = TensorDataset(x_train_var, y_train_var)
-        train_loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
-
-        # specify loss function and optimizer
-        loss_fn = torch.nn.BCELoss()
-        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
-
-        # main training loop
-        lossvals, test_lossvals = np.zeros((epochs,)), np.zeros((epochs,))
-        num_steps = 0
-        for i in range(epochs):
-            cur_losses = []
-            cur_test_losses = []
-            for inputs, labels in train_loader:
-                # clear gradient buffers
-                optimizer.zero_grad()
-
-                # get model predictions on training batch
-                self.train()
-                inputs  = inputs.to("cuda")
-                pooled_inputs = self.get_means_stds(inputs, min_nt=min_nt)
-                output = self(pooled_inputs)
-
-                # get model predictions on full test set
-                self.eval()
-                x_validate = x_validate.to("cuda")
-                with torch.no_grad():
-                    pooled_x_validate = self.get_means_stds(x_validate, min_nt=min_nt)
-                    test_output = self(pooled_x_validate)
-
-                # get losses
-                output, labels, y_validate  = output.to("cuda"), labels.to("cuda"), y_validate.to("cuda")
-                loss = loss_fn(output, labels)
-                test_loss = loss_fn(test_output, y_validate)
-
-                # get gradients with respect to parameters
-                loss.backward()
-
-                # save losses
-                cur_losses.append(loss.item())
-                cur_test_losses.append(test_loss.item())
-
-                # update parameters
-                optimizer.step()
-                num_steps += 1
-
-            lossvals[i] = np.mean(cur_losses)
-            test_lossvals[i] = np.mean(cur_test_losses)
-
-        return lossvals, test_lossvals, num_steps
 
     # function to make predictions with trained model (takes and returns numpy array)
     def make_pred(self, Xs):
@@ -141,69 +68,13 @@ class class_MLP(torch.nn.Module):
 class CollisionMergerClassifier():
     
     # load classification model
-    def __init__(self, class_model_file='collision_merger_classifier.torch'):
+    def __init__(self, model_file='collision_merger_classifier.torch'):
+        self.class_model = class_MLP(45, 30, 3, 1)
         pwd = os.path.dirname(__file__)
-        self.class_model = torch.load(pwd + '/models/' + class_model_file, map_location=torch.device('cpu'))
-  
-    # function to run short integration
-    def generate_input(self, sim, trio_inds=[1, 2, 3]):
-        # get three-planet sim
-        trio_sim = get_sim_copy(sim, trio_inds)
-        ps = trio_sim.particles
-        
-        # align z-axis with direction of angular momentum
-        _, _ = align_simulation(trio_sim)
-
-        # assign planet radii
-        for i in range(1, len(ps)):
-            ps[i].r = get_rad(ps[i].m)
-
-        # set integration settings
-        trio_sim.integrator = 'mercurius'
-        trio_sim.collision = 'direct'
-        trio_sim.collision_resolve = perfect_merge
-        Ps = np.array([p.P for p in ps[1:len(ps)]])
-        es = np.array([p.e for p in ps[1:len(ps)]])
-        minTperi = np.min(Ps*(1 - es)**1.5/np.sqrt(1 + es))
-        trio_sim.dt = 0.05*minTperi
-
-        times = np.linspace(0.0, 1e4, 100)
-        states = [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]
-        
-        for t in times:
-            trio_sim.integrate(t, exact_finish_time=0)
-
-            # check for merger
-            if len(ps) == 4:
-                if ps[1].inc == 0.0 or ps[2].inc == 0.0 or ps[3].inc == 0.0:
-                    # use very small inclinations to avoid -inf
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   -3.0, -3.0, -3.0,
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-                else:
-                    states.extend([ps[1].a, ps[2].a, ps[3].a,
-                                   np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
-                                   np.log10(ps[1].inc), np.log10(ps[2].inc), np.log10(ps[3].inc),
-                                   np.sin(ps[1].pomega), np.sin(ps[2].pomega), np.sin(ps[3].pomega),
-                                   np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
-                                   np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
-                                   np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-            else:
-                if states[0] == np.log10(ps[1].m) or states[0] == np.log10(ps[2].m): #planets 2 and 3 merged
-                    return np.array([0.0, 1.0, 0.0])
-                elif states[1] == np.log10(ps[1].m) or states[1] == np.log10(ps[2].m): #planets 1 and 3 merged
-                    return np.array([0.0, 0.0, 1.0])
-                elif states[2] == np.log10(ps[1].m) or states[2] == np.log10(ps[2].m): #planets 1 and 2 merged
-                    return np.array([1.0, 0.0, 0.0])
-
-        return np.array(states)
+        self.class_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
     # function to predict collision probabilities given one or more rebound sims
-    def predict_collision_probs(self, sims, trio_inds=None):
+    def predict_collision_probs(self, sims, trio_inds=None, return_inputs=False):
         # check if input is a single sim or a list of sims
         single_sim = False
         if type(sims) != list:
@@ -217,17 +88,31 @@ class CollisionMergerClassifier():
                 trio_inds.append([1, 2, 3])
 
         mlp_inputs = []
+        thetas = []
         probs = []
         done_inds = []
-        
         for i, sim in enumerate(sims):
-            out = self.generate_input(sim, trio_inds[i])
-
-            if len(out) > 3:
+            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
+            
+            if len(trio_sim.particles) == 4:
+                # no merger/ejection
                 mlp_inputs.append(out)
+                if return_inputs:
+                    thetas.append([theta1, theta2])
+            elif len(trio_sim.particles) == 3:
+                # check for ejection or merger
+                ps = trio_sim.particles
+                if np.log10(ps[1].m) in [out[0], out[1], out[2]] and np.log10(ps[2].m) in [out[0], out[1], out[2]]: #ejection
+                    probs.append(np.array([0.0, 0.0, 0.0]))
+                elif out[0] == np.log10(ps[1].m) or out[0] == np.log10(ps[2].m): # planets 2 and 3 merged
+                    probs.append(np.array([0.0, 1.0, 0.0]))
+                elif out[1] == np.log10(ps[1].m) or out[1] == np.log10(ps[2].m): # planets 1 and 3 merged
+                    probs.append(np.array([0.0, 0.0, 1.0]))
+                elif out[2] == np.log10(ps[1].m) or out[2] == np.log10(ps[2].m): # planets 1 and 2 merged
+                    probs.append(np.array([1.0, 0.0, 0.0]))
+                done_inds.append(i)
             else:
-                # planets collided in less than 10^4 orbits
-                probs.append(out)
+                probs.append(np.array([0.0, 0.0, 0.0]))
                 done_inds.append(i)
 
         if len(mlp_inputs) > 0:
@@ -248,4 +133,7 @@ class CollisionMergerClassifier():
         if single_sim:
             final_probs = final_probs[0]
 
+        if return_inputs:
+            return np.array(final_probs), mlp_inputs, thetas, done_inds
+            
         return np.array(final_probs)
