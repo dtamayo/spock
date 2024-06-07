@@ -118,14 +118,29 @@ def fast_truncnorm(
     return t_inst_samples.reshape(*oldscale.shape)
 
 class DeepRegressor(object):
-    def __init__(self, cuda=False, filebase='ensemble_part_*json'):
+    def __init__(self, seed=None, cuda=False):
+        """ DeepRegressor class
+
+        Parameters:
+
+        seed (int): Random seed. Can set at initialization to get same sequence of outputs
+        cuda (bool): Whether to use cuda
+        """
         super().__init__()
         pwd = os.path.dirname(__file__)
         pwd = pwd + '/models/regression'
         self.cuda = cuda
 
+        if seed is not None:
+            os.environ["PL_GLOBAL_SEED"] = str(seed)
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            if self.cuda:
+                torch.cuda.manual_seed_all(seed)
+
         #Load model
-        all_model_param_filenames = glob.glob(pwd + '/' + filebase)
+        all_model_param_filenames = glob.glob(pwd + '/ensemble_part_*json')
         all_model_param_filenames.sort()
         model_basenames = [".".join(fname.split(".")[:-1]) for fname in all_model_param_filenames]
         self.swag_ensemble = [

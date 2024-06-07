@@ -80,7 +80,7 @@ class CollisionOrbitalOutcomeRegressor():
         self.reg_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
         # set random seed
-        if not seed is None:
+        if seed is not None:
             os.environ["PL_GLOBAL_SEED"] = str(seed)
             random.seed(seed)
             np.random.seed(seed)
