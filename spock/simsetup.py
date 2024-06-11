@@ -112,21 +112,50 @@ def align_simulation(sim):
     
     return theta1, theta2
 
-# make a copy of sim that only includes the particles with inds in p_inds and (optionally) has a1 = M_star = 1.00
-def copy_sim(sim, p_inds, scaled=False):
+def sim_subset(sim, p_inds):
     sim_copy = rebound.Simulation()
-    sim_copy.G = 4*np.pi**2 # use units in which a1=1.0, P1=1.0
+    sim_copy.G = sim.G
+    '''
+    try:
+        sim_copy.original_G = sim.original_G
+        sim_copy.original_P1 = sim.original_P1
+        sim_copy.original_Mstar = sim.original_Mstar
+    except:
+        pass
+    '''
+    ps = sim.particles
+   
+    sim_copy.add(m=ps[0].m)
+    for i in range(1, sim.N):
+        if i in p_inds:
+            sim_copy.add(m=ps[i].m, a=ps[i].a, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
+        
+    return sim_copy
+
+def copy_sim(sim, p_inds, scaled=False):
+    """
+    Make a copy of sim that only includes the particles with inds in p_inds 
+    (assumes particles in sim are ordered from shortest to longest orbital period).
+    """
+    sim_copy = rebound.Simulation()
     ps = sim.particles
     
     if scaled:
-        sim_copy.add(m=1.00)
-        a1 = ps[int(min(p_inds))].a
+        P1 = ps[int(min(p_inds))].P
         Mstar = sim.particles[0].m
+        
+        sim_copy.original_G = sim.G
+        sim_copy.original_P1 = P1
+        sim_copy.original_Mstar = Mstar
+        
+        sim_copy.G = 4*np.pi**2 # use units in which a1=1.0, P1=1.0
+        sim_copy.add(m=1.00)
         for i in range(1, sim.N):
             if i in p_inds:
-                sim_copy.add(m=ps[i].m/Mstar, a=ps[i].a/a1, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
+                sim_copy.add(m=ps[i].m/Mstar, P=ps[i].P/P1, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
 
     if not scaled:
+        sim_copy.G = 4*np.pi**2 # use units in which a1=1.0, P1=1.0
         sim_copy.add(m=sim.particles[0].m)
         for i in range(1, sim.N):
             if i in p_inds:
@@ -134,6 +163,26 @@ def copy_sim(sim, p_inds, scaled=False):
         
     return sim_copy
 
+def revert_sim_units(sims):
+    """
+    Convert sim back to units of input sims
+    """
+    try:
+        revertedsims = []
+        for i, sim in enumerate(sims):
+            sim_copy = rebound.Simulation()
+            sim_copy.G = sim.original_G
+
+            sim_copy.add(m=sim.original_Mstar)
+            ps = sim.particles
+            for j in range(1, sim.N):
+                sim_copy.add(m=ps[j].m*sim.original_Mstar, P=ps[j].P*sim.original_P1, e=ps[j].e, inc=ps[j].inc, pomega=ps[j].pomega, Omega=ps[j].Omega, theta=ps[j].theta)
+            sim_copy.t = sim.t*sim.original_P1
+            revertedsims.append(sim_copy)
+    except AttributeError:
+        raise AttributeError("sim passed to revert_units didn't have original values stored.")
+
+    return revertedsims
 # perfect inelastic merger (taken from REBOUND)
 def perfect_merge(sim_pointer, collided_particles_index):
     sim = sim_pointer.contents
@@ -166,26 +215,24 @@ def replace_p(sim, p_ind, new_particle):
     
 # return sim in which planet trio has been replaced with two planets
 def replace_trio(original_sim, trio_inds, new_state_sim, theta1, theta2):
-    # rescale based on original a1
-    original_a1 = original_sim.particles[int(trio_inds[0])].a
+    sim_copy = original_sim.copy()
+
     new_ps = new_state_sim.particles
-    for i in range(1, len(new_ps)):
-        new_ps[i].a = original_a1*new_ps[i].a
+    original_P1 = original_sim.particles[int(trio_inds[0])].P
+    for i in range(1, len(new_ps)): # TODO: should this be here?
+        new_ps[i].P = new_ps[i].P*original_P1
 
     # replace particles
     ind1, ind2, ind3 = int(trio_inds[0]), int(trio_inds[1]), int(trio_inds[2])
     if len(new_ps) == 3:
-        sim_copy = original_sim.copy()
         replace_p(sim_copy, ind1, new_ps[1])
         replace_p(sim_copy, ind2, new_ps[2])
         sim_copy.remove(ind3)
     if len(new_ps) == 2:
-        sim_copy = original_sim.copy()
         replace_p(sim_copy, ind1, new_ps[1])
         sim_copy.remove(ind3)
         sim_copy.remove(ind2)
     if len(new_ps) == 1:
-        sim_copy = original_sim.copy()
         sim_copy.remove(ind3)
         sim_copy.remove(ind2)
         sim_copy.remove(ind1)
@@ -205,28 +252,10 @@ def replace_trio(original_sim, trio_inds, new_state_sim, theta1, theta2):
     ordered_sim = sim_copy.copy()
     for i, ind in enumerate(sort_inds):
         replace_p(ordered_sim, i+1, ps[int(ind)+1])
+    
+    ordered_sim.original_G = original_sim.original_G
+    ordered_sim.original_P1 = original_sim.original_P1
+    ordered_sim.original_Mstar = original_sim.original_Mstar
 
     return ordered_sim
 
-# convert sim back to units of input sims
-def revert_sim_units(sims, original_Mstars, original_a1s, original_G, original_units, original_P1s=None):
-    revertedsims = []
-    for i, sim in enumerate(sims):
-        sim_copy = rebound.Simulation()
-        sim_copy.G = original_G # set G
-
-        # set units
-        if not (original_units['length'] is None or original_units['mass'] is None or original_units['time'] is None):
-            sim_copy.units = original_units
-
-        sim_copy.add(m=original_Mstars[i])
-        ps = sim.particles
-        for j in range(1, sim.N):
-            sim_copy.add(m=ps[j].m*original_Mstars[i], a=ps[j].a*original_a1s[i], e=ps[j].e, inc=ps[j].inc, pomega=ps[j].pomega, Omega=ps[j].Omega, theta=ps[j].theta)
-
-        if not original_P1s is None:
-            sim_copy.t = sim.t*original_P1s[i]
-        
-        revertedsims.append(sim_copy)
-
-    return revertedsims

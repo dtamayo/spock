@@ -1,8 +1,6 @@
 import numpy as np
 import os
 import torch
-import warnings
-from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge
 from .tseries_feature_functions import get_collision_tseries
 
 # pytorch MLP class
@@ -74,7 +72,7 @@ class CollisionMergerClassifier():
         self.class_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
     # function to predict collision probabilities given one or more rebound sims
-    def predict_collision_probs(self, sims, trio_inds=None, return_inputs=False):
+    def predict_collision_probs(self, sims, trio_inds=None, return_inputs=True):
         # check if input is a single sim or a list of sims
         single_sim = False
         if type(sims) != list:
@@ -92,7 +90,7 @@ class CollisionMergerClassifier():
         probs = []
         done_inds = []
         for i, sim in enumerate(sims):
-            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
+            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i]) # TODO: scaling should be in this func and not get_collision_tseries?
             
             if len(trio_sim.particles) == 4:
                 # no merger/ejection

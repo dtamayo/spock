@@ -80,7 +80,7 @@ class CollisionOrbitalOutcomeRegressor():
         self.reg_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
         # set random seed
-        if seed is not None:
+        if not seed is None:
             os.environ["PL_GLOBAL_SEED"] = str(seed)
             random.seed(seed)
             np.random.seed(seed)
@@ -101,28 +101,14 @@ class CollisionOrbitalOutcomeRegressor():
             for i in range(len(sims)):
                 trio_inds.append([1, 2, 3])
                 
-        # if collision_inds was not provided, assume collisions occur between planets 1 and 2
+        # if collision_inds was not provided, assume collisions occur between planets 1 and 2 # TODO this seems like a dangerous default, do we want to allow it?
         if collision_inds is None:
             collision_inds = []
             for i in range(len(sims)):
                 collision_inds.append([1, 2])
                 
-        # record units and G of input sims
-        original_units = sims[0].units
-        original_G = sims[0].G
-        
-        # record original M_stars, a1s, and P1s
-        original_Mstars = np.zeros(len(sims))
-        original_a1s = np.zeros(len(sims))
-        original_P1s = np.zeros(len(sims))
-        for i, sim in enumerate(sims):
-            original_Mstars[i] = sim.particles[0].m
-            original_a1s[i] = sim.particles[1].a
-            original_P1s[i] = sim.particles[1].P
-        
         # re-scale input sims and convert units
         sims = [copy_sim(sim, np.arange(1, sim.N), scaled=True) for sim in sims]
-        
         # run short integrations (or re-use MLP inputs)
         if mlp_inputs is None:
             mlp_inputs = []
@@ -143,9 +129,9 @@ class CollisionOrbitalOutcomeRegressor():
         else: # re-using inputs; integrate only systems that experience a merger
             done_sims = []
             for done_ind in done_inds:
-                out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i])
+                out, trio_sim, theta1, theta2 = get_collision_tseries(sims[done_ind], trio_inds[done_ind])
                 done_sims.append(replace_trio(sims[done_ind], trio_inds[done_ind], trio_sim, theta1, theta2))
-                
+               
         if len(mlp_inputs) > 0:
             # re-order input array based on input collision_inds
             reg_inputs = []
@@ -192,6 +178,7 @@ class CollisionOrbitalOutcomeRegressor():
                 new_state_sim = rb.Simulation()
                 new_state_sim.G = 4*np.pi**2 # units in which a1=1.0 and P1=1.0
                 new_state_sim.add(m=1.00)
+               
                 try:
                     new_state_sim.add(m=m1s[k], a=a1s[k], e=e1s[k], inc=inc1s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
                 except Exception as e:
@@ -205,11 +192,8 @@ class CollisionOrbitalOutcomeRegressor():
                 # replace trio with predicted duo (or single/zero if planets have unphysical orbital elements)
                 new_sims.append(replace_trio(sims[i], trio_inds[i], new_state_sim, thetas[k][0], thetas[k][1]))
                 k += 1
-        
         # convert sims back to original units
-        new_sims = revert_sim_units(new_sims, original_Mstars, original_a1s, original_G, original_units)
-        
+        new_sims = revert_sim_units(new_sims)
         if single_sim:
             new_sims = new_sims[0]
-        
         return new_sims
