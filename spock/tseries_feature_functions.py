@@ -3,7 +3,7 @@ import numpy as np
 import rebound
 from scipy.optimize import brenth
 from .feature_functions import find_strongest_MMR
-from .simsetup import copy_sim, align_simulation, get_rad, perfect_merge
+from .simsetup import copy_sim, align_simulation, get_rad, npEulerAnglesTransform, revert_sim_units
 
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
@@ -208,6 +208,26 @@ def features(sim, args):
     
     return triofeatures, stable
 
+# perfect inelastic merger (taken from REBOUND)
+def perfect_merge(sim_pointer, collided_particles_index):
+    sim = sim_pointer.contents
+    ps = sim.particles
+
+    # note that p1 < p2 is not guaranteed
+    i = collided_particles_index.p1
+    j = collided_particles_index.p2
+
+    total_mass = ps[i].m + ps[j].m
+    merged_planet = (ps[i]*ps[i].m + ps[j]*ps[j].m)/total_mass # conservation of momentum
+    merged_radius = (ps[i].r**3 + ps[j].r**3)**(1/3) # merge radius assuming a uniform density
+
+    ps[i] = merged_planet   # update p1's state vector (mass and radius will need to be changed)
+    ps[i].m = total_mass    # update to total mass
+    ps[i].r = merged_radius # update to joined radius
+
+    sim.stop() # stop sim
+    return 2 # remove particle with index j
+
 # run short sim to get input for MLP model (returns a sim if merger/ejection occurs)
 def get_collision_tseries(sim, trio_inds):
     # get three-planet sim
@@ -264,7 +284,12 @@ def get_collision_tseries(sim, trio_inds):
                                np.cos(ps[1].pomega), np.cos(ps[2].pomega), np.cos(ps[3].pomega),
                                np.sin(ps[1].Omega), np.sin(ps[2].Omega), np.sin(ps[3].Omega),
                                np.cos(ps[1].Omega), np.cos(ps[2].Omega), np.cos(ps[3].Omega)])
-        else:
-            return np.array(states), trio_sim, theta1, theta2
-
-    return np.array(states), trio_sim, theta1, theta2
+    
+    # change axis orientation back to original sim here
+    for p in trio_sim.particles[:trio_sim.N_real]:
+        p.x, p.y, p.z = npEulerAnglesTransform(p.xyz, -theta1, -theta2, 0)
+        p.vx, p.vy, p.vz = npEulerAnglesTransform(p.vxyz, -theta1, -theta2, 0)
+    
+    trio_sim = revert_sim_units([trio_sim])[0]            # revert returns a list of length 1 when we pass 1 sim
+    trio_sim.theta1, trio_sim.theta2 = theta1, theta2    # store angles for rotation into invariant plane if needed
+    return np.array(states), trio_sim

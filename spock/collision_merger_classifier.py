@@ -72,7 +72,7 @@ class CollisionMergerClassifier():
         self.class_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
     # function to predict collision probabilities given one or more rebound sims
-    def predict_collision_probs(self, sims, trio_inds=None, return_inputs=True):
+    def predict_collision_probs(self, sims, trio_inds=None, return_inputs=False):
         # check if input is a single sim or a list of sims
         single_sim = False
         if type(sims) != list:
@@ -86,17 +86,15 @@ class CollisionMergerClassifier():
                 trio_inds.append([1, 2, 3])
 
         mlp_inputs = []
-        thetas = []
         probs = []
         done_inds = []
+        trio_sims = []
         for i, sim in enumerate(sims):
-            out, trio_sim, theta1, theta2 = get_collision_tseries(sim, trio_inds[i]) # TODO: scaling should be in this func and not get_collision_tseries?
+            out, trio_sim = get_collision_tseries(sim, trio_inds[i]) # TODO: should scaling be in this func and not get_collision_tseries?
             
             if len(trio_sim.particles) == 4:
                 # no merger/ejection
                 mlp_inputs.append(out)
-                if return_inputs:
-                    thetas.append([theta1, theta2])
             elif len(trio_sim.particles) == 3:
                 # check for ejection or merger
                 ps = trio_sim.particles
@@ -131,7 +129,7 @@ class CollisionMergerClassifier():
         if single_sim:
             final_probs = final_probs[0]
 
-        if return_inputs:
-            return np.array(final_probs), mlp_inputs, thetas, done_inds
+        #if return_inputs:
+        #    return np.array(final_probs), mlp_inputs, done_inds, trio_sims
             
         return np.array(final_probs)
