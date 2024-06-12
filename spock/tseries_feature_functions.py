@@ -3,7 +3,7 @@ import numpy as np
 import rebound
 from scipy.optimize import brenth
 from .feature_functions import find_strongest_MMR
-from .simsetup import copy_sim, align_simulation, get_rad, npEulerAnglesTransform, revert_sim_units
+from .simsetup import scale_sim, align_simulation, get_rad, npEulerAnglesTransform, revert_sim_units
 
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
@@ -231,7 +231,7 @@ def perfect_merge(sim_pointer, collided_particles_index):
 # run short sim to get input for MLP model (returns a sim if merger/ejection occurs)
 def get_collision_tseries(sim, trio_inds):
     # get three-planet sim
-    trio_sim = copy_sim(sim, trio_inds, scaled=True)
+    trio_sim = scale_sim(sim, trio_inds)
     ps = trio_sim.particles
 
     # align z-axis with direction of angular momentum
@@ -250,7 +250,7 @@ def get_collision_tseries(sim, trio_inds):
     minTperi = np.min(Ps*(1 - es)**1.5/np.sqrt(1 + es))
     trio_sim.dt = 0.05*minTperi
 
-    times = np.linspace(0.0, 1e4, 100)
+    times = np.linspace(trio_sim.t, trio_sim.t + 1e4, 100)
     states = [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]
 
     for t in times:

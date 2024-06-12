@@ -72,7 +72,7 @@ class CollisionMergerClassifier():
         self.class_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
     # function to predict collision probabilities given one or more rebound sims
-    def predict_collision_probs(self, sims, trio_inds=None, return_inputs=False):
+    def predict_collision_probs(self, sims, trio_inds=None):
         # check if input is a single sim or a list of sims
         single_sim = False
         if type(sims) != list:
@@ -90,7 +90,7 @@ class CollisionMergerClassifier():
         done_inds = []
         trio_sims = []
         for i, sim in enumerate(sims):
-            out, trio_sim = get_collision_tseries(sim, trio_inds[i]) # TODO: should scaling be in this func and not get_collision_tseries?
+            out, trio_sim = get_collision_tseries(sim, trio_inds[i]) 
             
             if len(trio_sim.particles) == 4:
                 # no merger/ejection
@@ -129,7 +129,18 @@ class CollisionMergerClassifier():
         if single_sim:
             final_probs = final_probs[0]
 
-        #if return_inputs:
-        #    return np.array(final_probs), mlp_inputs, done_inds, trio_sims
-            
         return np.array(final_probs)
+
+    def sample_collision_indices(self, sims, trio_inds=None):
+        pred_probs = self.predict_collision_probs(sims, trio_inds)
+        rand_nums = np.random.rand(len(pred_probs))
+        collision_inds = np.zeros((len(pred_probs), 2))
+        for i, rand_num in enumerate(rand_nums):
+            if rand_num < pred_probs[i][0]:
+                collision_inds[i] = [1, 2]
+            elif rand_num < pred_probs[i][0] + pred_probs[i][1]:
+                collision_inds[i] = [2, 3]
+            else:
+                collision_inds[i] = [1, 3]
+        
+        return collision_indp gian  

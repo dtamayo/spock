@@ -4,7 +4,7 @@ import os
 import torch
 import warnings
 import rebound as rb
-from .simsetup import copy_sim, align_simulation, get_rad, revert_sim_units, npEulerAnglesTransform
+from .simsetup import scale_sim, align_simulation, get_rad, revert_sim_units, npEulerAnglesTransform
 from .tseries_feature_functions import get_collision_tseries
 
 # replace particle in sim with new state (in place)
@@ -149,7 +149,7 @@ class CollisionOrbitalOutcomeRegressor():
             single_sim = True
 
         # re-scale input sims and convert units
-        sims = [copy_sim(sim, np.arange(1, sim.N), scaled=True) for sim in sims]
+        sims = [scale_sim(sim, np.arange(1, sim.N)) for sim in sims]
         done_sims = []
         trio_sims = []
         # run short integrations (or re-use MLP inputs)

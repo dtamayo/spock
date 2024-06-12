@@ -132,7 +132,7 @@ def sim_subset(sim, p_inds):
         
     return sim_copy
 
-def copy_sim(sim, p_inds, scaled=False):
+def scale_sim(sim, p_inds):
     """
     Make a copy of sim that only includes the particles with inds in p_inds 
     (assumes particles in sim are ordered from shortest to longest orbital period).
@@ -140,27 +140,20 @@ def copy_sim(sim, p_inds, scaled=False):
     sim_copy = rebound.Simulation()
     ps = sim.particles
     
-    if scaled:
-        P1 = ps[int(min(p_inds))].P
-        Mstar = sim.particles[0].m
-        
-        sim_copy.original_G = sim.G
-        sim_copy.original_P1 = P1
-        sim_copy.original_Mstar = Mstar
-        
-        sim_copy.G = 4*np.pi**2 # use units in which a1=1.0, P1=1.0
-        sim_copy.add(m=1.00)
-        for i in range(1, sim.N):
-            if i in p_inds:
-                sim_copy.add(m=ps[i].m/Mstar, P=ps[i].P/P1, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
+    P1 = ps[int(min(p_inds))].P
+    Mstar = sim.particles[0].m
+    
+    sim_copy.original_G = sim.G
+    sim_copy.original_P1 = P1
+    sim_copy.original_Mstar = Mstar
+    
+    sim_copy.G = 4*np.pi**2 # use units in which a1=1.0, P1=1.0
+    sim_copy.add(m=1.00)
+    for i in range(1, sim.N):
+        if i in p_inds:
+            sim_copy.add(m=ps[i].m/Mstar, P=ps[i].P/P1, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
 
-    if not scaled:
-        sim_copy.G = 4*np.pi**2 # use units in which a1=1.0, P1=1.0
-        sim_copy.add(m=sim.particles[0].m)
-        for i in range(1, sim.N):
-            if i in p_inds:
-                sim_copy.add(m=ps[i].m, a=ps[i].a, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
-        
+    sim_copy.t = sim.t/P1
     return sim_copy
 
 def revert_sim_units(sims):
