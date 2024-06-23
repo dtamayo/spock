@@ -143,4 +143,4 @@ class CollisionMergerClassifier():
             else:
                 collision_inds[i] = [1, 3]
         
-        return collision_indp gian  
+        return collision_inds
