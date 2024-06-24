@@ -93,12 +93,13 @@ class GiantImpactPhaseEmulator():
 
         return min_t_insts, min_trio_inds
 
+    # internal function for handling mergers with class_model and reg_model
     def _handle_mergers(self, sims, sims_to_merge, trio_inds):
         # predict which planets will collide in each trio_sim
-        collision_inds = self.class_model.sample_collision_indices(sims_to_merge, trio_inds)
+        collision_inds = self.class_model.sample_collision_probs(sims_to_merge, trio_inds)
 
         # predict post-collision orbital states with regression model
-        new_sims = self.reg_model.predict_collision_outcome(sims_to_merge, trio_inds, collision_inds)
+        new_sims = self.reg_model.predict_collision_outcome(sims_to_merge, collision_inds, trio_inds)
        
         # update sims
         for i, sim in enumerate(sims_to_merge):

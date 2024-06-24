@@ -90,25 +90,14 @@ class CollisionMergerClassifier():
         done_inds = []
         trio_sims = []
         for i, sim in enumerate(sims):
-            out, trio_sim = get_collision_tseries(sim, trio_inds[i]) 
+            out, trio_sim, col_prob = get_collision_tseries(sim, trio_inds[i]) 
             
             if len(trio_sim.particles) == 4:
                 # no merger/ejection
                 mlp_inputs.append(out)
-            elif len(trio_sim.particles) == 3:
-                # check for ejection or merger
-                ps = trio_sim.particles
-                if np.log10(ps[1].m) in [out[0], out[1], out[2]] and np.log10(ps[2].m) in [out[0], out[1], out[2]]: #ejection
-                    probs.append(np.array([0.0, 0.0, 0.0]))
-                elif out[0] == np.log10(ps[1].m) or out[0] == np.log10(ps[2].m): # planets 2 and 3 merged
-                    probs.append(np.array([0.0, 1.0, 0.0]))
-                elif out[1] == np.log10(ps[1].m) or out[1] == np.log10(ps[2].m): # planets 1 and 3 merged
-                    probs.append(np.array([0.0, 0.0, 1.0]))
-                elif out[2] == np.log10(ps[1].m) or out[2] == np.log10(ps[2].m): # planets 1 and 2 merged
-                    probs.append(np.array([1.0, 0.0, 0.0]))
-                done_inds.append(i)
             else:
-                probs.append(np.array([0.0, 0.0, 0.0]))
+                # merger/ejection occurred
+                probs.append(col_prob)
                 done_inds.append(i)
 
         if len(mlp_inputs) > 0:
@@ -131,7 +120,14 @@ class CollisionMergerClassifier():
 
         return np.array(final_probs)
 
-    def sample_collision_indices(self, sims, trio_inds=None):
+    # function to predict and sample collision probabilities given one or more rebound sims
+    def sample_collision_probs(self, sims, trio_inds=None):
+        # check if input is a single sim or a list of sims
+        single_sim = False
+        if type(sims) != list:
+            sims = [sims]
+            single_sim = True
+        
         pred_probs = self.predict_collision_probs(sims, trio_inds)
         rand_nums = np.random.rand(len(pred_probs))
         collision_inds = np.zeros((len(pred_probs), 2))
@@ -142,5 +138,8 @@ class CollisionMergerClassifier():
                 collision_inds[i] = [2, 3]
             else:
                 collision_inds[i] = [1, 3]
+        
+        if single_sim:
+            collision_inds = collision_inds[0]
         
         return collision_inds

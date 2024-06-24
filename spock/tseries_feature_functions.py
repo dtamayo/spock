@@ -216,6 +216,16 @@ def perfect_merge(sim_pointer, collided_particles_index):
     # note that p1 < p2 is not guaranteed
     i = collided_particles_index.p1
     j = collided_particles_index.p2
+    print(i, j)
+    
+    # record which pair of planets collide
+    global global_col_probs
+    if (i == 1 and j == 2) or (i == 2 and j == 1):
+        global_col_probs = np.array([1.0, 0.0, 0.0])
+    elif (i == 2 and j == 3) or (i == 3 and j == 2):
+        global_col_probs = np.array([0.0, 1.0, 0.0])
+    elif (i == 1 and j == 3) or (i == 3 and j == 1):
+        global_col_probs = np.array([0.0, 0.0, 1.0])
 
     total_mass = ps[i].m + ps[j].m
     merged_planet = (ps[i]*ps[i].m + ps[j]*ps[j].m)/total_mass # conservation of momentum
@@ -250,6 +260,8 @@ def get_collision_tseries(sim, trio_inds):
     minTperi = np.min(Ps*(1 - es)**1.5/np.sqrt(1 + es))
     trio_sim.dt = 0.05*minTperi
 
+    global global_col_probs
+    global_col_probs = np.array([-1.0, -1.0, -1.0]) # default
     times = np.linspace(trio_sim.t, trio_sim.t + 1e4, 100)
     states = [np.log10(ps[1].m), np.log10(ps[2].m), np.log10(ps[3].m)]
 
@@ -260,15 +272,18 @@ def get_collision_tseries(sim, trio_inds):
         if len(ps) == 4:
             if (not 0.0 < ps[1].a < 50.0) or (not 0.0 < ps[1].e < 1.0):
                 trio_sim.remove(1)
+                global_col_probs = np.array([0.0, 0.0, 0.0])
             elif (not 0.0 < ps[2].a < 50.0) or (not 0.0 < ps[2].e < 1.0):
                 trio_sim.remove(2)
+                global_col_probs = np.array([0.0, 0.0, 0.0])
             elif (not 0.0 < ps[3].a < 50.0) or (not 0.0 < ps[3].e < 1.0):
                 trio_sim.remove(3)
+                global_col_probs = np.array([0.0, 0.0, 0.0])
 
-        # check for merger
+        # if there was no merger/ejection, record states
         if len(ps) == 4:
             if ps[1].inc == 0.0 or ps[2].inc == 0.0 or ps[3].inc == 0.0:
-                # use very small inclinations to avoid -inf
+                # use very small inclinations to avoid -infs
                 states.extend([ps[1].a, ps[2].a, ps[3].a,
                                np.log10(ps[1].e), np.log10(ps[2].e), np.log10(ps[3].e),
                                -3.0, -3.0, -3.0,
@@ -292,4 +307,4 @@ def get_collision_tseries(sim, trio_inds):
     
     trio_sim = revert_sim_units([trio_sim])[0]            # revert returns a list of length 1 when we pass 1 sim
     trio_sim.theta1, trio_sim.theta2 = theta1, theta2    # store angles for rotation into invariant plane if needed
-    return np.array(states), trio_sim
+    return np.array(states), trio_sim, global_col_probs

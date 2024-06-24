@@ -140,13 +140,19 @@ class CollisionOrbitalOutcomeRegressor():
             torch.manual_seed(seed)
     
     # function to predict collision outcomes given one or more rebound sims
-    def predict_collision_outcome(self, sims, trio_inds, collision_inds):
+    def predict_collision_outcome(self, sims, collision_inds, trio_inds=None):
         # check if input is a single sim or a list of sims
         single_sim = False
         if type(sims) != list:
             sims = [sims]
             collision_inds = [collision_inds]
             single_sim = True
+            
+        # if trio_inds was not provided, assume first three planets (doesn't need to be passed for three-planet systems)
+        if trio_inds is None:
+            trio_inds = []
+            for i in range(len(sims)):
+                trio_inds.append([1, 2, 3])
 
         # re-scale input sims and convert units
         sims = [scale_sim(sim, np.arange(1, sim.N)) for sim in sims]
@@ -156,7 +162,7 @@ class CollisionOrbitalOutcomeRegressor():
         mlp_inputs = []
         done_inds = []
         for i, sim in enumerate(sims):
-            out, trio_sim = get_collision_tseries(sim, trio_inds[i])
+            out, trio_sim, _ = get_collision_tseries(sim, trio_inds[i])
             if len(trio_sim.particles) == 4:
                 # no merger (or ejection)
                 mlp_inputs.append(out)
