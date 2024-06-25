@@ -27,10 +27,19 @@ class GiantImpactPhaseEmulator():
             
     # main function: predict giant impact outcomes, stop once all trios have t_inst < tmax (tmax has the same units as sim.t) 
     def predict(self, sims, tmaxs=None):
+        single_sim = False
+        if isinstance(sims, rb.Simulation): # passed a single sim
+            sims = [sims]
+            single_sim = True
+        
+        # main loop
         sims, tmaxs = self._make_lists(sims, tmaxs)
         while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
             sims = self.step(sims, tmaxs) # keep dimensionless units until the end
                
+        if single_sim:
+            sims = sims[0]
+                
         return sims
 
     # take another step in the iterative process, merging any planets that go unstable with t_inst < tmax
@@ -119,10 +128,7 @@ class GiantImpactPhaseEmulator():
 
     # internal function with logic for initializing orbsmax as an array and checking for warnings
     def _make_lists(self, sims, tmaxs):
-        if isinstance(sims, rb.Simulation): # passed a single sim
-            sims = [sims]
-        
-        if tmaxs:    # used passed value
+        if tmaxs:    # use passed value
             try:
                 len(tmaxs) == len(sims)
             except:
