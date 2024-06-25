@@ -216,7 +216,6 @@ def perfect_merge(sim_pointer, collided_particles_index):
     # note that p1 < p2 is not guaranteed
     i = collided_particles_index.p1
     j = collided_particles_index.p2
-    print(i, j)
     
     # record which pair of planets collide
     global global_col_probs

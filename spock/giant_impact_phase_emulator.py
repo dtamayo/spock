@@ -4,7 +4,7 @@ import os
 import torch
 import time
 import warnings
-import rebound
+import rebound as rb
 from spock import DeepRegressor
 from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier
 from .simsetup import sim_subset
@@ -96,10 +96,20 @@ class GiantImpactPhaseEmulator():
     # internal function for handling mergers with class_model and reg_model
     def _handle_mergers(self, sims, sims_to_merge, trio_inds):
         # predict which planets will collide in each trio_sim
-        collision_inds = self.class_model.sample_collision_probs(sims_to_merge, trio_inds)
-
+        collision_inds, ML_inputs = self.class_model.sample_collision_probs(sims_to_merge, trio_inds, return_ML_inputs=True)
+        
+        # get collision_inds for sims that did not experience a merger
+        sims_to_merge_temp, trio_sims, mlp_inputs, done_sims, done_inds = ML_inputs
+        if 0 < len(done_inds):
+            mask = np.ones(len(collision_inds), dtype=bool)
+            mask[np.array(done_inds)] = False
+            subset_collision_inds = list(np.array(collision_inds)[mask])
+        else:
+            subset_collision_inds = collision_inds
+        ML_inputs = sims_to_merge_temp, subset_collision_inds, trio_inds, trio_sims, mlp_inputs, done_sims, done_inds
+            
         # predict post-collision orbital states with regression model
-        new_sims = self.reg_model.predict_collision_outcome(sims_to_merge, collision_inds, trio_inds)
+        new_sims = self.reg_model._predict_collision_probs_from_inputs(*ML_inputs)
        
         # update sims
         for i, sim in enumerate(sims_to_merge):
@@ -109,7 +119,7 @@ class GiantImpactPhaseEmulator():
 
     # internal function with logic for initializing orbsmax as an array and checking for warnings
     def _make_lists(self, sims, tmaxs):
-        if isinstance(sims, rebound.Simulation): # passed a single sim
+        if isinstance(sims, rb.Simulation): # passed a single sim
             sims = [sims]
         
         if tmaxs:    # used passed value

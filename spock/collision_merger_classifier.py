@@ -1,7 +1,9 @@
 import numpy as np
 import os
 import torch
+import rebound as rb
 from .tseries_feature_functions import get_collision_tseries
+from .simsetup import scale_sim, replace_trio
 
 # pytorch MLP class
 class class_MLP(torch.nn.Module):
@@ -72,33 +74,42 @@ class CollisionMergerClassifier():
         self.class_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
     # function to predict collision probabilities given one or more rebound sims
-    def predict_collision_probs(self, sims, trio_inds=None):
-        # check if input is a single sim or a list of sims
+    def predict_collision_probs(self, sims, trio_inds=None, return_ML_inputs=False):
         single_sim = False
-        if type(sims) != list:
+        if isinstance(sims, rb.Simulation): # passed a single sim
             sims = [sims]
+            if not trio_inds is None:
+                trio_inds = [trio_inds]
             single_sim = True
 
-        # if trio_inds was not provided, assume first three planets
+        # if trio_inds was not provided, assume first three planets (doesn't need to be passed for three-planet systems)
         if trio_inds is None:
             trio_inds = []
             for i in range(len(sims)):
                 trio_inds.append([1, 2, 3])
 
-        mlp_inputs = []
+        sims = [scale_sim(sim, np.arange(1, sim.N)) for sim in sims] # re-scale input sims and convert units
         probs = []
-        done_inds = []
+        done_sims = []
         trio_sims = []
+        mlp_inputs = []
+        done_inds = []
         for i, sim in enumerate(sims):
             out, trio_sim, col_prob = get_collision_tseries(sim, trio_inds[i]) 
             
             if len(trio_sim.particles) == 4:
                 # no merger/ejection
                 mlp_inputs.append(out)
+                
+                if return_ML_inputs: # record trio_sims, if desired
+                    trio_sims.append(trio_sim)
             else:
                 # merger/ejection occurred
                 probs.append(col_prob)
                 done_inds.append(i)
+                
+                if return_ML_inputs: # record done_sims, if desired
+                    done_sims.append(replace_trio(sim, trio_inds[i], trio_sim))
 
         if len(mlp_inputs) > 0:
             mlp_inputs = np.array(mlp_inputs)
@@ -118,17 +129,25 @@ class CollisionMergerClassifier():
         if single_sim:
             final_probs = final_probs[0]
 
+        if return_ML_inputs:
+            return np.array(final_probs), [sims, trio_sims, mlp_inputs, done_sims, done_inds]
+            
         return np.array(final_probs)
 
     # function to predict and sample collision probabilities given one or more rebound sims
-    def sample_collision_probs(self, sims, trio_inds=None):
-        # check if input is a single sim or a list of sims
+    def sample_collision_probs(self, sims, trio_inds=None, return_ML_inputs=False):
         single_sim = False
-        if type(sims) != list:
+        if isinstance(sims, rb.Simulation): # passed a single sim
             sims = [sims]
+            if not trio_inds is None:
+                trio_inds = [trio_inds]
             single_sim = True
         
-        pred_probs = self.predict_collision_probs(sims, trio_inds)
+        if return_ML_inputs:
+            pred_probs, ML_input_data = self.predict_collision_probs(sims, trio_inds, return_ML_inputs=True)
+        else:
+            pred_probs = self.predict_collision_probs(sims, trio_inds, return_ML_inputs=False)
+        
         rand_nums = np.random.rand(len(pred_probs))
         collision_inds = np.zeros((len(pred_probs), 2))
         for i, rand_num in enumerate(rand_nums):
@@ -141,5 +160,8 @@ class CollisionMergerClassifier():
         
         if single_sim:
             collision_inds = collision_inds[0]
+            
+        if return_ML_inputs:
+            return collision_inds, ML_input_data
         
         return collision_inds
