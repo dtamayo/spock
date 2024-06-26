@@ -7,7 +7,7 @@ import warnings
 import rebound as rb
 from spock import DeepRegressor
 from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier
-from .simsetup import sim_subset
+from .simsetup import sim_subset, remove_ejected_ps
 
 # planet formation simulation model
 class GiantImpactPhaseEmulator():
@@ -34,6 +34,7 @@ class GiantImpactPhaseEmulator():
         
         # main loop
         sims, tmaxs = self._make_lists(sims, tmaxs)
+        print('tmaxs:', tmaxs)
         while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
             sims = self.step(sims, tmaxs) # keep dimensionless units until the end
                
@@ -44,12 +45,12 @@ class GiantImpactPhaseEmulator():
 
     # take another step in the iterative process, merging any planets that go unstable with t_inst < tmax
     # tmax can't be optional because if you call step over and over, 1e9 orbit default changes if inner planet merges 
-    def step(self, sims, tmaxs): 
+    def step(self, sims, tmaxs):
         sims, tmaxs = self._make_lists(sims, tmaxs)
         for i, sim in enumerate(sims): # assume all 2 planet systems (N=3) are stable (could use Hill stability criterion)
             if sim.N < 4:
                 sim.t = tmaxs[i]
-
+        
         sims_to_update = [sim for i, sim in enumerate(sims) if sim.t < tmaxs[i]]
         # estimate instability times for the subset of systems
         if len(sims_to_update) == 0:
@@ -128,7 +129,10 @@ class GiantImpactPhaseEmulator():
 
     # internal function with logic for initializing orbsmax as an array and checking for warnings
     def _make_lists(self, sims, tmaxs):
-        if tmaxs:    # use passed value
+        sims = remove_ejected_ps(sims) # remove ejected/hyperbolic particles
+        
+        # use passed value
+        if tmaxs:
             try:
                 len(tmaxs) == len(sims)
             except:

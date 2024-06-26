@@ -228,3 +228,15 @@ def revert_sim_units(sims):
         raise AttributeError("sim passed to revert_units didn't have original values stored.")
 
     return revertedsims
+
+def remove_ejected_ps(sims):
+    new_sims = []
+    for sim in sims:
+        p_inds = []
+        ps = sim.particles
+        for i in range(1, len(ps)):
+            if (0.0 < ps[i].a < 50.0) and (0.0 <= ps[i].e < 1.0):
+                p_inds.append(i)
+        new_sims.append(sim_subset(sim, p_inds))
+        
+    return new_sims
