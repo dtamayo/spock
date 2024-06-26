@@ -68,6 +68,11 @@ class GiantImpactPhaseEmulator():
         rebound.Simulation or list: Predicted states after one step of predicting instability times and merging planets.
 
         """
+        single_sim = False
+        if isinstance(sims, rb.Simulation): # passed a single sim
+            sims = [sims]
+            single_sim = True
+        
         sims, tmaxs = self._make_lists(sims, tmaxs)
         for i, sim in enumerate(sims): # assume all 2 planet systems (N=3) are stable (could use Hill stability criterion)
             if sim.N < 4:
@@ -93,6 +98,10 @@ class GiantImpactPhaseEmulator():
                 trios_to_merge.append(trio_inds[i])
         # get new sims with planets merged
         sims = self._handle_mergers(sims, sims_to_merge, trios_to_merge)
+        
+        if single_sim:
+            sims = sims[0]
+        
         return sims
 
     # get unstable trios for list of sims using SPOCK deep model

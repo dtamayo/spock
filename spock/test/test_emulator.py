@@ -103,7 +103,7 @@ class TestClassifier(unittest.TestCase):
         sim = unstablesim()
         E0 = sim.energy()
         sim = self.model.predict(sim)
-        E = sim.angular_momentum()
+        E = sim.energy()
         self.assertAlmostEqual(E0, E, delta=0.25*E0) # must agree to within 25% of initial E value
 
     def test_step_equivalence(self):
