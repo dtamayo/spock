@@ -86,8 +86,20 @@ class CollisionOrbitalOutcomeRegressor():
             np.random.seed(seed)
             torch.manual_seed(seed)
     
-    # function to predict collision outcomes given one or more rebound sims
     def predict_collision_outcome(self, sims, collision_inds, trio_inds=None):
+        """
+        Predict outcome of a planet-planet collision in system(s) of three (or more) planets.
+
+        Parameters:
+
+        sims (rebound.Simulation or list): Initial state of the multiplanet system(s).
+        collision_inds (list): Indices of the planets that are involved in the collision (e.g., [1, 2] for a collision between planet 1 and planet 2).
+        trio_inds (list): Indices of the three planets that make up the three-planet subset of the full system (e.g., [1, 2, 3] for the innermost three planets). Post-collision orbital elements will be predicted for the newly-merged planet and the planet in the trio that was not involved in the collision.
+
+        Returns:
+        
+        rebound.Simulation or list: Predicted state of the post-collision system(s).
+        """
         single_sim = False
         if isinstance(sims, rb.Simulation): # passed a single sim
             sims = [sims]
@@ -127,7 +139,7 @@ class CollisionOrbitalOutcomeRegressor():
         
         return self._predict_collision_probs_from_inputs(sims, subset_collision_inds, trio_inds, trio_sims, mlp_inputs, done_sims, done_inds, single_sim)
     
-    # function to predict collision outcomes given one or more rebound sims
+    # function to predict collision outcomes provided all inputs (useful if re-using inputs for the class and reg models)
     def _predict_collision_probs_from_inputs(self, sims, collision_inds, trio_inds, trio_sims, mlp_inputs, done_sims, done_inds, single_sim=False):
         if 0 < len(mlp_inputs):
             # re-order input array based on input collision_inds

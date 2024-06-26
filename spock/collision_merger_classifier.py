@@ -73,8 +73,20 @@ class CollisionMergerClassifier():
         pwd = os.path.dirname(__file__)
         self.class_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
-    # function to predict collision probabilities given one or more rebound sims
     def predict_collision_probs(self, sims, trio_inds=None, return_ML_inputs=False):
+        """
+        Predict probabilities of a collision occurring between different pairs of planets in system(s) of three (or more) planets.
+
+        Parameters:
+
+        sims (rebound.Simulation or list): Initial state of the multiplanet system(s).
+        trio_inds (list): Indices of the three planets that make up the three-planet subset of the full system (e.g., [1, 2, 3] for the innermost three planets). Probabilities for a collision happening between planets in the trio will be predicted.
+        return_ML_inputs (bool): Whether to also return the inputs for the ML model. Useful if re-using inputs with regression model, as done in the giant impact emulator (only encouraged for the painstaking user).
+
+        Returns:
+        
+        array: Collision pair probabilities for the input system(s). If trio_inds = [i1, i2, i3], the probabilities of a collision occurring between planets i1-i2, i2-i3, and i1-i3 will be returned, in that order.
+        """
         single_sim = False
         if isinstance(sims, rb.Simulation): # passed a single sim
             sims = [sims]
@@ -134,8 +146,20 @@ class CollisionMergerClassifier():
             
         return np.array(final_probs)
 
-    # function to predict and sample collision probabilities given one or more rebound sims
-    def sample_collision_probs(self, sims, trio_inds=None, return_ML_inputs=False):
+    def predict_collision_pair(self, sims, trio_inds=None, return_ML_inputs=False):
+        """
+        Predict which pair of planets in system(s) of three (or more) planets will collide by predicting, and then sampling, collision pair probabilities.
+
+        Parameters:
+
+        sims (rebound.Simulation or list): Initial state of the multiplanet system(s).
+        trio_inds (list): Indices of the three planets that make up the three-planet subset of the full system (e.g., [1, 2, 3] for the innermost three planets). Collisions will be considered between each planet pair in the trio subset system.
+        return_ML_inputs (bool): Whether to also return the inputs for the ML model. Useful if re-using inputs with regression model, as done in the giant impact emulator (only encouraged for the painstaking user).
+
+        Returns:
+        
+        array: Indices for the planets in the trio predicted to be involved in the collision (e.g., [1, 2] for a collision between planets 1 and 2).
+        """
         single_sim = False
         if isinstance(sims, rb.Simulation): # passed a single sim
             sims = [sims]
