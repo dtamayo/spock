@@ -112,6 +112,58 @@ def align_simulation(sim):
     
     return theta1, theta2
 
+# replace particle in sim with new state (in place)
+def replace_p(sim, p_ind, new_particle):
+    sim.particles[p_ind].m = new_particle.m
+    sim.particles[p_ind].a = new_particle.a
+    sim.particles[p_ind].e = new_particle.e
+    sim.particles[p_ind].inc = new_particle.inc
+    sim.particles[p_ind].pomega = new_particle.pomega
+    sim.particles[p_ind].Omega = new_particle.Omega
+    sim.particles[p_ind].l = new_particle.l
+    
+# return sim in which planet trio has been replaced with two planets
+# with periods rescaled back to match the period of the innermost body prior in the original sim (prior to merger)
+def replace_trio(original_sim, trio_inds, new_state_sim):
+    sim_copy = original_sim.copy()
+
+    new_ps = new_state_sim.particles
+    original_P1 = original_sim.particles[int(trio_inds[0])].P
+    for i in range(1, len(new_ps)): 
+        new_ps[i].P = new_ps[i].P*original_P1
+
+    # replace particles
+    ind1, ind2, ind3 = int(trio_inds[0]), int(trio_inds[1]), int(trio_inds[2])
+    if len(new_ps) == 3:
+        replace_p(sim_copy, ind1, new_ps[1])
+        replace_p(sim_copy, ind2, new_ps[2])
+        sim_copy.remove(ind3)
+    if len(new_ps) == 2:
+        replace_p(sim_copy, ind1, new_ps[1])
+        sim_copy.remove(ind3)
+        sim_copy.remove(ind2)
+    if len(new_ps) == 1:
+        sim_copy.remove(ind3)
+        sim_copy.remove(ind2)
+        sim_copy.remove(ind1)
+
+    # re-order particles in ascending semi-major axis
+    ps = sim_copy.particles
+    semi_as = []
+    for i in range(1, len(ps)):
+        semi_as.append(ps[i].a)
+    sort_inds = np.argsort(semi_as)
+
+    ordered_sim = sim_copy.copy()
+    for i, ind in enumerate(sort_inds):
+        replace_p(ordered_sim, i+1, ps[int(ind)+1])
+    
+    ordered_sim.original_G = original_sim.original_G
+    ordered_sim.original_P1 = original_sim.original_P1
+    ordered_sim.original_Mstar = original_sim.original_Mstar
+
+    return ordered_sim
+
 def sim_subset(sim, p_inds):
     sim_copy = rebound.Simulation()
     sim_copy.G = sim.G
@@ -176,3 +228,15 @@ def revert_sim_units(sims):
         raise AttributeError("sim passed to revert_units didn't have original values stored.")
 
     return revertedsims
+
+def remove_ejected_ps(sims):
+    new_sims = []
+    for sim in sims:
+        p_inds = []
+        ps = sim.particles
+        for i in range(1, len(ps)):
+            if (0.0 < ps[i].a < 50.0) and (0.0 <= ps[i].e < 1.0):
+                p_inds.append(i)
+        new_sims.append(sim_subset(sim, p_inds))
+        
+    return new_sims

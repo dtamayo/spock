@@ -4,10 +4,10 @@ import os
 import torch
 import time
 import warnings
-import rebound
+import rebound as rb
 from spock import DeepRegressor
 from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier
-from .simsetup import sim_subset
+from .simsetup import sim_subset, remove_ejected_ps
 
 # planet formation simulation model
 class GiantImpactPhaseEmulator():
@@ -25,22 +25,59 @@ class GiantImpactPhaseEmulator():
         self.reg_model = CollisionOrbitalOutcomeRegressor()
         self.deep_model = DeepRegressor()
             
-    # main function: predict giant impact outcomes, stop once all trios have t_inst < tmax (tmax has the same units as sim.t) 
     def predict(self, sims, tmaxs=None):
+        """
+        Predict outcome of giant impact simulations up to a user-specified maximum time.
+
+        Parameters:
+
+        sims (rebound.Simulation or list): Initial condition(s) for giant impact simulations.
+        tmaxs (float or list): Maximum time for simulation predictions in the same units as sims.t. The default is 10^9 P1, the maximum possible time.
+
+        Returns:
+        
+        rebound.Simulation or list: Predicted post-giant impact states for each provided initial condition.
+
+        """
+        single_sim = False
+        if isinstance(sims, rb.Simulation): # passed a single sim
+            sims = [sims]
+            single_sim = True
+        
+        # main loop
         sims, tmaxs = self._make_lists(sims, tmaxs)
         while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
             sims = self.step(sims, tmaxs) # keep dimensionless units until the end
                
+        if single_sim:
+            sims = sims[0]
+                
         return sims
 
-    # take another step in the iterative process, merging any planets that go unstable with t_inst < tmax
-    # tmax can't be optional because if you call step over and over, 1e9 orbit default changes if inner planet merges 
-    def step(self, sims, tmaxs): 
+    def step(self, sims, tmaxs):
+        """
+        Perform another step in the iterative prediction process, merging any planets that go unstable in t < tmax.
+
+        Parameters:
+
+        sims (rebound.Simulation or list): Current state of the giant impact simulations.
+        tmaxs (float or list): Maximum time for simulation predictions in the same units as sims.t. The default is 10^9 P1, the maximum possible time.
+
+        Returns:
+        
+        rebound.Simulation or list: Predicted states after one step of predicting instability times and merging planets.
+
+        """
+        single_sim = False
+        if isinstance(sims, rb.Simulation): # passed a single sim
+            sims = [sims]
+            single_sim = True
+        
         sims, tmaxs = self._make_lists(sims, tmaxs)
         for i, sim in enumerate(sims): # assume all 2 planet systems (N=3) are stable (could use Hill stability criterion)
             if sim.N < 4:
                 sim.t = tmaxs[i]
-
+        
         sims_to_update = [sim for i, sim in enumerate(sims) if sim.t < tmaxs[i]]
         # estimate instability times for the subset of systems
         if len(sims_to_update) == 0:
@@ -61,6 +98,10 @@ class GiantImpactPhaseEmulator():
                 trios_to_merge.append(trio_inds[i])
         # get new sims with planets merged
         sims = self._handle_mergers(sims, sims_to_merge, trios_to_merge)
+        
+        if single_sim:
+            sims = sims[0]
+        
         return sims
 
     # get unstable trios for list of sims using SPOCK deep model
@@ -93,12 +134,23 @@ class GiantImpactPhaseEmulator():
 
         return min_t_insts, min_trio_inds
 
+    # internal function for handling mergers with class_model and reg_model
     def _handle_mergers(self, sims, sims_to_merge, trio_inds):
         # predict which planets will collide in each trio_sim
-        collision_inds = self.class_model.sample_collision_indices(sims_to_merge, trio_inds)
-
+        collision_inds, ML_inputs = self.class_model.predict_collision_pair(sims_to_merge, trio_inds, return_ML_inputs=True)
+        
+        # get collision_inds for sims that did not experience a merger
+        sims_to_merge_temp, trio_sims, mlp_inputs, done_sims, done_inds = ML_inputs
+        if 0 < len(done_inds):
+            mask = np.ones(len(collision_inds), dtype=bool)
+            mask[np.array(done_inds)] = False
+            subset_collision_inds = list(np.array(collision_inds)[mask])
+        else:
+            subset_collision_inds = collision_inds
+        ML_inputs = sims_to_merge_temp, subset_collision_inds, trio_inds, trio_sims, mlp_inputs, done_sims, done_inds
+            
         # predict post-collision orbital states with regression model
-        new_sims = self.reg_model.predict_collision_outcome(sims_to_merge, trio_inds, collision_inds)
+        new_sims = self.reg_model._predict_collision_probs_from_inputs(*ML_inputs)
        
         # update sims
         for i, sim in enumerate(sims_to_merge):
@@ -108,10 +160,10 @@ class GiantImpactPhaseEmulator():
 
     # internal function with logic for initializing orbsmax as an array and checking for warnings
     def _make_lists(self, sims, tmaxs):
-        if isinstance(sims, rebound.Simulation): # passed a single sim
-            sims = [sims]
+        sims = remove_ejected_ps(sims) # remove ejected/hyperbolic particles
         
-        if tmaxs:    # used passed value
+        # use passed value
+        if tmaxs:
             try:
                 len(tmaxs) == len(sims)
             except:

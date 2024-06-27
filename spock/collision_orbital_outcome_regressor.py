@@ -4,61 +4,8 @@ import os
 import torch
 import warnings
 import rebound as rb
-from .simsetup import scale_sim, align_simulation, get_rad, revert_sim_units, npEulerAnglesTransform
+from .simsetup import scale_sim, align_simulation, get_rad, revert_sim_units, npEulerAnglesTransform, replace_p, replace_trio
 from .tseries_feature_functions import get_collision_tseries
-
-# replace particle in sim with new state (in place)
-def replace_p(sim, p_ind, new_particle):
-    sim.particles[p_ind].m = new_particle.m
-    sim.particles[p_ind].a = new_particle.a
-    sim.particles[p_ind].e = new_particle.e
-    sim.particles[p_ind].inc = new_particle.inc
-    sim.particles[p_ind].pomega = new_particle.pomega
-    sim.particles[p_ind].Omega = new_particle.Omega
-    sim.particles[p_ind].l = new_particle.l
-    
-# return sim in which planet trio has been replaced with two planets
-# with periods rescaled back to match the period of the innermost body prior in the original sim (prior to merger)
-def replace_trio(original_sim, trio_inds, new_state_sim):
-    sim_copy = original_sim.copy()
-
-    new_ps = new_state_sim.particles
-    original_P1 = original_sim.particles[int(trio_inds[0])].P
-    for i in range(1, len(new_ps)): 
-        new_ps[i].P = new_ps[i].P*original_P1
-
-    # replace particles
-    ind1, ind2, ind3 = int(trio_inds[0]), int(trio_inds[1]), int(trio_inds[2])
-    if len(new_ps) == 3:
-        replace_p(sim_copy, ind1, new_ps[1])
-        replace_p(sim_copy, ind2, new_ps[2])
-        sim_copy.remove(ind3)
-    if len(new_ps) == 2:
-        replace_p(sim_copy, ind1, new_ps[1])
-        sim_copy.remove(ind3)
-        sim_copy.remove(ind2)
-    if len(new_ps) == 1:
-        sim_copy.remove(ind3)
-        sim_copy.remove(ind2)
-        sim_copy.remove(ind1)
-
-    # re-order particles in ascending semi-major axis
-    ps = sim_copy.particles
-    semi_as = []
-    for i in range(1, len(ps)):
-        semi_as.append(ps[i].a)
-    sort_inds = np.argsort(semi_as)
-
-    ordered_sim = sim_copy.copy()
-    for i, ind in enumerate(sort_inds):
-        replace_p(ordered_sim, i+1, ps[int(ind)+1])
-    
-    ordered_sim.original_G = original_sim.original_G
-    ordered_sim.original_P1 = original_sim.original_P1
-    ordered_sim.original_Mstar = original_sim.original_Mstar
-
-    return ordered_sim
-
 
 # pytorch MLP
 class reg_MLP(torch.nn.Module):
@@ -139,24 +86,40 @@ class CollisionOrbitalOutcomeRegressor():
             np.random.seed(seed)
             torch.manual_seed(seed)
     
-    # function to predict collision outcomes given one or more rebound sims
-    def predict_collision_outcome(self, sims, trio_inds, collision_inds):
-        # check if input is a single sim or a list of sims
+    def predict_collision_outcome(self, sims, collision_inds, trio_inds=None):
+        """
+        Predict outcome of a planet-planet collision in system(s) of three (or more) planets.
+
+        Parameters:
+
+        sims (rebound.Simulation or list): Initial state of the multiplanet system(s).
+        collision_inds (list): Indices of the planets that are involved in the collision (e.g., [1, 2] for a collision between planet 1 and planet 2).
+        trio_inds (list): Indices of the three planets that make up the three-planet subset of the full system (e.g., [1, 2, 3] for the innermost three planets). Post-collision orbital elements will be predicted for the newly-merged planet and the planet in the trio that was not involved in the collision.
+
+        Returns:
+        
+        rebound.Simulation or list: Predicted state of the post-collision system(s).
+        """
         single_sim = False
-        if type(sims) != list:
+        if isinstance(sims, rb.Simulation): # passed a single sim
             sims = [sims]
             collision_inds = [collision_inds]
             single_sim = True
+            
+        # if trio_inds was not provided, assume first three planets (doesn't need to be passed for three-planet systems)
+        if trio_inds is None:
+            trio_inds = []
+            for i in range(len(sims)):
+                trio_inds.append([1, 2, 3])
 
-        # re-scale input sims and convert units
-        sims = [scale_sim(sim, np.arange(1, sim.N)) for sim in sims]
+        sims = [scale_sim(sim, np.arange(1, sim.N)) for sim in sims] # re-scale input sims and convert units
         done_sims = []
         trio_sims = []
-        # run short integrations (or re-use MLP inputs)
         mlp_inputs = []
         done_inds = []
         for i, sim in enumerate(sims):
-            out, trio_sim = get_collision_tseries(sim, trio_inds[i])
+            out, trio_sim, _ = get_collision_tseries(sim, trio_inds[i])
+            
             if len(trio_sim.particles) == 4:
                 # no merger (or ejection)
                 mlp_inputs.append(out)
@@ -166,7 +129,19 @@ class CollisionOrbitalOutcomeRegressor():
                 done_sims.append(replace_trio(sim, trio_inds[i], trio_sim))
                 done_inds.append(i)
 
-        if len(mlp_inputs) > 0:
+        # get collision_inds for sims that did not experience a merger
+        if 0 < len(done_inds):
+            mask = np.ones(len(collision_inds), dtype=bool)
+            mask[np.array(done_inds)] = False
+            subset_collision_inds = list(np.array(collision_inds)[mask])
+        else:
+            subset_collision_inds = collision_inds
+        
+        return self._predict_collision_probs_from_inputs(sims, subset_collision_inds, trio_inds, trio_sims, mlp_inputs, done_sims, done_inds, single_sim)
+    
+    # function to predict collision outcomes provided all inputs (useful if re-using inputs for the class and reg models)
+    def _predict_collision_probs_from_inputs(self, sims, collision_inds, trio_inds, trio_sims, mlp_inputs, done_sims, done_inds, single_sim=False):
+        if 0 < len(mlp_inputs):
             # re-order input array based on input collision_inds
             reg_inputs = []
             for i, col_ind in enumerate(collision_inds):
@@ -222,14 +197,18 @@ class CollisionOrbitalOutcomeRegressor():
                 except Exception as e:
                     warnings.warn('Removing planet with unphysical orbital elements')
                 new_state_sim.move_to_com()
+                
                 for p in new_state_sim.particles[:new_state_sim.N]:
                     p.x, p.y, p.z = npEulerAnglesTransform(p.xyz, -trio_sims[k].theta1, -trio_sims[k].theta2, 0)
                     p.vx, p.vy, p.vz = npEulerAnglesTransform(p.vxyz, -trio_sims[k].theta1, -trio_sims[k].theta2, 0)
                 # replace trio with predicted duo (or single/zero if planets have unphysical orbital elements)
                 new_sims.append(replace_trio(sims[i], trio_inds[i], new_state_sim))
                 k += 1
+        
         # convert sims back to original units
         new_sims = revert_sim_units(new_sims)
+        
         if single_sim:
             new_sims = new_sims[0]
+            
         return new_sims

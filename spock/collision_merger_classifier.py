@@ -1,7 +1,9 @@
 import numpy as np
 import os
 import torch
+import rebound as rb
 from .tseries_feature_functions import get_collision_tseries
+from .simsetup import scale_sim, replace_trio
 
 # pytorch MLP class
 class class_MLP(torch.nn.Module):
@@ -71,45 +73,55 @@ class CollisionMergerClassifier():
         pwd = os.path.dirname(__file__)
         self.class_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
         
-    # function to predict collision probabilities given one or more rebound sims
-    def predict_collision_probs(self, sims, trio_inds=None):
-        # check if input is a single sim or a list of sims
+    def predict_collision_probs(self, sims, trio_inds=None, return_ML_inputs=False):
+        """
+        Predict probabilities of a collision occurring between different pairs of planets in system(s) of three (or more) planets.
+
+        Parameters:
+
+        sims (rebound.Simulation or list): Initial state of the multiplanet system(s).
+        trio_inds (list): Indices of the three planets that make up the three-planet subset of the full system (e.g., [1, 2, 3] for the innermost three planets). Probabilities for a collision happening between planets in the trio will be predicted.
+        return_ML_inputs (bool): Whether to also return the inputs for the ML model. Useful if re-using inputs with regression model, as done in the giant impact emulator (only encouraged for the painstaking user).
+
+        Returns:
+        
+        array: Collision pair probabilities for the input system(s). If trio_inds = [i1, i2, i3], the probabilities of a collision occurring between planets i1-i2, i2-i3, and i1-i3 will be returned, in that order.
+        """
         single_sim = False
-        if type(sims) != list:
+        if isinstance(sims, rb.Simulation): # passed a single sim
             sims = [sims]
+            if not trio_inds is None:
+                trio_inds = [trio_inds]
             single_sim = True
 
-        # if trio_inds was not provided, assume first three planets
+        # if trio_inds was not provided, assume first three planets (doesn't need to be passed for three-planet systems)
         if trio_inds is None:
             trio_inds = []
             for i in range(len(sims)):
                 trio_inds.append([1, 2, 3])
 
-        mlp_inputs = []
+        sims = [scale_sim(sim, np.arange(1, sim.N)) for sim in sims] # re-scale input sims and convert units
         probs = []
-        done_inds = []
+        done_sims = []
         trio_sims = []
+        mlp_inputs = []
+        done_inds = []
         for i, sim in enumerate(sims):
-            out, trio_sim = get_collision_tseries(sim, trio_inds[i]) 
+            out, trio_sim, col_prob = get_collision_tseries(sim, trio_inds[i]) 
             
             if len(trio_sim.particles) == 4:
                 # no merger/ejection
                 mlp_inputs.append(out)
-            elif len(trio_sim.particles) == 3:
-                # check for ejection or merger
-                ps = trio_sim.particles
-                if np.log10(ps[1].m) in [out[0], out[1], out[2]] and np.log10(ps[2].m) in [out[0], out[1], out[2]]: #ejection
-                    probs.append(np.array([0.0, 0.0, 0.0]))
-                elif out[0] == np.log10(ps[1].m) or out[0] == np.log10(ps[2].m): # planets 2 and 3 merged
-                    probs.append(np.array([0.0, 1.0, 0.0]))
-                elif out[1] == np.log10(ps[1].m) or out[1] == np.log10(ps[2].m): # planets 1 and 3 merged
-                    probs.append(np.array([0.0, 0.0, 1.0]))
-                elif out[2] == np.log10(ps[1].m) or out[2] == np.log10(ps[2].m): # planets 1 and 2 merged
-                    probs.append(np.array([1.0, 0.0, 0.0]))
-                done_inds.append(i)
+                
+                if return_ML_inputs: # record trio_sims, if desired
+                    trio_sims.append(trio_sim)
             else:
-                probs.append(np.array([0.0, 0.0, 0.0]))
+                # merger/ejection occurred
+                probs.append(col_prob)
                 done_inds.append(i)
+                
+                if return_ML_inputs: # record done_sims, if desired
+                    done_sims.append(replace_trio(sim, trio_inds[i], trio_sim))
 
         if len(mlp_inputs) > 0:
             mlp_inputs = np.array(mlp_inputs)
@@ -129,10 +141,37 @@ class CollisionMergerClassifier():
         if single_sim:
             final_probs = final_probs[0]
 
+        if return_ML_inputs:
+            return np.array(final_probs), [sims, trio_sims, mlp_inputs, done_sims, done_inds]
+            
         return np.array(final_probs)
 
-    def sample_collision_indices(self, sims, trio_inds=None):
-        pred_probs = self.predict_collision_probs(sims, trio_inds)
+    def predict_collision_pair(self, sims, trio_inds=None, return_ML_inputs=False):
+        """
+        Predict which pair of planets in system(s) of three (or more) planets will collide by predicting, and then sampling, collision pair probabilities.
+
+        Parameters:
+
+        sims (rebound.Simulation or list): Initial state of the multiplanet system(s).
+        trio_inds (list): Indices of the three planets that make up the three-planet subset of the full system (e.g., [1, 2, 3] for the innermost three planets). Collisions will be considered between each planet pair in the trio subset system.
+        return_ML_inputs (bool): Whether to also return the inputs for the ML model. Useful if re-using inputs with regression model, as done in the giant impact emulator (only encouraged for the painstaking user).
+
+        Returns:
+        
+        array: Indices for the planets in the trio predicted to be involved in the collision (e.g., [1, 2] for a collision between planets 1 and 2).
+        """
+        single_sim = False
+        if isinstance(sims, rb.Simulation): # passed a single sim
+            sims = [sims]
+            if not trio_inds is None:
+                trio_inds = [trio_inds]
+            single_sim = True
+        
+        if return_ML_inputs:
+            pred_probs, ML_input_data = self.predict_collision_probs(sims, trio_inds, return_ML_inputs=True)
+        else:
+            pred_probs = self.predict_collision_probs(sims, trio_inds, return_ML_inputs=False)
+        
         rand_nums = np.random.rand(len(pred_probs))
         collision_inds = np.zeros((len(pred_probs), 2))
         for i, rand_num in enumerate(rand_nums):
@@ -143,4 +182,10 @@ class CollisionMergerClassifier():
             else:
                 collision_inds[i] = [1, 3]
         
-        return collision_indp gian  
+        if single_sim:
+            collision_inds = collision_inds[0]
+            
+        if return_ML_inputs:
+            return collision_inds, ML_input_data
+        
+        return collision_inds
