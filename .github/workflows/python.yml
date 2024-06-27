@@ -25,7 +25,7 @@ jobs:
             brew install libomp
             export LDFLAGS="-L/usr/local/opt/libomp/lib"
             export CPPFLAGS="-I/usr/local/opt/libomp/include"
-            export MKL_THREADING_LAYER=GNU
+            export MKL_THREADING_LAYER=TBB
       - name: "Install SPOCK"
         run: |
             python -m pip install --upgrade pip
