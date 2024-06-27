@@ -20,6 +20,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Install OpenMP with brew if on OSX
+        if: ${{ contains(matrix.os, 'macos') }}
+        run: |
+            brew install libomp
+            export LDFLAGS="-L/usr/local/opt/libomp/lib"
+            export CPPFLAGS="-I/usr/local/opt/libomp/include"
       - name: "Install SPOCK"
         run: |
             python -m pip install --upgrade pip
