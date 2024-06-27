@@ -235,7 +235,7 @@ def remove_ejected_ps(sims):
         p_inds = []
         ps = sim.particles
         for i in range(1, len(ps)):
-            if (0.0 < ps[i].a < 50.0) and (0.0 <= ps[i].e < 1.0):
+            if (ps[i].a > 0) and (0.0 <= ps[i].e < 1.0):
                 p_inds.append(i)
         new_sims.append(sim_subset(sim, p_inds))
         
