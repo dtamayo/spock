@@ -25,6 +25,7 @@ jobs:
             brew install libomp
             export LDFLAGS="-L/usr/local/opt/libomp/lib"
             export CPPFLAGS="-I/usr/local/opt/libomp/include"
+            brew uninstall libiomp clang-omp
       - name: "Install SPOCK"
         run: |
             python -m pip install --upgrade pip
