@@ -58,10 +58,10 @@ def generate_dataset(sim):
 
     Xs = []
     for i, trio in enumerate(trios):
-        print(mass_array)
         # These are the .npy.
         cur_tseries = tseries[None, i, :].astype(np.float32)
         mass_array = np.array([sim.particles[j].m/sim.particles[0].m for j in trio]).astype(np.float32)
+        print(mass_array)
         mass_array = E.repeat(mass_array, 'i -> () t i', t=100)
         X = data_setup_kernel(mass_array, cur_tseries)
         Xs.append(X)
