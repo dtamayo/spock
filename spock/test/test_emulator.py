@@ -1,6 +1,7 @@
 import unittest
 import rebound as rb
 from spock import GiantImpactPhaseEmulator
+import numpy as np
 
 def unstablesim():
     sim = rb.Simulation()
@@ -106,7 +107,17 @@ class TestClassifier(unittest.TestCase):
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         E0 = sim.energy()
-        pred_sim = self.model.predict(sim)
+        sims = [sim] # passed a single sim
+        
+        # main loop
+        sims, tmaxs = self.model._make_lists(sims, None)
+        while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
+            sims = self.model.step(sims, tmaxs)
+            if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
+            print(sims[0].N, sims[0].particles[1].x)
+               
+        pred_sim = sims[0]        
+        #pred_sim = self.model.predict(sim)
         E = pred_sim.energy()
         self.assertAlmostEqual(E0, E, delta=0.25*abs(E0)) # must agree to within 25% of initial E value
 
@@ -114,7 +125,17 @@ class TestClassifier(unittest.TestCase):
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         E0 = sim.energy()
-        pred_sim = self.model.predict(sim)
+        sims = [sim] # passed a single sim
+        
+        # main loop
+        sims, tmaxs = self.model._make_lists(sims, None)
+        while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
+            sims = self.model.step(sims, tmaxs)
+            if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
+            print(sims[0].N, sims[0].particles[1].x)
+               
+        pred_sim = sims[0]        
+        #pred_sim = self.model.predict(sim)
         E = pred_sim.energy()
         self.assertAlmostEqual(E0, E, delta=0.25*abs(E0)) # must agree to within 25% of initial E value
 
