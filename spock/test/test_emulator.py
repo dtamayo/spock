@@ -94,6 +94,7 @@ class TestClassifier(unittest.TestCase):
         self.assertAlmostEqual(pred_sim.particles[1].P, pred_sim2.particles[1].P, delta=1.e-10)
 
     def test_L_conservation(self):
+        self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         L0 = sim.angular_momentum()
         pred_sim = self.model.predict(sim)
@@ -105,8 +106,8 @@ class TestClassifier(unittest.TestCase):
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         E0 = sim.energy()
-        sim = self.model.predict(sim)
-        E = sim.energy()
+        pred_sim = self.model.predict(sim)
+        E = pred_sim.energy()
         self.assertAlmostEqual(E0, E, delta=0.25*abs(E0)) # must agree to within 25% of initial E value
 
     def test_step_equivalence(self):
