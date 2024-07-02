@@ -158,7 +158,7 @@ class TestClassifier(unittest.TestCase):
         E = pred_sim.energy()
         self.assertAlmostEqual(E0, E, delta=0.25*abs(E0)) # must agree to within 25% of initial E value
 
-        def test_L_conservation2(self):
+    def test_L_conservation2(self):
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         L0 = sim.angular_momentum()
