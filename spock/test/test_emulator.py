@@ -98,7 +98,17 @@ class TestClassifier(unittest.TestCase):
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         L0 = sim.angular_momentum()
-        pred_sim = self.model.predict(sim)
+        sims = [sim] # passed a single sim
+        
+        # main loop
+        sims, tmaxs = self.model._make_lists(sims, None)
+        while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
+            sims = self.model.step(sims, tmaxs)
+            if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
+            print(sims[0].N, sims[0].particles[1].x)
+               
+        pred_sim = sims[0]        
+        #pred_sim = self.model.predict(sim)
         L = pred_sim.angular_momentum()
         for i in range(3):
             self.assertAlmostEqual(L0[i], L[i], delta=0.1*L0[2]) # must agree to within 10% of initial Lz value
