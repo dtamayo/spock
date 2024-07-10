@@ -1,9 +1,9 @@
-import simsetup
-import features
-import ClassifierSeries as ClassifierSeries
-from features import *
-from ClassifierSeries import *
-from simsetup import *
+from spock import simsetup
+from spock import features
+from spock import ClassifierSeries
+# from features import *
+# from ClassifierSeries import *
+# from simsetup import *
 import sys
 import pandas as pd
 import numpy as np
@@ -13,7 +13,7 @@ from xgboost.sklearn import XGBClassifier
 import os
 
 
-class FeatureClassifier:
+class FeatureKlassifier:
 
 
     def __init__(self, modelfile='models/SPOCKalt.bin'):

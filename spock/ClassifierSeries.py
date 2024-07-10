@@ -3,7 +3,7 @@ import numpy as np
 from collections import OrderedDict
 import warnings
 import pandas as pd
-import features
+from spock import features
 
 global featureCount
 featureCount = 10

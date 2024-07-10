@@ -103,7 +103,9 @@ class Trio:
             self.features['MEGNOstd']= np.std(self.runningList['MEGNO'][int(Nout/5):])
 
         for label in ['near', 'far']: 
-            self.features['MMRstrength'+label] = np.median(self.runningList['MMRstrength'+label])
+             # cut out first value (init cond) to avoid cases
+        # where user sets exactly b*n2 - a*n1 & strength is inf
+            self.features['MMRstrength'+label] = np.median(self.runningList['MMRstrength'+label][1:])
             self.features['EMfracstd'+label]= np.std(self.runningList['EM'+label])/ self.features['EMcross'+label]
             self.features['EPstd'+label]= np.std(self.runningList['EP'+label])
             
@@ -144,7 +146,6 @@ def resonant_period_ratios(min_per_ratio,max_per_ratio,order):
 #taken from original spock
 ####################################################
 def find_strongest_MMR(sim, i1, i2):
-    #originally 2, trying with 5th order now
     maxorder = 2
     ps = sim.particles
     n1 = ps[i1].n
@@ -154,11 +155,10 @@ def find_strongest_MMR(sim, i1, i2):
     m2 = ps[i2].m/ps[0].m
 
     Pratio = n2/n1
-    #next want to try not to abreviate to closest
 
     delta = 0.03
     if Pratio < 0 or Pratio > 1: # n < 0 = hyperbolic orbit, Pratio > 1 = orbits are crossing
-        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan
 
     minperiodratio = max(Pratio-delta, 0.)
     maxperiodratio = min(Pratio+delta, 0.99) # too many resonances close to 1
@@ -168,35 +168,22 @@ def find_strongest_MMR(sim, i1, i2):
     EM = np.sqrt((ps[i1].e*np.cos(ps[i1].pomega) - ps[i2].e*np.cos(ps[i2].pomega))**2 + (ps[i1].e*np.sin(ps[i1].pomega) - ps[i2].e*np.sin(ps[i2].pomega))**2)
     EMcross = (ps[i2].a-ps[i1].a)/ps[i1].a
 
-    j, k, maxstrength, res1 = np.nan, np.nan, 0, np.nan 
-    j2, k2, maxstrength2, res2 = np.nan, np.nan, 0, np.nan 
-    
+    j, k, maxstrength = np.nan, np.nan, 0 
     for a, b in res:
         nres = (b*n2 - a*n1)/n1
         if nres == 0:
             s = np.inf # still want to identify as strongest MMR if initial condition is exatly b*n2-a*n1 = 0
         else:
             s = np.abs(np.sqrt(m1+m2)*(EM/EMcross)**((b-a)/2.)/nres)
-        
-        if s > maxstrength2 and not np.isnan(s) :
-            j2 = b
-            k2 = b-a
-            maxstrength2 = s
-            res2 = [a,b]
-            if maxstrength2> maxstrength:
-                j,j2 = swap(j,j2)
-                k,k2 = swap(k,k2)
-                res1, res2 = swap(res1,res2)
-                maxstrength, maxstrength2 = swap(maxstrength, maxstrength2)
-    
-
+        if s > maxstrength:
+            j = b
+            k = b-a
+            maxstrength = s
     if maxstrength == 0:
         maxstrength = np.nan
-    if maxstrength2 == 0:
-        maxstrength2 = np.nan
 
-    return j, k, maxstrength, res1, j2, k2, maxstrength2, res2, res
-#############################################
+    return j, k, maxstrength
+# #############################################
 
 def swap(a,b):
     return b,a
