@@ -98,87 +98,31 @@ class TestClassifier(unittest.TestCase):
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         L0 = sim.angular_momentum()
-        sims = [sim] # passed a single sim
-       
-        print("starting L")
-        # main loop
-        sims, tmaxs = self.model._make_lists(sims, None)
-        while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
-            sims = self.model.step(sims, tmaxs)
-            if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
-            print(sims[0].N, sims[0].particles[1].x)
-               
-        pred_sim = sims[0]        
-        #pred_sim = self.model.predict(sim)
+        pred_sim = self.model.predict(sim)
         L = pred_sim.angular_momentum()
-        print("finished L")
         for i in range(3):
             self.assertAlmostEqual(L0[i], L[i], delta=0.1*L0[2]) # must agree to within 10% of initial Lz value
             
-    def test_E_conservation2(self):
-        self.model = GiantImpactPhaseEmulator(seed=0)
-        sim = unstablesim()
-        E0 = sim.energy()
-        sims = [sim] # passed a single sim
-       
-        print("starting E2")
-        # main loop
-        sims, tmaxs = self.model._make_lists(sims, None)
-        while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
-            sims = self.model.step(sims, tmaxs)
-            if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
-            print(sims[0].N, sims[0].particles[1].x)
-        print("finished E2") 
-        pred_sim = sims[0]        
-        #pred_sim = self.model.predict(sim)
-        E = pred_sim.energy()
-        self.assertAlmostEqual(E0, E, delta=0.25*abs(E0)) # must agree to within 25% of initial E value
-
     def test_E_conservation(self):
+        import einops
+        print('***', einops.__version__)
+        '''
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         E0 = sim.energy()
-        sims = [sim] # passed a single sim
-        print("starting E") 
         try:
-            # main loop
-            sims, tmaxs = self.model._make_lists(sims, None)
-            while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
-                sims = self.model.step(sims, tmaxs)
-                if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
-                print(sims[0].N, sims[0].particles[1].x)
-            print("finished E") 
-            pred_sim = sims[0]        
+            pred_sim = self.model.predict(sim)
         except:
             pass
+        '''
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         E0 = sim.energy()
         pred_sim = self.model.predict(sim)
+
         E = pred_sim.energy()
         self.assertAlmostEqual(E0, E, delta=0.25*abs(E0)) # must agree to within 25% of initial E value
 
-    def test_L_conservation2(self):
-        self.model = GiantImpactPhaseEmulator(seed=0)
-        sim = unstablesim()
-        L0 = sim.angular_momentum()
-        sims = [sim] # passed a single sim
-       
-        print("starting L2")
-        # main loop
-        sims, tmaxs = self.model._make_lists(sims, None)
-        while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
-            sims = self.model.step(sims, tmaxs)
-            if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
-            print(sims[0].N, sims[0].particles[1].x)
-               
-        pred_sim = sims[0]        
-        #pred_sim = self.model.predict(sim)
-        L = pred_sim.angular_momentum()
-        print("finished L2")
-        for i in range(3):
-            self.assertAlmostEqual(L0[i], L[i], delta=0.1*L0[2]) # must agree to within 10% of initial Lz value
-            
     def test_step_equivalence(self):
         sim = unstablesim()
         tmax = 1e9*sim.particles[1].P # cache since this will change if we take multiple steps and inner planet merges
