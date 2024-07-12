@@ -1,8 +1,6 @@
 #from spock import simsetup
 from spock import features
 from spock import ClassifierSeries
-from multiprocessing import cpu_count
-from multiprocessing.pool import ThreadPool
 # from features import *
 # from ClassifierSeries import *
 # from simsetup import *
@@ -13,6 +11,9 @@ import rebound
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
 from .simsetup import init_sim_parameters
+from multiprocessing import cpu_count
+from multiprocessing.pool import ThreadPool
+
 import os
 
 
@@ -27,9 +28,9 @@ class FeatureKlassifier:
 
 
 
-    def predict_stable(self,sim):
+    def predict_stable(self,sim, n_jobs = -1):
         '''runs spock classification on a list of simulations'''
-        simFeatureList = self.simToData(sim)
+        simFeatureList = self.simToData(sim, n_jobs)
         results = []
         for s in simFeatureList:
             if s[1]==False:
@@ -45,7 +46,7 @@ class FeatureKlassifier:
         else:
             return results
     
-    def generate_features(self, sim):
+    def generate_features(self, sim, n_jobs = -1):
         '''helper function to fit spock syntex standard'''
         data = self.simToData(sim)
         if len(data)==1:
@@ -55,7 +56,7 @@ class FeatureKlassifier:
 
 
     
-    def simToData(self, sim):
+    def simToData(self, sim,n_jobs = -1):
         '''given a simulation, or list of simulations, returns data required for spock clasification.
         
             Arguments: sim --> simulation or list of simulations
@@ -63,8 +64,7 @@ class FeatureKlassifier:
             return:  returns a list of the simulations features/short term stability'''
         #tseries, stable = get_tseries(sim, args)
 
-        Norbits = 1e4 #number of orbits for short intigration, usually 10000
-        Nout = 10 #number of data collections spaced throughought, usually 80
+        
 
         if isinstance(sim, rebound.Simulation):
             sim = [sim]
@@ -73,22 +73,39 @@ class FeatureKlassifier:
         if len(set([s.N_real for s in sim])) != 1:
             raise ValueError("If running over many sims at once, they must have the same number of particles")
         
-        results = [] #results of the intigrations for each, if only one simulation return will not be in a list
+        # results = [] #results of the intigrations for each, if only one simulation return will not be in a list
 
-
-
-
-        #for intigrated systems
-        for s in sim:
-            s = s.copy() #creates a copy as to not alter simulation
-            init_sim_parameters(s) #initializes the simulation
-            self.check_errors(s) #checks for errors
-            trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
-            featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
+        # #for intigrated systems
+        # for s in sim:
+        #     s = s.copy() #creates a copy as to not alter simulation
+        #     init_sim_parameters(s) #initializes the simulation
+        #     self.check_errors(s) #checks for errors
+        #     trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
+        #     featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
             
-            results.append(self.runSim(s,featureargs)) #adds data to results. calls runSim helper function which returns the data list for sim
-        #can add pool here
-        return results
+        #     results.append(self.runSim(s,featureargs)) #adds data to results. calls runSim helper function which returns the data list for sim
+        # #can add pool here
+        if len(sim)==1:
+            return [self.run(sim[0])]
+        else:
+            if n_jobs == -1:
+                n_jobs = cpu_count()
+            with ThreadPool(n_jobs) as pool:
+                res = pool.map(self.run, sim)
+            return res
+            #return list(map(self.run, sim))
+        
+    
+    def run(self, s):
+        Norbits = 1e4 #number of orbits for short intigration, usually 10000
+        Nout = 10 #number of data collections spaced throughought, usually 80
+        s = s.copy() #creates a copy as to not alter simulation
+        init_sim_parameters(s) #initializes the simulation
+        self.check_errors(s) #checks for errors
+        trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
+        featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
+        return self.runSim(s,featureargs) #adds data to results. calls runSim helper function which returns the data list for sim
+
     
     def runSim(self, sim, args):
         '''returns the data list of features for a given simulation
