@@ -98,7 +98,7 @@ class FeatureKlassifier:
     
     def run(self, s):
         Norbits = 1e4 #number of orbits for short intigration, usually 10000
-        Nout = 10 #number of data collections spaced throughought, usually 80
+        Nout = 80 #number of data collections spaced throughought, usually 80
         s = s.copy() #creates a copy as to not alter simulation
         init_sim_parameters(s) #initializes the simulation
         self.check_errors(s) #checks for errors

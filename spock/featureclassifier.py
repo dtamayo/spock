@@ -92,7 +92,7 @@ class FeatureClassifier():
             minP = np.min([p.P for p in s.particles[1:s.N_real]])
             self.check_errors(s)
             trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
-            featureargs = [10000, 10, trios]
+            featureargs = [10000, 80, trios]
             args.append([s, featureargs])
 
         def run(params):
