@@ -20,7 +20,7 @@ from multiprocessing.pool import ThreadPool
 import os
 
 
-class FeatureKlassifier:
+class FeatureClassifier:
 
 
     def __init__(self, modelfile='models/SPOCKalt.bin'):
