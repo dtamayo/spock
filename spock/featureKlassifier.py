@@ -1,4 +1,4 @@
-from spock import simsetup
+#from spock import simsetup
 from spock import features
 from spock import ClassifierSeries
 # from features import *
@@ -10,6 +10,7 @@ import numpy as np
 import rebound
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
+from .simsetup import init_sim_parameters
 import os
 
 
@@ -61,7 +62,7 @@ class FeatureKlassifier:
         #tseries, stable = get_tseries(sim, args)
 
         Norbits = 1e4 #number of orbits for short intigration, usually 10000
-        Nout = 80 #number of data collections spaced throughought, usually 80
+        Nout = 10 #number of data collections spaced throughought, usually 80
 
         if isinstance(sim, rebound.Simulation):
             sim = [sim]
@@ -75,13 +76,13 @@ class FeatureKlassifier:
         #for intigrated systems
         for s in sim:
             s = s.copy() #creates a copy as to not alter simulation
-            simsetup.init_sim_parameters(s) #initializes the simulation
+            init_sim_parameters(s) #initializes the simulation
             self.check_errors(s) #checks for errors
             trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
             featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
             
             results.append(self.runSim(s,featureargs)) #adds data to results. calls runSim helper function which returns the data list for sim
-        
+        #can add pool here
         return results
     
     def runSim(self, sim, args):

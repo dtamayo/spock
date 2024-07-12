@@ -86,6 +86,8 @@ def find_strongest_MMR(sim, i1, i2):
 def populate_trio(sim, trio, pairs, tseries, i):
     Ns = 3
     ps = sim.particles
+    #I have checked all e, all m, all pomega, all are the same
+
     for q, [label, i1, i2] in enumerate(pairs):
         m1 = ps[i1].m
         m2 = ps[i2].m

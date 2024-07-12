@@ -1,38 +1,29 @@
 from collections import OrderedDict
 import numpy as np
-# from celmech.nbody_simulation_utilities import set_time_step,align_simulation
-# from celmech.nbody_simulation_utilities import get_simarchive_integration_results
-# from celmech.disturbing_function import laplace_b
 import math
 
 
 class Trio:
-    def __init__(self):
+    def __init__(self, trio, sim):
         '''initializes new set of features.
         
             each list of the key is the series of data points, second dict is for final features
         
         '''
-    #innitialize running list 
+        self.trio = trio
+        self.pairs = get_pairs(sim, trio)
+        
+        #innitialize running list which keeps track of data during simulation
         self.runningList = OrderedDict()
         self.runningList['time']=[]
         self.runningList['MEGNO']=[]
-        #self.runningList['threeBRfill']=[]
+        
         for each in ['near','far']:
             self.runningList['EM'+each]=[]
             self.runningList['EP'+each]=[]
             self.runningList['MMRstrength'+each]=[]
+
         
-        
-        self.runningList['Prat12']=[]
-        self.runningList['l1']=[]
-        self.runningList['l2']=[]
-        self.runningList['pomega12']=[]
-        self.runningList['Prat23']=[]
-        self.runningList['l3']=[]
-        self.runningList['pomega23']=[]
-        self.runningList['erel12']=[]
-        self.runningList['erel23']=[]
 
     #returned features
         self.features = OrderedDict()
@@ -58,18 +49,19 @@ class Trio:
         '''returns number of features collected as ran'''
         return len(self.runningList.keys())
 
-    def populateData(self, sim, trio, pairs, minP,i):
+    def populateData(self, sim, minP,i):
         '''populates the runningList data dictionary for one time step.
         
             user must specify how each is calculated and added
         '''
         ps = sim.particles
         
-        for q, [label, i1, i2] in enumerate(pairs):
+        for q, [label, i1, i2] in enumerate(self.pairs):
             m1 = ps[i1].m
             m2 = ps[i2].m
             e1x, e1y = ps[i1].e*np.cos(ps[i1].pomega), ps[i1].e*np.sin(ps[i1].pomega)
             e2x, e2y = ps[i2].e*np.cos(ps[i2].pomega), ps[i2].e*np.sin(ps[i2].pomega)
+            
             self.runningList['time'][i]= sim.t/minP
             self.runningList['EM'+label][i]= np.sqrt((e2x-e1x)**2 + (e2y-e1y)**2)
             self.runningList['EP'+label][i] = np.sqrt((m1*e1x + m2*e2x)**2 + (m1*e1y + m2*e2y)**2)/(m1+m2)
@@ -81,11 +73,11 @@ class Trio:
 
 
 
-    def startingFeatures(self, sim, pairs):
+    def startingFeatures(self, sim):
         '''used to initialize/add to the features that only depend on initial conditions'''
 
         ps = sim.particles
-        for [label,i1,i2] in pairs:  
+        for [label,i1,i2] in self.pairs:  
             self.features['EMcross'+label] = (ps[i2].a-ps[i1].a)/ps[i1].a
 
     def fill_features(self, args):
@@ -103,16 +95,15 @@ class Trio:
             self.features['MEGNOstd']= np.std(self.runningList['MEGNO'][int(Nout/5):])
 
         for label in ['near', 'far']: 
-             # cut out first value (init cond) to avoid cases
-        # where user sets exactly b*n2 - a*n1 & strength is inf
+            # cut out first value (init cond) to avoid cases
+            # where user sets exactly b*n2 - a*n1 & strength is inf
             self.features['MMRstrength'+label] = np.median(self.runningList['MMRstrength'+label][1:])
             self.features['EMfracstd'+label]= np.std(self.runningList['EM'+label])/ self.features['EMcross'+label]
             self.features['EPstd'+label]= np.std(self.runningList['EP'+label])
             
 
 
-    ######################### Taken from celmech github.com/shadden/celmech
-
+ ######################### Taken from celmech github.com/shadden/celmech
 def farey_sequence(n):
     """Return the nth Farey sequence as order pairs of the form (N,D) where `N' is the numerator and `D' is the denominator."""
     a, b, c, d = 0, 1, 1, n
@@ -122,7 +113,6 @@ def farey_sequence(n):
         a, b, c, d = c, d, (k*c-a), (k*d-b)
         sequence.append( (a,b) )
     return sequence
-
 def resonant_period_ratios(min_per_ratio,max_per_ratio,order):
     """Return the period ratios of all resonances up to order 'order' between 'min_per_ratio' and 'max_per_ratio' """
     if min_per_ratio < 0.:
@@ -142,6 +132,25 @@ def resonant_period_ratios(min_per_ratio,max_per_ratio,order):
 # sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
 # returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
 # having the smaller semimajor axis
+
+def get_pairs(sim, trio):
+    '''returns the three pairs of the given trio.
+    
+    Arguments:
+        sim: simulation in question
+        trio: indicies of the three particles in question, formated as [p1,p2,p3]
+    return:
+        return: returns the two pairs in question, formated as [[near pair, index, index], [far pair, index, index]]'''
+ 
+    ps = sim.particles
+    sortedindices = sorted(trio, key=lambda i: ps[i].a) # sort from inner to outer
+    EMcrossInner = (ps[sortedindices[1]].a-ps[sortedindices[0]].a)/ps[sortedindices[0]].a
+    EMcrossOuter = (ps[sortedindices[2]].a-ps[sortedindices[1]].a)/ps[sortedindices[1]].a
+
+    if EMcrossInner < EMcrossOuter:
+        return [['near', sortedindices[0], sortedindices[1]], ['far', sortedindices[1], sortedindices[2]]]
+    else:
+        return [['near', sortedindices[1], sortedindices[2]], ['far', sortedindices[0], sortedindices[1]]]
 
 #taken from original spock
 ####################################################
