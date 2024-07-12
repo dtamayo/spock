@@ -1,6 +1,8 @@
 #from spock import simsetup
 from spock import features
 from spock import ClassifierSeries
+from multiprocessing import cpu_count
+from multiprocessing.pool import ThreadPool
 # from features import *
 # from ClassifierSeries import *
 # from simsetup import *
@@ -72,6 +74,9 @@ class FeatureKlassifier:
             raise ValueError("If running over many sims at once, they must have the same number of particles")
         
         results = [] #results of the intigrations for each, if only one simulation return will not be in a list
+
+
+
 
         #for intigrated systems
         for s in sim:
