@@ -5,8 +5,7 @@ import warnings
 import pandas as pd
 from spock import features
 
-global featureCount
-featureCount = 10
+
 
 
 
