@@ -13,6 +13,9 @@ from xgboost.sklearn import XGBClassifier
 from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
+# from multiprocessing.pool import ThreadPool
+
+
 
 import os
 
@@ -49,6 +52,7 @@ class FeatureKlassifier:
     def generate_features(self, sim, n_jobs = -1):
         '''helper function to fit spock syntex standard'''
         data = self.simToData(sim)
+        #nicely wraps data if only evaluating one system
         if len(data)==1:
             return data[0]
         else:
@@ -62,29 +66,18 @@ class FeatureKlassifier:
             Arguments: sim --> simulation or list of simulations
             
             return:  returns a list of the simulations features/short term stability'''
-        #tseries, stable = get_tseries(sim, args)
+        
 
         
 
         if isinstance(sim, rebound.Simulation):
             sim = [sim]
             
-        #args = []
+        
         if len(set([s.N_real for s in sim])) != 1:
             raise ValueError("If running over many sims at once, they must have the same number of particles")
         
-        # results = [] #results of the intigrations for each, if only one simulation return will not be in a list
-
-        # #for intigrated systems
-        # for s in sim:
-        #     s = s.copy() #creates a copy as to not alter simulation
-        #     init_sim_parameters(s) #initializes the simulation
-        #     self.check_errors(s) #checks for errors
-        #     trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
-        #     featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
-            
-        #     results.append(self.runSim(s,featureargs)) #adds data to results. calls runSim helper function which returns the data list for sim
-        # #can add pool here
+        
         if len(sim)==1:
             return [self.run(sim[0])]
         else:
@@ -92,8 +85,8 @@ class FeatureKlassifier:
                 n_jobs = cpu_count()
             with ThreadPool(n_jobs) as pool:
                 res = pool.map(self.run, sim)
+            
             return res
-            #return list(map(self.run, sim))
         
     
     def run(self, s):
