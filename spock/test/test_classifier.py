@@ -112,7 +112,7 @@ class TestClassifier(unittest.TestCase):
         p1 = self.model.predict_stable(sim)
         p2 = self.model.predict_stable(sim)
         self.assertEqual(p1, p2)
-
+#FIXME
     def test_same_trajectory(self):
         sim = longstablesim()
         init_sim_parameters(sim)

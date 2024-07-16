@@ -68,7 +68,11 @@ class Trio:
             MMRs = find_strongest_MMR(sim, i1, i2)
             self.runningList['MMRstrength'+label][i] = MMRs[2]
             
+        #FIXME
+        #check rebound version, if old use .calculate_megno, otherwise use .megno, old is just version less then 4
+        #if float(rebound.__version__[0])
         self.runningList['MEGNO'][i]= sim.megno()
+
         
 
 
