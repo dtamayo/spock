@@ -23,7 +23,7 @@ import os
 class FeatureClassifier:
 
 
-    def __init__(self, modelfile='models/SPOCKalt.bin'):
+    def __init__(self, modelfile='models/spock.bin'):
         '''initializes class and imports spock model'''
         pwd = os.path.dirname(__file__)
         self.model = XGBClassifier()
@@ -89,6 +89,7 @@ class FeatureClassifier:
             return res
         
     
+
     def run(self, s):
         Norbits = 1e4 #number of orbits for short intigration, usually 10000
         Nout = 80 #number of data collections spaced throughought, usually 80
@@ -98,6 +99,7 @@ class FeatureClassifier:
             s = s.copy() #creates a copy as to not alter simulation
         init_sim_parameters(s) #initializes the simulation
         self.check_errors(s) #checks for errors
+        
         trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
         featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
         return self.runSim(s,featureargs) #adds data to results. calls runSim helper function which returns the data list for sim
