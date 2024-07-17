@@ -40,11 +40,20 @@ def get_tseries(sim, args):
         #intigrates each step and collects required data
         try:
             sim.integrate(time, exact_finish_time=0)
-        except (rebound.Collision, rebound.Escape):
-            #if not stable after intigration jump, just ends simulation
-            fail = True
-            #returns list of objects and whether or not stable after short intigration
-            break
+            if float(rebound.__version__[0])<=4 and (sim._status==4 or sim._status==5):
+                #break condition for old version of rebound
+                fail = True
+                break
+        except():
+            #catch exception 
+            #sim._status==5 is checking for collisions and sim._status==4 is checking for exceptions
+            if sim._status==5 or sim._status==4:
+                #case of ejection or collision
+                fail = True
+                break
+            else:
+                #something else went wrong
+                raise
         for tr, trio in enumerate(trios):
             #populates data for each trio
             triotseries[tr].populateData( sim, minP,i)

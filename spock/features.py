@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import numpy as np
 import math
+import rebound
 
 
 class Trio:
