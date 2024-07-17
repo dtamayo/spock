@@ -70,8 +70,10 @@ class Trio:
             
         #FIXME
         #check rebound version, if old use .calculate_megno, otherwise use .megno, old is just version less then 4
-        #if float(rebound.__version__[0])
-        self.runningList['MEGNO'][i]= sim.megno()
+        if float(rebound.__version__[0])<=4:
+            self.runningList['MEGNO'][i]= sim.calculate_megno()
+        else:
+            self.runningList['MEGNO'][i]= sim.megno()
 
         
 
