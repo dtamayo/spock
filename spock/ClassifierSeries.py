@@ -44,7 +44,7 @@ def get_tseries(sim, args):
                 #break condition for old version of rebound
                 fail = True
                 break
-        except():
+        except:
             #catch exception 
             #sim._status==5 is checking for collisions and sim._status==4 is checking for exceptions
             if sim._status==5 or sim._status==4:
