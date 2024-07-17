@@ -35,34 +35,30 @@ def get_tseries(sim, args):
         triotseries[tr].startingFeatures(sim) #puts in the valeus that depend on initial cond
         #triotseries will be a list of the objects that have all the data and Trio
     
-    fail = False
+    stable = True
     for i, time in enumerate(times):
         #intigrates each step and collects required data
         try:
+            
             sim.integrate(time, exact_finish_time=0)
-            if float(rebound.__version__[0])<=4 and (sim._status==4 or sim._status==5):
-                #break condition for old version of rebound
-                fail = True
-                break
+            if  (sim._status==4 or sim._status==7):
+                #check for collision or escaped particle
+                stable=False
+                return [triotseries, stable]
         except:
             #catch exception 
             #sim._status==5 is checking for collisions and sim._status==4 is checking for exceptions
-            if sim._status==5 or sim._status==4:
+            # print(sim._status)
+            if sim._status==7 or sim._status==4 :
                 #case of ejection or collision
-                fail = True
-                break
+                stable=False
+                return [triotseries, stable]
             else:
                 #something else went wrong
                 raise
         for tr, trio in enumerate(trios):
             #populates data for each trio
             triotseries[tr].populateData( sim, minP,i)
-    
-    if fail == False:
-        stable = True
-    else: 
-        stable = False
-        fail = False
     #returns list of objects and whether or not stable after short intigration
     return [triotseries, stable]
 
