@@ -92,7 +92,10 @@ class FeatureClassifier:
     def run(self, s):
         Norbits = 1e4 #number of orbits for short intigration, usually 10000
         Nout = 80 #number of data collections spaced throughought, usually 80
-        s = s.copy() #creates a copy as to not alter simulation
+        if float(rebound.__version__[0])>=4:
+            #check for rebound version here, if its version 4 or later then sim.copy() should be supported, if a old version of rebound,
+            #we will change the simulation in place
+            s = s.copy() #creates a copy as to not alter simulation
         init_sim_parameters(s) #initializes the simulation
         self.check_errors(s) #checks for errors
         trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
