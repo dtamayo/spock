@@ -25,7 +25,7 @@ class GiantImpactPhaseEmulator():
         self.reg_model = CollisionOrbitalOutcomeRegressor()
         self.deep_model = DeepRegressor()
             
-    def predict(self, sims, tmaxs=None):
+    def predict(self, sims, tmaxs=None, verbose=False, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
         """
         Predict outcome of giant impact simulations up to a user-specified maximum time.
 
@@ -33,6 +33,8 @@ class GiantImpactPhaseEmulator():
 
         sims (rebound.Simulation or list): Initial condition(s) for giant impact simulations.
         tmaxs (float or list): Maximum time for simulation predictions in the same units as sims.t. The default is 10^9 P1, the maximum possible time.
+        verbose (bool): Whether or not to provide outputs during the iterative prediction process.
+        deepregressor_kwargs (dict): Keyword arguments for calls to DeepRegressor.predict_instability_time (e.g., samples, max_model_samples, Ncpus).
 
         Returns:
         
@@ -47,14 +49,14 @@ class GiantImpactPhaseEmulator():
         # main loop
         sims, tmaxs = self._make_lists(sims, tmaxs)
         while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
-            sims = self.step(sims, tmaxs) # keep dimensionless units until the end
+            sims = self.step(sims, tmaxs, verbose=verbose, deepregressor_kwargs=deepregressor_kwargs) # keep dimensionless units until the end
                
         if single_sim:
             sims = sims[0]
                 
         return sims
 
-    def step(self, sims, tmaxs):
+    def step(self, sims, tmaxs, verbose=False, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
         """
         Perform another step in the iterative prediction process, merging any planets that go unstable in t < tmax.
 
@@ -62,6 +64,9 @@ class GiantImpactPhaseEmulator():
 
         sims (rebound.Simulation or list): Current state of the giant impact simulations.
         tmaxs (float or list): Maximum time for simulation predictions in the same units as sims.t. The default is 10^9 P1, the maximum possible time.
+        verbose (bool): Whether or not to provide outputs during the iterative prediction process.
+        deepregressor_kwargs (dict): Keyword arguments for calls to DeepRegressor.predict_instability_time (e.g., samples, max_model_samples, Ncpus).
+        
 
         Returns:
         
@@ -83,21 +88,39 @@ class GiantImpactPhaseEmulator():
         if len(sims_to_update) == 0:
             return sims
 
-        t_insts, trio_inds = self._get_unstable_trios(sims_to_update)
+        if verbose:
+            print('Predicting trio instability times')
+            start = time.time()
+        
+        t_insts, trio_inds = self._get_unstable_trios(sims_to_update, deepregressor_kwargs=deepregressor_kwargs)
+        
+        if verbose:
+            end = time.time()
+            print('Done:', end - start, 's' + '\n')
         
         # get list of sims for which planets need to be merged
         sims_to_merge = []
         trios_to_merge = []
         for i, sim in enumerate(sims_to_update):
             idx = sims.index(sim)           # get index in original list
-            if t_insts[i] > tmaxs[idx]:     # won't merge before max orbits, so just update to that time
+            if t_insts[i] > tmaxs[idx]:     # won't merge before max time, so just update to that time
                 sims[idx].t = tmaxs[idx]
             else:                           # need to merge
-                sim.t += t_insts[i]         # update time
+                #sim.t += t_insts[i]         # update time
+                sim.t = t_insts[i]         # update time
                 sims_to_merge.append(sim)
                 trios_to_merge.append(trio_inds[i])
+        
+        if verbose:
+            print('Predicting instability outcomes')
+            start = time.time()
+        
         # get new sims with planets merged
         sims = self._handle_mergers(sims, sims_to_merge, trios_to_merge)
+        
+        if verbose:
+            end = time.time()
+            print('Done:', end - start, 's' + '\n')
         
         if single_sim:
             sims = sims[0]
@@ -105,7 +128,7 @@ class GiantImpactPhaseEmulator():
         return sims
 
     # get unstable trios for list of sims using SPOCK deep model
-    def _get_unstable_trios(self, sims):
+    def _get_unstable_trios(self, sims, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
         trio_sims = []
         trio_inds = []
         Npls = [sim.N - 1 for sim in sims]
@@ -115,12 +138,11 @@ class GiantImpactPhaseEmulator():
             for j in range(Npls[i] - 2):
                 trio_inds.append([j+1, j+2, j+3])
                 trio_sims.append(sim_subset(sims[i], [j+1, j+2, j+3]))
-
-        # predict instability times
-        t_insts, _, _ = self.deep_model.predict_instability_time(trio_sims, samples=1)
+        
+        # predict instability times for sub-trios
+        t_insts, _, _ = self.deep_model.predict_instability_time(trio_sims, **deepregressor_kwargs)
 
         # get the minimum sub-trio instability time for each system
-        min_t_insts = []
         min_trio_inds = []
         for i in range(len(sims)):
             temp_t_insts = []
@@ -129,10 +151,24 @@ class GiantImpactPhaseEmulator():
                 temp_t_insts.append(t_insts[int(np.sum(Npls[:i]) - 2*i + j)])
                 temp_trio_inds.append(trio_inds[int(np.sum(Npls[:i]) - 2*i + j)])
             min_ind = np.argmin(temp_t_insts)
-            min_t_insts.append(temp_t_insts[min_ind])
             min_trio_inds.append(temp_trio_inds[min_ind])
 
-        return min_t_insts, min_trio_inds
+        # predict full-system instability times (systems are grouped according to Npl)
+        full_t_insts = []
+        full_inds = []
+        max_Npl = max(Npls)
+        for Npl in range(3, max_Npl+1):
+            subset_sims = [sim_subset(sim, np.arange(1, sim.N)) for i, sim in enumerate(sims) if Npls[i] == Npl]
+            subset_inds = [i for i, sim in enumerate(sims) if Npls[i] == Npl]
+            
+            if len(subset_sims) > 0:
+                subset_t_insts, _, _ = self.deep_model.predict_instability_time(subset_sims, **deepregressor_kwargs)
+                full_t_insts.extend(subset_t_insts)
+                full_inds.extend(subset_inds)
+        sort_inds = np.argsort(full_inds)
+        full_t_insts = np.array(full_t_insts)[sort_inds]
+            
+        return full_t_insts, min_trio_inds
 
     # internal function for handling mergers with class_model and reg_model
     def _handle_mergers(self, sims, sims_to_merge, trio_inds):
@@ -173,6 +209,6 @@ class GiantImpactPhaseEmulator():
 
         for i, t in enumerate(tmaxs):
             orbsmax = t/sims[i].particles[1].P
-            if orbsmax > 1.01e9:
+            if orbsmax > 10**9.5:
                 warnings.warn('Giant impact phase emulator not trained to predict beyond 10^9 orbits, check results carefully (tmax for sim {0} = {1} = {2} orbits)'.format(i, t, orbsmax))
         return sims, tmaxs
