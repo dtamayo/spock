@@ -41,7 +41,7 @@ class FeatureClassifier:
             else:
                 eachTrio = []
                 for eachT in s[0]:
-                    eachTrio.append(self.model.predict_proba(pd.DataFrame.from_dict(eachT, orient="index").T)[:,0][0]) 
+                    eachTrio.append(self.model.predict_proba(pd.DataFrame.from_dict(eachT, orient="index").T)[:,1][0]) 
                 results.append(min(eachTrio))
 
         if len(results)==1:
