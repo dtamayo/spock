@@ -51,7 +51,7 @@ class FeatureClassifier:
     
     def generate_features(self, sim, n_jobs = -1):
         '''helper function to fit spock syntex standard'''
-        data = self.simToData(sim)
+        data = self.simToData(sim, n_jobs = n_jobs)
         #nicely wraps data if only evaluating one system
         if len(data)==1:
             return data[0]
