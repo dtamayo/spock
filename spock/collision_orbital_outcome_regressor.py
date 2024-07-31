@@ -189,11 +189,17 @@ class CollisionOrbitalOutcomeRegressor():
                 new_state_sim.add(m=1.00)
                
                 try:
-                    new_state_sim.add(m=m1s[k], a=a1s[k], e=e1s[k], inc=inc1s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                    if (0.0 < a1s[k] < 50.0) and (0.0 <= e1s[k] < 1.0):
+                        new_state_sim.add(m=m1s[k], a=a1s[k], e=e1s[k], inc=inc1s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                    else:
+                        warnings.warn('Removing ejected planet')
                 except Exception as e:
                     warnings.warn('Removing planet with unphysical orbital elements')
                 try:
-                    new_state_sim.add(m=m2s[k], a=a2s[k], e=e2s[k], inc=inc2s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                    if (0.0 < a2s[k] < 50.0) and (0.0 <= e2s[k] < 1.0):
+                        new_state_sim.add(m=m2s[k], a=a2s[k], e=e2s[k], inc=inc2s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                    else:
+                        warnings.warn('Removing ejected planet')
                 except Exception as e:
                     warnings.warn('Removing planet with unphysical orbital elements')
                 new_state_sim.move_to_com()
@@ -201,6 +207,7 @@ class CollisionOrbitalOutcomeRegressor():
                 for p in new_state_sim.particles[:new_state_sim.N]:
                     p.x, p.y, p.z = npEulerAnglesTransform(p.xyz, -trio_sims[k].theta1, -trio_sims[k].theta2, 0)
                     p.vx, p.vy, p.vz = npEulerAnglesTransform(p.vxyz, -trio_sims[k].theta1, -trio_sims[k].theta2, 0)
+                
                 # replace trio with predicted duo (or single/zero if planets have unphysical orbital elements)
                 new_sims.append(replace_trio(sims[i], trio_inds[i], new_state_sim))
                 k += 1

@@ -164,18 +164,13 @@ def replace_trio(original_sim, trio_inds, new_state_sim):
 
     return ordered_sim
 
-def sim_subset(sim, p_inds):
+def sim_subset(sim, p_inds, copy_time=False):
     sim_copy = rebound.Simulation()
     sim_copy.G = sim.G
-    '''
-    try:
-        sim_copy.original_G = sim.original_G
-        sim_copy.original_P1 = sim.original_P1
-        sim_copy.original_Mstar = sim.original_Mstar
-    except:
-        pass
-    '''
     ps = sim.particles
+    
+    if copy_time:
+        sim_copy.t = sim.t
    
     sim_copy.add(m=ps[0].m)
     for i in range(1, sim.N):
@@ -237,6 +232,6 @@ def remove_ejected_ps(sims):
         for i in range(1, len(ps)):
             if (ps[i].a > 0) and (0.0 <= ps[i].e < 1.0):
                 p_inds.append(i)
-        new_sims.append(sim_subset(sim, p_inds))
+        new_sims.append(sim_subset(sim, p_inds, copy_time=True))
         
     return new_sims
