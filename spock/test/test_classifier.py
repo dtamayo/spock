@@ -112,11 +112,12 @@ class TestClassifier(unittest.TestCase):
         p1 = self.model.predict_stable(sim)
         p2 = self.model.predict_stable(sim)
         self.assertEqual(p1, p2)
-#FIXME
+
     def test_same_trajectory(self):
         sim = longstablesim()
         init_sim_parameters(sim)
-        _, _ = get_tseries(sim, (1e4, 80, [[1,2,3]]))
+        testClass = FeatureClassifier()
+        _, _ = testClass.runSim(sim, (1e4, 80, [[1,2,3]]))
         x1 = sim.particles[1].x
 
         sim = longstablesim()
