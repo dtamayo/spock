@@ -9,7 +9,6 @@ from spock import DeepRegressor
 from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier
 from .simsetup import sim_subset, remove_ejected_ps
 
-# planet formation simulation model
 class GiantImpactPhaseEmulator():
     # initialize function
     def __init__(self, seed=None):
@@ -38,21 +37,21 @@ class GiantImpactPhaseEmulator():
 
         Returns:
         
-        rebound.Simulation or list: Predicted post-giant impact states for each provided initial condition.
+        rebound.Simulation or list of rebound.Simulation objects: Predicted post-giant impact states for each provided initial condition.
 
         """
-        single_sim = False
-        if isinstance(sims, rb.Simulation): # passed a single sim
-            sims = [sims]
-            single_sim = True
+        if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
         
         # main loop
         sims, tmaxs = self._make_lists(sims, tmaxs)
         while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
-            sims = self.step(sims, tmaxs, verbose=verbose, deepregressor_kwargs=deepregressor_kwargs) # keep dimensionless units until the end
+            sims = self.step(sims, tmaxs, verbose=verbose, deepregressor_kwargs=deepregressor_kwargs)
+            if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
                
-        if single_sim:
-            sims = sims[0]
+        if len(sims) == 1:
+            return sims[0] # return single sim
+        else: 
+            return sims
                 
         return sims
 
@@ -63,22 +62,19 @@ class GiantImpactPhaseEmulator():
         Parameters:
 
         sims (rebound.Simulation or list): Current state of the giant impact simulations.
-        tmaxs (float or list): Maximum time for simulation predictions in the same units as sims.t. The default is 10^9 P1, the maximum possible time.
+        tmaxs (float or list): Maximum time for simulation predictions in the same units as sims.t. The default is the maximum time of 10^9 orbits of the innermost planet.
         verbose (bool): Whether or not to provide outputs during the iterative prediction process.
         deepregressor_kwargs (dict): Keyword arguments for calls to DeepRegressor.predict_instability_time (e.g., samples, max_model_samples, Ncpus).
-        
 
         Returns:
         
-        rebound.Simulation or list: Predicted states after one step of predicting instability times and merging planets.
+        rebound.Simulation or list of rebound.Simulation objects: Predicted states after one step of predicting instability times and merging planets.
 
         """
-        single_sim = False
-        if isinstance(sims, rb.Simulation): # passed a single sim
-            sims = [sims]
-            single_sim = True
+        if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
         
         sims, tmaxs = self._make_lists(sims, tmaxs)
+        
         for i, sim in enumerate(sims): # assume all 2 planet systems (N=3) are stable (could use Hill stability criterion)
             if sim.N < 4:
                 sim.t = tmaxs[i]
@@ -122,10 +118,10 @@ class GiantImpactPhaseEmulator():
             end = time.time()
             print('Done:', end - start, 's' + '\n')
         
-        if single_sim:
-            sims = sims[0]
-        
-        return sims
+        if len(sims) == 1:
+            return sims[0] # return single sim
+        else: 
+            return sims
 
     # get unstable trios for list of sims using SPOCK deep model
     def _get_unstable_trios(self, sims, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
@@ -196,7 +192,7 @@ class GiantImpactPhaseEmulator():
 
     # internal function with logic for initializing orbsmax as an array and checking for warnings
     def _make_lists(self, sims, tmaxs):
-        sims = remove_ejected_ps(sims) # remove ejected/hyperbolic particles
+        sims = remove_ejected_ps(sims) # remove ejected/hyperbolic particles (do here so we don't use a negative period for tmaxs)
         
         # use passed value
         if tmaxs:

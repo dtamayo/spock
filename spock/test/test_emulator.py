@@ -1,6 +1,7 @@
 import unittest
 import rebound as rb
 from spock import GiantImpactPhaseEmulator
+import numpy as np
 
 def unstablesim():
     sim = rb.Simulation()
@@ -52,14 +53,16 @@ class TestClassifier(unittest.TestCase):
    
     def test_hyperbolic(self):
         sim = hyperbolicsim()
-        pred_sim = self.model.predict(sim)
-        self.assertRaises(rb.ParticleNotFound, pred_sim.particles['hyperbolic'])
+        with self.assertRaises(rb.ParticleNotFound):
+            sim = self.model.predict(sim)
+            p = sim.particles['hyperbolic']
     
     def test_escaper(self):
         sim = escapesim()
-        pred_sim = self.model.predict(sim)
-        self.assertRaises(rb.ParticleNotFound, pred_sim.particles['escaper'])
-               
+        with self.assertRaises(rb.ParticleNotFound):
+            sim = self.model.predict(sim)
+            p = sim.particles['escaper']
+
     def test_stable(self):
         sim = stablesim()
         N = sim.N
@@ -92,6 +95,7 @@ class TestClassifier(unittest.TestCase):
         self.assertAlmostEqual(pred_sim.particles[1].P, pred_sim2.particles[1].P, delta=1.e-10)
 
     def test_L_conservation(self):
+        self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         L0 = sim.angular_momentum()
         pred_sim = self.model.predict(sim)
@@ -100,11 +104,24 @@ class TestClassifier(unittest.TestCase):
             self.assertAlmostEqual(L0[i], L[i], delta=0.1*L0[2]) # must agree to within 10% of initial Lz value
             
     def test_E_conservation(self):
+        import einops
+        print('***', einops.__version__)
+        '''
+        self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         E0 = sim.energy()
-        sim = self.model.predict(sim)
-        E = sim.energy()
-        self.assertAlmostEqual(E0, E, delta=0.25*E0) # must agree to within 25% of initial E value
+        try:
+            pred_sim = self.model.predict(sim)
+        except:
+            pass
+        '''
+        self.model = GiantImpactPhaseEmulator(seed=0)
+        sim = unstablesim()
+        E0 = sim.energy()
+        pred_sim = self.model.predict(sim)
+
+        E = pred_sim.energy()
+        self.assertAlmostEqual(E0, E, delta=0.25*abs(E0)) # must agree to within 25% of initial E value
 
     def test_step_equivalence(self):
         sim = unstablesim()
