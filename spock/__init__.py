@@ -7,4 +7,4 @@ from .featureclassifier import FeatureClassifier
 from .nbodyregressor import NbodyRegressor
 from .version import __version__
 
-__all__ = ["FeatureClassifier", "DeepRegressor", "NbodyRegressor", "AnalyticalClassifier","FeatureKlassifier"]
+__all__ = ["FeatureClassifier", "DeepRegressor", "NbodyRegressor", "AnalyticalClassifier"]
