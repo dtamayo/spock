@@ -128,7 +128,6 @@ def populate_trio(sim, trio, pairs, tseries, i):
 
     tseries[i,7] = sim.megno() # megno
 
-
 def get_tseries(sim, args):
     Norbits = args[0]
     Nout = args[1]
