@@ -31,9 +31,9 @@ class FeatureClassifier:
 
 
 
-    def predict_stable(self,sim, n_jobs = -1):
+    def predict_stable(self,sim, n_jobs = -1, Tmax = False):
         '''runs spock classification on a list of simulations'''
-        simFeatureList = self.simToData(sim, n_jobs)
+        simFeatureList = self.simToData(sim, n_jobs, Tmax)
         results = []
         for s in simFeatureList:
             if s[1]==False:
@@ -49,9 +49,9 @@ class FeatureClassifier:
         else:
             return results
     
-    def generate_features(self, sim, n_jobs = -1):
+    def generate_features(self, sim, n_jobs = -1, Tmax = False):
         '''helper function to fit spock syntex standard'''
-        data = self.simToData(sim, n_jobs = n_jobs)
+        data = self.simToData(sim,n_jobs, Tmax)
         #nicely wraps data if only evaluating one system
         if len(data)==1:
             return data[0]
@@ -60,7 +60,7 @@ class FeatureClassifier:
 
 
     
-    def simToData(self, sim,n_jobs = -1):
+    def simToData(self, sim,n_jobs, Tmax):
         '''given a simulation, or list of simulations, returns data required for spock clasification.
         
             Arguments: sim --> simulation or list of simulations
@@ -79,18 +79,18 @@ class FeatureClassifier:
         
         
         if len(sim)==1:
-            return [self.run(sim[0])]
+            return [self.run(sim[0], Tmax)]
         else:
             if n_jobs == -1:
                 n_jobs = cpu_count()
             with ThreadPool(n_jobs) as pool:
-                res = pool.map(self.run, sim)
+                res = pool.map(self.run, sim, Tmax)
             
             return res
         
     
 
-    def run(self, s):
+    def run(self, s, Tmax):
         Norbits = 1e4 #number of orbits for short intigration, usually 10000
         Nout = 80 #number of data collections spaced throughought, usually 80
         if float(rebound.__version__[0])>=4:
@@ -100,7 +100,16 @@ class FeatureClassifier:
         init_sim_parameters(s) #initializes the simulation
         self.check_errors(s) #checks for errors
         
-        trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
+        trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios
+        #check if we want to use Tmax option
+        if Tmax == True:
+            maxList = []
+            for each in trios:
+                maxList.append(self.getTmax(s,each))
+            Norbits = 5 * max(maxList)
+            Nout = int((Norbits/1e4)*80)
+            
+    
         featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
         return self.runSim(s,featureargs) #adds data to results. calls runSim helper function which returns the data list for sim
 
@@ -131,3 +140,10 @@ class FeatureClassifier:
         '''ensures enough planets/stars for spock to run'''
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only applicable to systems with 3 or more planets")
+        
+
+    def getTmax(self,sim, trio):
+        ps = sim.particles
+        p1, p2, p3 = ps[trio[0]], ps [trio[1]], ps[trio[2]]
+        Tmax = (ps[0].m/(p1.m+p2.m+p3.m))*((1-(p1.a/p3.a))**2)*p3.P/4
+        return Tmax
