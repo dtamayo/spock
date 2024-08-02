@@ -50,7 +50,7 @@ def escapesim():
 class TestClassifier(unittest.TestCase):
     def setUp(self):
         self.model = GiantImpactPhaseEmulator(seed=0)
-    '''   
+       
     def test_hyperbolic(self):
         sim = hyperbolicsim()
         with self.assertRaises(rb.ParticleNotFound):
@@ -104,17 +104,6 @@ class TestClassifier(unittest.TestCase):
             self.assertAlmostEqual(L0[i], L[i], delta=0.1*L0[2]) # must agree to within 10% of initial Lz value
             
     def test_E_conservation(self):
-        import einops
-        print('***', einops.__version__)
-        ''
-        self.model = GiantImpactPhaseEmulator(seed=0)
-        sim = unstablesim()
-        E0 = sim.energy()
-        try:
-            pred_sim = self.model.predict(sim)
-        except:
-            pass
-        ''
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
         E0 = sim.energy()
@@ -144,15 +133,17 @@ class TestClassifier(unittest.TestCase):
         for i in range(3):
             pred_sim2 = model.step(pred_sim2, tmaxs=tmax)
         self.assertAlmostEqual(pred_sim.particles[1].P, pred_sim2.particles[1].P, delta=1.e-10)
-    '''
-    def test_step(self):
-        sim = unstablesim()
-        model = GiantImpactPhaseEmulator(seed=0)
-        sim2 = model.step(sim)
-        print('******')
+    
+    def test_step_equivalence(self):
         sim = unstablesim()
         model = GiantImpactPhaseEmulator(seed=0)
         sim1 = model.predict(sim)
+       
+        # should give the same as running a sequence of steps
+        sim2 = unstablesim()
+        model = GiantImpactPhaseEmulator(seed=0)
+        for i in range(3):
+            sim2 = model.step(sim2)
         self.assertAlmostEqual(sim1.particles[1].P, sim2.particles[1].P, delta=1.e-10)
 
 if __name__ == '__main__':
