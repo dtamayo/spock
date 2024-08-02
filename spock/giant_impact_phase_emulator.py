@@ -22,7 +22,7 @@ class GiantImpactPhaseEmulator():
         # load classification and regression models
         self.class_model = CollisionMergerClassifier()
         self.reg_model = CollisionOrbitalOutcomeRegressor()
-        self.deep_model = DeepRegressor()
+        self.deep_model = DeepRegressor(seed=seed)
             
     def predict(self, sims, tmaxs=None, verbose=False, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
         """
@@ -41,12 +41,18 @@ class GiantImpactPhaseEmulator():
 
         """
         if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
+        sim0 = sims[0]
+        print(self.deep_model.predict_instability_time(sims[0], **deepregressor_kwargs))
+        print(self.deep_model.predict_instability_time(sims[0], **deepregressor_kwargs))
         
         # main loop
         sims, tmaxs = self._make_lists(sims, tmaxs)
         while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
             sims = self.step(sims, tmaxs, verbose=verbose, deepregressor_kwargs=deepregressor_kwargs)
             if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
+        
+        print('before recall', sim0.N)
+        print(self.deep_model.predict_instability_time(sim0, **deepregressor_kwargs))
                
         if len(sims) == 1:
             return sims[0] # return single sim
@@ -55,7 +61,7 @@ class GiantImpactPhaseEmulator():
                 
         return sims
 
-    def step(self, sims, tmaxs, verbose=False, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
+    def step(self, sims, tmaxs=None, verbose=False, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
         """
         Perform another step in the iterative prediction process, merging any planets that go unstable in t < tmax.
 
@@ -71,7 +77,10 @@ class GiantImpactPhaseEmulator():
         rebound.Simulation or list of rebound.Simulation objects: Predicted states after one step of predicting instability times and merging planets.
 
         """
+
         if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
+        print(self.deep_model.predict_instability_time(sims[0], **deepregressor_kwargs))
+        print(self.deep_model.predict_instability_time(sims[0], **deepregressor_kwargs))
         
         sims, tmaxs = self._make_lists(sims, tmaxs)
         
@@ -87,7 +96,8 @@ class GiantImpactPhaseEmulator():
         if verbose:
             print('Predicting trio instability times')
             start = time.time()
-        
+        #print(tmaxs, deepregressor_kwargs) 
+        #print(np.random.random())
         t_insts, trio_inds = self._get_unstable_trios(sims_to_update, deepregressor_kwargs=deepregressor_kwargs)
         
         if verbose:
@@ -102,17 +112,19 @@ class GiantImpactPhaseEmulator():
             if t_insts[i] > tmaxs[idx]:     # won't merge before max time, so just update to that time
                 sims[idx].t = tmaxs[idx]
             else:                           # need to merge
-                #sim.t += t_insts[i]         # update time
-                sim.t = t_insts[i]         # update time
+                #sim.t += t_insts[i]        # update time
+                sim.t = t_insts[i]          # update time
                 sims_to_merge.append(sim)
                 trios_to_merge.append(trio_inds[i])
         
         if verbose:
             print('Predicting instability outcomes')
             start = time.time()
-        
+       
+        print(sims[0].t, trios_to_merge, sims[0].N)
         # get new sims with planets merged
         sims = self._handle_mergers(sims, sims_to_merge, trios_to_merge)
+        print('After:', sims[0].N)
         
         if verbose:
             end = time.time()
