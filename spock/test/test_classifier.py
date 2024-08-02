@@ -1,12 +1,10 @@
 import unittest
-
+import os
 import rebound
 import pandas as pd
 import numpy as np
-
 from sklearn import metrics
 from sklearn.metrics import roc_curve, confusion_matrix, auc
-
 from spock import FeatureClassifier, NbodyRegressor
 from spock.feature_functions import get_tseries
 from spock.simsetup import init_sim_parameters
@@ -226,15 +224,12 @@ class TestClassifier(unittest.TestCase):
 
     def test_auc(self):
         '''Tests to ensure that the models stability prediction has a high enough AUC'''
-
-        conditions = pd.read_csv('test100ResTest.csv')
-    
-
+        path = os.path.abspath(os.path.dirname(__file__))
+        conditions = pd.read_csv(path+'/test100ResTest.csv')
         simlist = []
         for x in range (conditions.shape[0]):
             simlist.append(get_sim(x,conditions))
         roc_auc, fpr, tpr, ROCthresholds = ROC_curve(self.model.predict_stable(simlist),conditions['Stable'])
-        
         self.assertGreater(roc_auc,0.93)
     
 if __name__ == '__main__':

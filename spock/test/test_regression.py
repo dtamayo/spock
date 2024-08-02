@@ -1,14 +1,10 @@
 import unittest
-
 import numpy as np
-
+import os
 import pandas as pd
-
-
 from sklearn import metrics
 from sklearn.metrics import roc_curve, confusion_matrix, auc
 import rebound
-
 from spock import DeepRegressor, NbodyRegressor
 
 SAMPLE_SETTINGS = dict(samples=1000, max_model_samples=30)
@@ -348,9 +344,8 @@ class TestRegressorClassification(unittest.TestCase):
 
     def test_auc(self):
         '''Tests to ensure that the models stability prediction has a high enough AUC'''
-        conditions = pd.read_csv('test100ResTest.csv')
-    
-
+        path = os.path.abspath(os.path.dirname(__file__))
+        conditions = pd.read_csv(path+'/test100ResTest.csv')
         simlist = []
         for x in range (conditions.shape[0]):
             simlist.append(get_sim(x,conditions))
