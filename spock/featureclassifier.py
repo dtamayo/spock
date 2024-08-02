@@ -161,7 +161,7 @@ class FeatureClassifier:
         
 
     def getsecT(self,sim, trio):
-        '''calculates the secular time scale for a given trio in a simulation in accordance to yang and tamayo'''
+        '''calculates the secular time scale for a given trio in a simulation in accordance to Yang and Tamayo'''
         ps = sim.particles
         p1, p2, p3 = ps[trio[0]], ps [trio[1]], ps[trio[2]]
         Tmax = (ps[0].m/(p1.m+p2.m+p3.m))*((1-(p1.a/p3.a))**2)*p3.P/4
