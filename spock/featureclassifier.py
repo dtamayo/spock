@@ -61,7 +61,7 @@ class FeatureClassifier:
         if len(results)==1:
             return results[0]
         else:
-            return results
+            return np.array(results)
     
     def generate_features(self, sim, n_jobs = -1, Tmax = False):
         '''helper function to fit spock syntex standard'''
@@ -95,18 +95,22 @@ class FeatureClassifier:
         
         
         if len(sim)==1:
-            return [self.run(sim[0], Tmax)]
+            return [self.run([sim[0], Tmax])]
         else:
+            tup = []
+            for each in sim:
+                tup.append([each, Tmax])
             if n_jobs == -1:
                 n_jobs = cpu_count()
             with ThreadPool(n_jobs) as pool:
-                res = pool.map(self.run, sim, Tmax)
+                res = pool.map(self.run, tup)
             
             return res
         
     
 
-    def run(self, s, Tmax):
+    def run(self, tup):
+        s, Tmax = tup
         Norbits = 1e4 #number of orbits for short intigration, usually 10000
         Nout = 80 #number of data collections spaced throughought, usually 80
         if float(rebound.__version__[0])>=4:
