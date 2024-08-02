@@ -127,9 +127,9 @@ class FeatureClassifier:
             for each in trios:
                 maxList.append(self.getsecT(s,each))
             intT = 5 * max(maxList)
-            if intT>1e4:
-                Norbits = intT
-                Nout = int((Norbits/1e4)*80)
+            #if intT>1e4:
+            Norbits = intT
+            Nout = int((Norbits/1e4)*80)
             
     
         featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
