@@ -32,7 +32,21 @@ class FeatureClassifier:
 
 
     def predict_stable(self,sim, n_jobs = -1, Tmax = False):
-        '''runs spock classification on a list of simulations'''
+        '''runs spock classification on a list of simulations
+            Arguments: sim --> simulation or list of simulations
+                    n_jobs --> number of jobs you want to run with multi processing
+                    Tmax --> whether you want to run simulation to Tmax (5* secular time scale from Yang and Tamayo), and at least to 1e4, or all to 1e4
+            return: the probability that a system is stable
+            '''
+
+        #specify features
+        near = ['EMcrossnear', 'EMfracstdnear', 'EPstdnear', 'MMRstrengthnear']
+        far = ['EMcrossfar', 'EMfracstdfar', 'EPstdfar', 'MMRstrengthfar']
+        megno = ['MEGNO', 'MEGNOstd']
+
+        features = near + far + megno
+#
+
         simFeatureList = self.simToData(sim, n_jobs, Tmax)
         results = []
         for s in simFeatureList:
@@ -41,7 +55,7 @@ class FeatureClassifier:
             else:
                 eachTrio = []
                 for eachT in s[0]:
-                    eachTrio.append(self.model.predict_proba(pd.DataFrame.from_dict(eachT, orient="index").T)[:,1][0]) 
+                    eachTrio.append(self.model.predict_proba(pd.DataFrame.from_dict(eachT, orient="index").T[features])[:,1][0]) 
                 results.append(min(eachTrio))
 
         if len(results)==1:
@@ -64,6 +78,8 @@ class FeatureClassifier:
         '''given a simulation, or list of simulations, returns data required for spock clasification.
         
             Arguments: sim --> simulation or list of simulations
+                n_jobs --> number of jobs you want to run with multi processing
+                Tmax --> whether you want to run simulation to Tmax (5* secular time scale from Yang and Tamayo), and at least to 1e4, or all to 1e4
             
             return:  returns a list of the simulations features/short term stability'''
         
@@ -105,9 +121,11 @@ class FeatureClassifier:
         if Tmax == True:
             maxList = []
             for each in trios:
-                maxList.append(self.getTmax(s,each))
-            Norbits = 5 * max(maxList)
-            Nout = int((Norbits/1e4)*80)
+                maxList.append(self.getsecT(s,each))
+            intT = 5 * max(maxList)
+            if intT>1e4:
+                Norbits = intT
+                Nout = int((Norbits/1e4)*80)
             
     
         featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
@@ -142,7 +160,8 @@ class FeatureClassifier:
             raise AttributeError("SPOCK Error: SPOCK only applicable to systems with 3 or more planets")
         
 
-    def getTmax(self,sim, trio):
+    def getsecT(self,sim, trio):
+        '''calculates the secular time scale for a given trio in a simulation in accordance to yang and tamayo'''
         ps = sim.particles
         p1, p2, p3 = ps[trio[0]], ps [trio[1]], ps[trio[2]]
         Tmax = (ps[0].m/(p1.m+p2.m+p3.m))*((1-(p1.a/p3.a))**2)*p3.P/4
