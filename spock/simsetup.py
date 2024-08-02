@@ -225,13 +225,12 @@ def revert_sim_units(sims):
     return revertedsims
 
 def remove_ejected_ps(sims):
-    new_sims = []
     for sim in sims:
-        p_inds = []
         ps = sim.particles
+        remove_hashes = []
         for i in range(1, len(ps)):
-            if (ps[i].a > 0) and (0.0 <= ps[i].e < 1.0):
-                p_inds.append(i)
-        new_sims.append(sim_subset(sim, p_inds, copy_time=True))
-        
-    return new_sims
+            if ps[i].a < 0:
+                remove_hashes.append(ps[i].hash)
+        for hash in remove_hashes:
+            sim.remove(hash=hash, keep_sorted=False)
+    return sims

@@ -62,7 +62,7 @@ class GiantImpactPhaseEmulator():
         Parameters:
 
         sims (rebound.Simulation or list): Current state of the giant impact simulations.
-        tmaxs (float or list): Maximum time for simulation predictions in the same units as sims.t. The default is the maximum time of 10^9 orbits of the innermost planet.
+        tmaxs (float or list): Maximum time for simulation predictions in the same units as sims.t. Doesn't take a default to help ensure user passes same values each time if several steps done in a row.
         verbose (bool): Whether or not to provide outputs during the iterative prediction process.
         deepregressor_kwargs (dict): Keyword arguments for calls to DeepRegressor.predict_instability_time (e.g., samples, max_model_samples, Ncpus).
 
