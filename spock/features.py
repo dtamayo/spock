@@ -69,7 +69,7 @@ class Trio:
             MMRs = find_strongest_MMR(sim, i1, i2)
             self.runningList['MMRstrength'+label][i] = MMRs[2]
             
-        #FIXME
+        
         #check rebound version, if old use .calculate_megno, otherwise use .megno, old is just version less then 4
         if float(rebound.__version__[0])<4:
             self.runningList['MEGNO'][i]= sim.calculate_megno()
@@ -96,6 +96,8 @@ class Trio:
         Nout = args[1]
         trios = args[2] #
         #print(args)
+        #add Tmax feature
+        self.features['Tmax']= Norbits
 
         if not np.isnan(self.runningList['MEGNO']).any(): # no nans
             self.features['MEGNO']= np.median(self.runningList['MEGNO'][-int(Nout/10):]) # smooth last 10% to remove oscillations around 2
