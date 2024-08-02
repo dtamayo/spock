@@ -1,11 +1,53 @@
 import unittest
 
 import numpy as np
+
+import pandas as pd
+
+
+from sklearn import metrics
+from sklearn.metrics import roc_curve, confusion_matrix, auc
 import rebound
 
 from spock import DeepRegressor, NbodyRegressor
 
 SAMPLE_SETTINGS = dict(samples=1000, max_model_samples=30)
+
+
+
+
+def get_sim(row, dataset):
+    '''Given a row number, and a data sheet containing initial conditions, returns a corresponding simulation
+    
+        Arguments:
+            row: what row the simulation you would like to create is on
+                format of row is in order: 
+                [index, 'p0m', 'p0x', 'p0y', 'p0z', 'p0vx', 'p0vy', 'p0vz', 'p1m', 'p1x', 'p1y',
+                'p1z', 'p1vx', 'p1vy', 'p1vz', 'p2m', 'p2x', 'p2y', 'p2z', 'p2vx',
+                'p2vy', 'p2vz', 'p3m', 'p3x', 'p3y', 'p3z', 'p3vx', 'p3vy', 'p3vz']
+
+            dataset: what dataset contains your initial conditions
+
+        return: returns a rebound simulation with the specified initial conditions'''
+    try:
+        data = dataset.iloc[row]
+        sim = rebound.Simulation()
+        sim.G=4*np.pi**2
+        sim.add(m=data['p0m'], x=data['p0x'], y=data['p0y'], z=data['p0z'], vx=data['p0vx'], vy=data['p0vy'], vz=data['p0vz'])
+        sim.add(m=data['p1m'], x=data['p1x'], y=data['p1y'], z=data['p1z'], vx=data['p1vx'], vy=data['p1vy'], vz=data['p1vz'])
+        sim.add(m=data['p2m'], x=data['p2x'], y=data['p2y'], z=data['p2z'], vx=data['p2vx'], vy=data['p2vy'], vz=data['p2vz'])
+        sim.add(m=data['p3m'], x=data['p3x'], y=data['p3y'], z=data['p3z'], vx=data['p3vx'], vy=data['p3vy'], vz=data['p3vz'])
+        return sim
+    except:
+        print("Error reading initial condition {0}".format(row))
+        return None
+
+
+def ROC_curve( preds,y):
+    '''given predictions and the true value, returns AUC information'''
+    fpr, tpr, ROCthresholds = roc_curve(y, preds)
+    roc_auc = metrics.roc_auc_score(y, preds)
+    return roc_auc, fpr, tpr, ROCthresholds
 
 def unstablesim():
     sim = rebound.Simulation()
@@ -303,6 +345,17 @@ class TestRegressorClassification(unittest.TestCase):
     def test_stable(self):
         sim = longstablesim()
         self.assertGreater(self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS), 0.7)
+
+    def test_auc(self):
+        '''Tests to ensure that the models stability prediction has a high enough AUC'''
+        conditions = pd.read_csv('test100ResTest.csv')
+    
+
+        simlist = []
+        for x in range (conditions.shape[0]):
+            simlist.append(get_sim(x,conditions))
+        roc_auc, fpr, tpr, ROCthresholds = ROC_curve(self.model.predict_stable(simlist),conditions['Stable'])
+        self.assertGreater(roc_auc,0.93)
 
 if __name__ == '__main__':
     unittest.main()
