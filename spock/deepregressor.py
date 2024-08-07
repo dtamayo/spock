@@ -13,7 +13,6 @@ import torch
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
-from .citations import cite
 from .simsetup import init_sim_parameters
 from .spock_reg_model import load_swag_safetensors
 from .tseries_feature_functions import get_extended_tseries
