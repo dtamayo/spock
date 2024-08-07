@@ -205,7 +205,7 @@ class GiantImpactPhaseEmulator():
         for i, t in enumerate(tmaxs):
             orbsmax = t/sims[i].particles[1].P
             if orbsmax > 10**9.5:
-                warnings.warn('Giant impact phase emulator not trained to predict beyond 10^9 orbits, check results carefully (tmax for sim {0} = {1} = {2} orbits)'.format(i, t, orbsmax))
+                warnings.warn('Giant impact phase emulator not trained to predict beyond 10^9 orbits, check results carefully (tmax for sim {0} = {1:3e} = {2:3e} orbits)'.format(i, t, orbsmax))
         return sims, tmaxs
 
     def cite(self):
