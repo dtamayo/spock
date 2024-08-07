@@ -13,6 +13,7 @@ import torch
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
+from .citations import cite
 from .simsetup import init_sim_parameters
 from .spock_reg_model import load_swag_safetensors
 from .tseries_feature_functions import get_extended_tseries
@@ -302,6 +303,16 @@ class DeepRegressor(object):
             return out, t_inst_samples
         else:
             return out
+    
+    def cite(self):
+        """
+        Generate citations
+
+        This function generates citations to papers relevant to this model.
+        """
+
+        txt, bib = cite(self)
+        print(txt + "\n\n\n" + bib)
 
     def resample_stable_sims(self, samps_time, prior_above_9):
         """Use a prior to re-sample stable instability times"""
@@ -446,6 +457,51 @@ class DeepRegressor(object):
 
         correct_order_results = np.array(correct_order_results, dtype=np.float64)
         return correct_order_results
+
+    def cite(self):
+        """
+        Print citations to papers relevant to this model.
+        """
+        
+        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Instability times were predicted from the orbital evolution over short $10^4$-orbit N-body integrations using the DeepRegressor model, a Bayesian neural network \\citep{deepregressor}."""
+        bib = """
+@ARTICLE{spock,
+   author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},
+    title = "{Predicting the long-term stability of compact multiplanet systems}",
+  journal = {Proceedings of the National Academy of Science},
+ keywords = {machine learning, dynamical systems, UAT:498, orbital dynamics, UAT:222, Astrophysics - Earth and Planetary Astrophysics},
+     year = 2020,
+    month = aug,
+   volume = {117},
+   number = {31},
+    pages = {18194-18205},
+      doi = {10.1073/pnas.2001258117},
+archivePrefix = {arXiv},
+   eprint = {2007.06521},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2020PNAS..11718194T},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+
+@ARTICLE{deepregressor,
+   author = {{Cranmer}, Miles and {Tamayo}, Daniel and {Rein}, Hanno and {Battaglia}, Peter and {Hadden}, Samuel and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N.},
+    title = "{A Bayesian neural network predicts the dissolution of compact planetary systems}",
+  journal = {Proceedings of the National Academy of Science},
+ keywords = {deep learning, UAT:2173, Bayesian analysis, chaos, Astrophysics - Earth and Planetary Astrophysics, Astrophysics - Instrumentation and Methods for Astrophysics, Computer Science - Artificial Intelligence, Computer Science - Machine Learning, Statistics - Machine Learning},
+     year = 2021,
+    month = oct,
+   volume = {118},
+   number = {40},
+      eid = {e2026053118},
+    pages = {e2026053118},
+      doi = {10.1073/pnas.2026053118},
+archivePrefix = {arXiv},
+   eprint = {2101.04117},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2021PNAS..11826053C},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+"""
+        print(txt + "\n\n\n" + bib)
 
 @profile
 def data_setup_kernel(mass_array, cur_tseries):

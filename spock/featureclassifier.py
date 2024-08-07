@@ -8,6 +8,7 @@ from xgboost import XGBClassifier
 
 from .feature_functions import features
 from .simsetup import init_sim_parameters
+from .citations import cite
 
 
 class FeatureClassifier():
@@ -108,3 +109,48 @@ class FeatureClassifier():
             with ThreadPool(n_jobs) as pool:
                 res = pool.map(run, args)
         return res
+
+    def cite(self):
+        """
+        Print citations to papers relevant to this model.
+        """
+        
+        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. These were done with the FeatureClassifier decision-tree model, which provides a probability of stability over $10^9$ orbits for a given input orbital configuration, derived from dynamically relevant features extracted from short $10^4$-orbit N-body integrations \\citep[see also][]{spockI}."""
+        bib = """
+@ARTICLE{spock,
+   author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},
+    title = "{Predicting the long-term stability of compact multiplanet systems}",
+  journal = {Proceedings of the National Academy of Science},
+ keywords = {machine learning, dynamical systems, UAT:498, orbital dynamics, UAT:222, Astrophysics - Earth and Planetary Astrophysics},
+     year = 2020,
+    month = aug,
+   volume = {117},
+   number = {31},
+    pages = {18194-18205},
+      doi = {10.1073/pnas.2001258117},
+archivePrefix = {arXiv},
+   eprint = {2007.06521},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2020PNAS..11718194T},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+
+@ARTICLE{spockI,
+   author = {{Tamayo}, Daniel and {Silburt}, Ari and {Valencia}, Diana and {Menou}, Kristen and {Ali-Dib}, Mohamad and {Petrovich}, Cristobal and {Huang}, Chelsea X. and {Rein}, Hanno and {van Laerhoven}, Christa and {Paradise}, Adiv and {Obertas}, Alysa and {Murray}, Norman},
+    title = "{A Machine Learns to Predict the Stability of Tightly Packed Planetary Systems}",
+  journal = {\apjl},
+ keywords = {celestial mechanics, chaos, planets and satellites: dynamical evolution and stability, Astrophysics - Earth and Planetary Astrophysics},
+     year = 2016,
+    month = dec,
+   volume = {832},
+   number = {2},
+      eid = {L22},
+    pages = {L22},
+      doi = {10.3847/2041-8205/832/2/L22},
+archivePrefix = {arXiv},
+   eprint = {1610.05359},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2016ApJ...832L..22T},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+"""
+        print(txt + "\n\n\n" + bib)

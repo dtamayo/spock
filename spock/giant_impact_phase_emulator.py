@@ -5,8 +5,8 @@ import torch
 import time
 import warnings
 import rebound as rb
-from spock import DeepRegressor
-from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier
+from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier, DeepRegressor
+from .citations import cite
 from .simsetup import sim_subset, remove_ejected_ps
 
 class GiantImpactPhaseEmulator():
@@ -122,7 +122,7 @@ class GiantImpactPhaseEmulator():
             return sims[0] # return single sim
         else: 
             return sims
-
+    
     # get unstable trios for list of sims using SPOCK deep model
     def _get_unstable_trios(self, sims, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
         trio_sims = []
@@ -208,3 +208,53 @@ class GiantImpactPhaseEmulator():
             if orbsmax > 10**9.5:
                 warnings.warn('Giant impact phase emulator not trained to predict beyond 10^9 orbits, check results carefully (tmax for sim {0} = {1} = {2} orbits)'.format(i, t, orbsmax))
         return sims, tmaxs
+
+    def cite(self):
+        """
+        Print citations to papers relevant to this model.
+        """
+        
+        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Collisional evolution was simulated with the GiantImpactPhaseEmulator \\citep{giantimpact}, repeatedly using the DeepRegressor (a Bayesian neural network) to predict the time to the next dynamical instability \\citep{deepregressor}, and multilayer perceptrons (MLPs) to predict the collisional outcome \\citep{giantimpact}."""
+        bib = """
+@ARTICLE{spock,
+   author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},
+    title = "{Predicting the long-term stability of compact multiplanet systems}",
+  journal = {Proceedings of the National Academy of Science},
+ keywords = {machine learning, dynamical systems, UAT:498, orbital dynamics, UAT:222, Astrophysics - Earth and Planetary Astrophysics},
+     year = 2020,
+    month = aug,
+   volume = {117},
+   number = {31},
+    pages = {18194-18205},
+      doi = {10.1073/pnas.2001258117},
+archivePrefix = {arXiv},
+   eprint = {2007.06521},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2020PNAS..11718194T},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{deepregressor,
+   author = {{Cranmer}, Miles and {Tamayo}, Daniel and {Rein}, Hanno and {Battaglia}, Peter and {Hadden}, Samuel and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N.},
+    title = "{A Bayesian neural network predicts the dissolution of compact planetary systems}",
+  journal = {Proceedings of the National Academy of Science},
+ keywords = {deep learning, UAT:2173, Bayesian analysis, chaos, Astrophysics - Earth and Planetary Astrophysics, Astrophysics - Instrumentation and Methods for Astrophysics, Computer Science - Artificial Intelligence, Computer Science - Machine Learning, Statistics - Machine Learning},
+     year = 2021,
+    month = oct,
+   volume = {118},
+   number = {40},
+      eid = {e2026053118},
+    pages = {e2026053118},
+      doi = {10.1073/pnas.2026053118},
+archivePrefix = {arXiv},
+   eprint = {2101.04117},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2021PNAS..11826053C},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{giantimpact,
+}
+"""
+        print(txt + "\n\n\n" + bib)
+

@@ -8,7 +8,7 @@ from celmech import Poincare
 from celmech.secular import LaplaceLagrangeSystem
 
 from .simsetup import init_sim_parameters
-
+from .citations import cite
 
 def eminus_max(lsys, Lambda, i1, i2):
     if i1 > i2:
@@ -159,3 +159,86 @@ class AnalyticalClassifier():
         prob = np.maximum(1-tau, 0) 
         
         return prob
+
+    def cite(self):
+        """
+        Print citations to papers relevant to this model.
+        """
+        
+        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Probabilities of stability were determined using the AnalyticalClassifier \\citep{analytical}, which calculates the degree of overlap between mean motion resonances \\citep{Hadden18}, while additionally accounting for the slow expansion and contraction of these resonances due to long-term (secular) eccentricity oscillations \\citep{Yang24}."""
+        bib = """
+@ARTICLE{spock,
+   author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},
+    title = "{Predicting the long-term stability of compact multiplanet systems}",
+  journal = {Proceedings of the National Academy of Science},
+ keywords = {machine learning, dynamical systems, UAT:498, orbital dynamics, UAT:222, Astrophysics - Earth and Planetary Astrophysics},
+     year = 2020,
+    month = aug,
+   volume = {117},
+   number = {31},
+    pages = {18194-18205},
+      doi = {10.1073/pnas.2001258117},
+archivePrefix = {arXiv},
+   eprint = {2007.06521},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2020PNAS..11718194T},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+        
+@ARTICLE{analytical,
+   author = {{Tamayo}, Daniel and {Murray}, Norman and {Tremaine}, Scott and {Winn}, Joshua},
+    title = "{A Criterion for the Onset of Chaos in Compact, Eccentric Multiplanet Systems}",
+  journal = {\aj},
+ keywords = {Exoplanets, Planetary dynamics, Orbital resonances, 498, 2173, 1181, Astrophysics - Earth and Planetary Astrophysics, Nonlinear Sciences - Chaotic Dynamics},
+     year = 2021,
+    month = nov,
+   volume = {162},
+   number = {5},
+      eid = {220},
+    pages = {220},
+      doi = {10.3847/1538-3881/ac1c6a},
+archivePrefix = {arXiv},
+   eprint = {2106.14863},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2021AJ....162..220T},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{Hadden18,
+   author = {{Hadden}, Sam and {Lithwick}, Yoram},
+    title = "{A Criterion for the Onset of Chaos in Systems of Two Eccentric Planets}",
+  journal = {\aj},
+ keywords = {celestial mechanics, chaos, planets and satellites: dynamical evolution and stability, Astrophysics - Earth and Planetary Astrophysics},
+     year = 2018,
+    month = sep,
+   volume = {156},
+   number = {3},
+      eid = {95},
+    pages = {95},
+      doi = {10.3847/1538-3881/aad32c},
+archivePrefix = {arXiv},
+   eprint = {1803.08510},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2018AJ....156...95H},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{Yang24,
+   author = {{Yang}, Qing and {Tamayo}, Daniel},
+    title = "{Secular Dynamics of Compact Three-planet Systems}",
+  journal = {\apj},
+ keywords = {Exoplanet dynamics, Perturbation methods, Exoplanets, 490, 1215, 498, Astrophysics - Earth and Planetary Astrophysics},
+     year = 2024,
+    month = jun,
+   volume = {968},
+   number = {1},
+      eid = {20},
+    pages = {20},
+      doi = {10.3847/1538-4357/ad3af1},
+archivePrefix = {arXiv},
+   eprint = {2312.10031},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2024ApJ...968...20Y},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+"""
+        print(txt + "\n\n\n" + bib)
