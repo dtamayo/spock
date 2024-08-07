@@ -6,7 +6,6 @@ import time
 import warnings
 import rebound as rb
 from spock import CollisionOrbitalOutcomeRegressor, CollisionMergerClassifier, DeepRegressor
-from .citations import cite
 from .simsetup import sim_subset, remove_ejected_ps
 
 class GiantImpactPhaseEmulator():

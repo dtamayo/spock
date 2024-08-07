@@ -8,7 +8,6 @@ from celmech import Poincare
 from celmech.secular import LaplaceLagrangeSystem
 
 from .simsetup import init_sim_parameters
-from .citations import cite
 
 def eminus_max(lsys, Lambda, i1, i2):
     if i1 > i2:

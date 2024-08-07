@@ -8,8 +8,6 @@ from xgboost import XGBClassifier
 
 from .feature_functions import features
 from .simsetup import init_sim_parameters
-from .citations import cite
-
 
 class FeatureClassifier():
     def __init__(self, modelfile='featureclassifier.json'):
