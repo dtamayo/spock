@@ -83,9 +83,9 @@ print(prob_12, prob_23, prob_13)
 # >>> 0.2738345 0.49277353 0.23339202
 ```
 
-This model returns the probability of a physical collision occuring between planets 1 & 2, 2 & 3, and 1 & 3 when provided a three-planet system. In this case, the instability will most likely result in a collision between planets 2 & 3, but all outcomes are possible.
+This model returns the probability of a physical collision occurring between planets 1 & 2, 2 & 3, and 1 & 3 when provided a three-planet system. In this case, the instability will most likely result in a collision between planets 2 & 3, but all three outcomes are possible (ejections are exceedingly rare in compact multiplanet systems).
 
-Additionally, we can predict the orbital elements of the post-collision system using the model from [Lammers et al., 2024](https://arxiv.org/abs/???).
+Additionally, we can predict the states of the post-collision planets using the model from [Lammers et al., 2024](https://arxiv.org/abs/???).
 
 ```python
 from spock import CollisionOrbitalOutcomeRegressor
@@ -97,9 +97,9 @@ print(new_sim)
 # >>> <rebound.simulation.Simulation object at 0x303ed70d0, N=3, t=0.0>
 ```
 
-Note that the model makes the usual assumption that mergers are perfectly inelastic.
+Note that this model makes the usual assumption that mergers are perfectly inelastic.
 
-These two models are conveniently combined into a giant impact emulator, which predicts instability times, predicts and samples collision pair probabilities, and then handles the collisions. This is repeated until SPOCK predicts the system to be stable on a user-specified timescale (the default is a billion orbits of the innermost planet).
+These models are conveniently combined into a giant impact emulator, which predicts instability times, predicts and samples collision pair probabilities, and then handles the collisions. This is repeated until SPOCK predicts the system to be stable on a user-specified timescale (the default is a billion orbits).
 
 ```python
 from spock import GiantImpactPhaseEmulator
@@ -111,7 +111,7 @@ print(new_sim)
 # >>> <rebound.simulation.Simulation object at 0x303f05c50, N=3, t=999999999.9999993>
 ```
 
-Only one collision takes place in this example system - the typical use case involves starting with many more bodies (~10).
+Only one collision takes place in this example system, but the typical use case involves starting with more bodies (~10).
 See [this example](https://github.com/dtamayo/spock/blob/master/jupyter_examples/QuickStart.ipynb) for additional information about the models included in SPOCK, and see [jupyter\_examples/](https://github.com/dtamayo/spock/tree/master/jupyter_examples) for more thorough example applications.
 
 # Examples
