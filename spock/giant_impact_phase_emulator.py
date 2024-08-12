@@ -49,15 +49,13 @@ class GiantImpactPhaseEmulator():
             sims = self.step(sims, tmaxs, verbose=verbose, deepregressor_kwargs=deepregressor_kwargs)
             if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
                
-        if len(sims) == 1:
-            return sims[0] # return single sim
-        else: 
-            return sims
-        
         # print total time
         if verbose:
             tot_end = time.time()
             print('Total time:', tot_end - tot_start, 's')
+        
+        if len(sims) == 1:
+            return sims[0] # return single sim
         
         return sims
 
