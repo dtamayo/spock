@@ -40,6 +40,8 @@ class GiantImpactPhaseEmulator():
 
         """
         if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
+            
+        if verbose: tot_start = time.time() # record start time
         
         # main loop
         sims, tmaxs = self._make_lists(sims, tmaxs)
@@ -51,7 +53,12 @@ class GiantImpactPhaseEmulator():
             return sims[0] # return single sim
         else: 
             return sims
-                
+        
+        # print total time
+        if verbose:
+            tot_end = time.time()
+            print('Total time:', tot_end - tot_start, 's')
+        
         return sims
 
     def step(self, sims, tmaxs, verbose=False, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
@@ -84,6 +91,7 @@ class GiantImpactPhaseEmulator():
             return sims
 
         if verbose:
+            print('Number of sims to update:', len(sims_to_update), '\n')
             print('Predicting trio instability times')
             start = time.time()
         
