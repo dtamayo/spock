@@ -194,7 +194,7 @@ class GiantImpactPhaseEmulator():
         sims = remove_ejected_ps(sims) # remove ejected/hyperbolic particles (do here so we don't use a negative period for tmaxs)
         
         # use passed value
-        if tmaxs:
+        if not tmaxs is None:
             try:
                 len(tmaxs) == len(sims)
             except:
