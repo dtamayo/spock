@@ -71,7 +71,7 @@ print(analytical_model.predict_stable(sim))
 To match up with the above classifiers, the analytical classifier returns the probability the configuration is *regular*, i.e., not chaotic.
 A probability of zero therefore corresponds to confidently chaotic.
 
-We can also predict the collisional outcome of this system using the MLP model from [Lammers et al., 2024](https://arxiv.org/abs/???).
+We can also predict the collisional outcome of this system using the MLP model from [Lammers et al., 2024](https://arxiv.org/abs/2408.08873).
 
 ```python
 from spock import CollisionMergerClassifier
@@ -85,7 +85,7 @@ print(prob_12, prob_23, prob_13)
 
 This model returns the probability of a physical collision occurring between planets 1 & 2, 2 & 3, and 1 & 3 when provided a three-planet system. In this case, the instability will most likely result in a collision between planets 2 & 3, but all three outcomes are possible (ejections are exceedingly rare in compact multiplanet systems).
 
-Additionally, we can predict the states of the post-collision planets using the model from [Lammers et al., 2024](https://arxiv.org/abs/???).
+Additionally, we can predict the states of the post-collision planets using the model from [Lammers et al., 2024](https://arxiv.org/abs/2408.08873).
 
 ```python
 from spock import CollisionOrbitalOutcomeRegressor
