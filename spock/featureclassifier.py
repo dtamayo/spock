@@ -120,13 +120,17 @@ class FeatureClassifier:
             s: The simulation you would like to generate data for
             Tmax: Whether or not you want to run to Tmax
         '''
-        TIMES_TSEC = 5
+        TIMES_TSEC = 1
         Norbits = 1e4 #number of orbits for short intigration, usually 10000
         Nout = 80 #number of data collections spaced throughought, usually 80
         if float(rebound.__version__[0])>=4:
-            #check for rebound version here, if its version 4 or later then sim.copy() should be supported, if a old version of rebound,
-            #we will change the simulation in place
+            #check for rebound version here, if version 4 or later then
+            # sim.copy() should be supported, if old version of rebound,
+            # we will change the simulation in place
             s = s.copy() #creates a copy as to not alter simulation
+        else:
+            warnings.warn('Due to old REBOUND, SPOCK will change sim in place')
+
         init_sim_parameters(s) #initializes the simulation
         self.check_errors(s) #checks for errors
         
@@ -135,15 +139,19 @@ class FeatureClassifier:
         if Tmax == True:
             maxList = []
             for each in trios:
-                maxList.append(self.getsecT(s,each))
-            intT = 5 * max(maxList)
-            #if intT>1e4:
+                maxList.append(ClassifierSeries.getsecT(s,each))
+            intT = TIMES_TSEC * max(maxList)
+            if intT>1e5:
+                intT = 1e5
             Norbits = intT
             Nout = int((Norbits/1e4)*80)
             
-    
-        featureargs = [Norbits, Nout, trios] #featureargs is: [number of orbits, number of stops, set of trios]
-        return self.runSim(s,featureargs) #adds data to results. calls runSim helper function which returns the data list for sim
+            
+        #featureargs is: [number of orbits, number of stops, set of trios]
+        featureargs = [Norbits, Nout, trios] 
+        #adds data to results. 
+        #calls runSim helper function which returns the data list for sim
+        return self.runSim(s,featureargs) 
 
     
     def runSim(self, sim, args):
