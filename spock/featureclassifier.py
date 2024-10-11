@@ -162,11 +162,3 @@ class FeatureClassifier:
         '''ensures enough planets/stars for spock to run'''
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only applicable to systems with 3 or more planets")
-        
-
-    def getsecT(self,sim, trio):
-        '''calculates the secular time scale for a given trio in a simulation in accordance to Yang and Tamayo'''
-        ps = sim.particles
-        p1, p2, p3 = ps[trio[0]], ps [trio[1]], ps[trio[2]]
-        secT = (ps[0].m/(p1.m+p2.m+p3.m))*((1-(p1.a/p3.a))**2)*p3.P/4
-        return secT

@@ -63,7 +63,28 @@ def get_tseries(sim, args):
     return [triotseries, stable]
 
 
+def getsecT(sim, trio):
+    '''calculates the secular time scale for a given trio in a simulation
+    
+        Arguments:
+            sim: the simulation that contains the trio who's secular time scale you want
+            trio: the trio who's secular timescale you want, Note: should be a list of body indexes
 
+        Note: This is done in accordance to Yang & Tamayo 2024
+    '''
+    ps = sim.particles
+    p1 ,p2,p3 = ps[trio[0]], ps[trio[1]], ps[trio[2]]
+    m1 = p1.m
+    m2 = p2.m
+    m3 = p3.m
+    m_tot = m1+m2+m3
+    mu1, mu3 = m1/m_tot, m3/m_tot
+    alpha12, alpha23  = p1.a/p2.a, p2.a/p3.a
+    ec12 = alpha12**(-1/4)*alpha23**(3/4)*alpha23**(-1/8)*(1-alpha12)
+    ec23 = alpha23**(-1/2)*alpha12**(1/8)*(1-alpha23)
+    w1 = np.abs(p3.n/(2*np.pi)*m_tot*(mu1/(mu1+mu3)/ec12**2+mu3/(mu1+mu3)/ec23**2))
+    Tsec = 2*np.pi/w1
+    return Tsec
 
 
 
