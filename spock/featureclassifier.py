@@ -82,45 +82,45 @@ class FeatureClassifier:
         else:
             return data
 
-
-    
-    def simToData(self, sim,n_jobs, Tmax):
-        '''given a simulation, or list of simulations, returns data required for spock clasification.
+    def simToData(self, sim, n_jobs, Tmax):
+        '''given a simulation(s), returns data required for spock clasification
         
-            Arguments: sim --> simulation or list of simulations
-                n_jobs --> number of jobs you want to run with multi processing
-                Tmax --> whether you want to run simulation to Tmax (5* secular time scale from Yang and Tamayo), and at least to 1e4, or all to 1e4
+            Arguments:
+                sim: simulation or list of simulations
+                n_jobs: number of jobs you want to run with multi processing
+                Tmax: whether you want to run simulation to Tmax 
+                    (5* secular time scale from Yang and Tamayo), 
+                    and at least to 1e4, or all to 1e4
             
-            return:  returns a list of the simulations features/short term stability'''
-        
-
-        
-
+            return:  returns a list of the simulations features/short term stability
+        '''
+        #ensures that data is in list format so everything is identical
         if isinstance(sim, rebound.Simulation):
             sim = [sim]
-            
-        
-        if len(set([s.N_real for s in sim])) != 1:
-            raise ValueError("If running over many sims at once, they must have the same number of particles")
-        
-        
+                
         if len(sim)==1:
-            return [self.run([sim[0], Tmax])]
+            #retuns the data for a single simulation
+            return [self.run(sim[0], Tmax)]
         else:
-            tup = []
-            for each in sim:
-                tup.append([each, Tmax])
+            #if more then one sim is passed, uses thread pooling
+            #to generate data for each
             if n_jobs == -1:
                 n_jobs = cpu_count()
             with ThreadPool(n_jobs) as pool:
-                res = pool.map(self.run, tup)
-            
+                res = pool.map(lambda s: self.run(s, Tmax), sim)
             return res
         
     
 
-    def run(self, tup):
-        s, Tmax = tup
+    def run(self, s, Tmax):
+        '''
+        Sets up simulation and starts data collection
+
+        Arguments:
+            s: The simulation you would like to generate data for
+            Tmax: Whether or not you want to run to Tmax
+        '''
+        TIMES_TSEC = 5
         Norbits = 1e4 #number of orbits for short intigration, usually 10000
         Nout = 80 #number of data collections spaced throughought, usually 80
         if float(rebound.__version__[0])>=4:
