@@ -39,26 +39,36 @@ class FeatureClassifier:
             return: the probability that a system is stable
             '''
 
-        #specify features
-        near = ['EMcrossnear', 'EMfracstdnear', 'EPstdnear', 'MMRstrengthnear']
-        far = ['EMcrossfar', 'EMfracstdfar', 'EPstdfar', 'MMRstrengthfar']
-        megno = ['MEGNO', 'MEGNOstd']
-
-        features = near + far + megno
-#
-
+        #Generates features for each trio in each simulation
         simFeatureList = self.simToData(sim, n_jobs, Tmax)
+
         results = []
         for s in simFeatureList:
+            #loops through each simulation
             if s[1]==False:
+                #If the system goes unstable during the intigration
+                #returns a 0% chance that it is stable
                 results.append(0)
             else:
-                eachTrio = []
-                for eachT in s[0]:
-                    eachTrio.append(self.model.predict_proba(pd.DataFrame.from_dict(eachT, orient="index").T[features])[:,1][0]) 
-                results.append(min(eachTrio))
+                #for each simulation, predicts probability for each trio,
+                # and then returns the lowest probability
 
+                #creates a array of lists, each of which contain features for
+                # a specific trio in the simulation. Features are in a
+                # dictionary thus lambda function is used to get values.
+                # We are excluding the last element of each set of features
+                # since that is the feature that passes secular timescale
+                # which is not implimented in model yet
+                eachTrio = np.array(list(map(lambda L: list(L.values())[:-1],s[0])))
+                
+                #predict the probability for each trio in the sim
+                probability = self.model.predict_proba(eachTrio)
+                #add the lowest probability to results list
+                results.append(min(probability[:,1]))
+        
         if len(results)==1:
+            #if only dealing with one sim, does not return as a list of results
+            #per old spock standard
             return results[0]
         else:
             return np.array(results)
