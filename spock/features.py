@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from spock.ClassifierSeries import getsecT
 import numpy as np
 import math
 import rebound
@@ -9,8 +10,8 @@ class Trio:
         '''initializes new set of features.
         
             each list of the key is the series of data points, second dict is for final features
-        
         '''
+        #We keep track of the this trio and the adjacent pairs
         self.trio = trio
         self.pairs = get_pairs(sim, trio)
         
@@ -60,12 +61,16 @@ class Trio:
         for q, [label, i1, i2] in enumerate(self.pairs):
             m1 = ps[i1].m
             m2 = ps[i2].m
+            #calculate eccentricity vector
             e1x, e1y = ps[i1].e*np.cos(ps[i1].pomega), ps[i1].e*np.sin(ps[i1].pomega)
             e2x, e2y = ps[i2].e*np.cos(ps[i2].pomega), ps[i2].e*np.sin(ps[i2].pomega)
             
             self.runningList['time'][i]= sim.t/minP
+            #crossing eccentricity
             self.runningList['EM'+label][i]= np.sqrt((e2x-e1x)**2 + (e2y-e1y)**2)
+            #mass weighted crossing eccentricity
             self.runningList['EP'+label][i] = np.sqrt((m1*e1x + m2*e2x)**2 + (m1*e1y + m2*e2y)**2)/(m1+m2)
+            #calculate the strength of MMRs
             MMRs = find_strongest_MMR(sim, i1, i2)
             self.runningList['MMRstrength'+label][i] = MMRs[2]
             
@@ -85,7 +90,10 @@ class Trio:
 
         ps = sim.particles
         for [label,i1,i2] in self.pairs:  
+            #calculate crossing eccentricity
             self.features['EMcross'+label] = (ps[i2].a-ps[i1].a)/ps[i1].a
+        #calculate secular timescale
+        self.features['Tsec']= getsecT(sim, self.trio)
 
     def fill_features(self, args):
         '''fills the final set of features that are returned to the ML model.
@@ -94,10 +102,8 @@ class Trio:
         '''
         Norbits = args[0]
         Nout = args[1]
-        trios = args[2] #
-        #print(args)
-        #add Tmax feature
-        self.features['Tmax']= Norbits
+        trio = args[2] #
+        
 
         if not np.isnan(self.runningList['MEGNO']).any(): # no nans
             self.features['MEGNO']= np.median(self.runningList['MEGNO'][-int(Nout/10):]) # smooth last 10% to remove oscillations around 2

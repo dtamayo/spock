@@ -15,7 +15,13 @@ def get_tseries(sim, args):
     
     Arguments:
         sim: simulation in question
-        args: arguments in format [number of orbits, number of data collections equally spaced, list of trios]'''
+        args: arguments in format [number of orbits,
+                 number of data collections equally spaced, list of trios]
+        
+    return: 
+            triotseries: The time series of collected data for each trio
+            stable: whether or not the end configuration is stable
+        '''
     Norbits = args[0] #number of orbits
     Nout = args[1] #number of data collection
     trios = args[2] #list of each planet set trio

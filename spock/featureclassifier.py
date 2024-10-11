@@ -1,9 +1,5 @@
-#from spock import simsetup
 from spock import features
 from spock import ClassifierSeries
-# from features import *
-# from ClassifierSeries import *
-# from simsetup import *
 import sys
 import pandas as pd
 import numpy as np
@@ -13,12 +9,8 @@ from xgboost.sklearn import XGBClassifier
 from .simsetup import init_sim_parameters
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
-# from multiprocessing.pool import ThreadPool
-
-
-
 import os
-
+import warnings
 
 class FeatureClassifier:
 
@@ -33,11 +25,16 @@ class FeatureClassifier:
 
     def predict_stable(self,sim, n_jobs = -1, Tmax = False):
         '''runs spock classification on a list of simulations
-            Arguments: sim --> simulation or list of simulations
-                    n_jobs --> number of jobs you want to run with multi processing
-                    Tmax --> whether you want to run simulation to Tmax (5* secular time scale from Yang and Tamayo), and at least to 1e4, or all to 1e4
-            return: the probability that a system is stable
-            '''
+
+            Arguments: 
+                sim: simulation or list of simulations
+                n_jobs: number of jobs you want to run with multi processing
+                Tmax: whether you want to run simulation to Tmax 
+                    (5* secular time scale from Yang and Tamayo), 
+                    and at least to 1e4, or all to 1e4
+
+            return: the probability that each ystem is stable
+        '''
 
         #Generates features for each trio in each simulation
         simFeatureList = self.simToData(sim, n_jobs, Tmax)
@@ -74,7 +71,14 @@ class FeatureClassifier:
             return np.array(results)
     
     def generate_features(self, sim, n_jobs = -1, Tmax = False):
-        '''helper function to fit spock syntex standard'''
+        '''helper function to fit spock syntax standard
+            Arguments:
+                    sim: simulation or list of simulations
+                    n_jobs: number of jobs to run with multi processing
+                    Tmax: whether you want to run simulation to Tmax 
+                        (5* secular time scale from Yang and Tamayo), 
+                        and at least to 1e4, or all to 1e4
+        '''
         data = self.simToData(sim,n_jobs, Tmax)
         #nicely wraps data if only evaluating one system
         if len(data)==1:
@@ -159,21 +163,20 @@ class FeatureClassifier:
             
             Arguments: 
                 sim: simulation in question
-                args: contains number or orbits, number of data collections, and the set of all trios
+                args: contains number or orbits, number of data collections, 
+                    and the set of all trios
                 
-            return: returns data list, which, contains the set of features for each trio, and whether sys stable in short intigration
-        
+            return: returns list containing the set of features for each trio,
+                    and whether sys stable in short intigration
         '''
-
-        triotseries, stable = ClassifierSeries.get_tseries(sim, args) #runs the intigration on the simulation, and returns the filled objects for each trio and short stability
+        #runs the intigration on the simulation, 
+        #and returns the filled objects for each trio and short stability
+        triotseries, stable = ClassifierSeries.get_tseries(sim, args) 
         #calculate final vals
-
-       
         dataList = []
         for each in triotseries:
             each.fill_features(args) #turns runningList data into final features
             dataList.append(each.features) #appends each feature results to dataList
-        #dataList.append(stable) #adds short term stability
         return dataList, stable
 
     def check_errors(self, sim):
