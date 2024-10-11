@@ -163,6 +163,7 @@ def get_pairs(sim, trio):
 
 #taken from original spock
 ####################################################
+@staticmethod
 def find_strongest_MMR(sim, i1, i2):
     maxorder = 2
     ps = sim.particles
@@ -202,6 +203,6 @@ def find_strongest_MMR(sim, i1, i2):
 
     return j, k, maxstrength
 # #############################################
-
+@staticmethod
 def swap(a,b):
     return b,a
