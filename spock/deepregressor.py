@@ -61,7 +61,7 @@ def generate_dataset(sim):
         # These are the .npy.
         cur_tseries = tseries[None, i, :].astype(np.float32)
         mass_array = np.array([sim.particles[j].m/sim.particles[0].m for j in trio]).astype(np.float32)
-        mass_array = E.repeat(mass_array, 'i -> () t i', t=100)
+        mass_array = np.tile(mass_array, (1, 100, 1))
         X = data_setup_kernel(mass_array, cur_tseries)
         Xs.append(X)
 
@@ -118,14 +118,29 @@ def fast_truncnorm(
     return t_inst_samples.reshape(*oldscale.shape)
 
 class DeepRegressor(object):
-    def __init__(self, cuda=False, filebase='ensemble_part_*json'):
+    def __init__(self, seed=None, cuda=False):
+        """ DeepRegressor class
+
+        Parameters:
+
+        seed (int): Random seed. Can set at initialization to get same sequence of outputs
+        cuda (bool): Whether to use cuda
+        """
         super().__init__()
         pwd = os.path.dirname(__file__)
         pwd = pwd + '/models/regression'
         self.cuda = cuda
 
+        if seed is not None:
+            os.environ["PL_GLOBAL_SEED"] = str(seed)
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            if self.cuda:
+                torch.cuda.manual_seed_all(seed)
+
         #Load model
-        all_model_param_filenames = glob.glob(pwd + '/' + filebase)
+        all_model_param_filenames = glob.glob(pwd + '/ensemble_part_*json')
         all_model_param_filenames.sort()
         model_basenames = [".".join(fname.split(".")[:-1]) for fname in all_model_param_filenames]
         self.swag_ensemble = [
@@ -287,6 +302,16 @@ class DeepRegressor(object):
             return out, t_inst_samples
         else:
             return out
+    
+    def cite(self):
+        """
+        Generate citations
+
+        This function generates citations to papers relevant to this model.
+        """
+
+        txt, bib = cite(self)
+        print(txt + "\n\n\n" + bib)
 
     def resample_stable_sims(self, samps_time, prior_above_9):
         """Use a prior to re-sample stable instability times"""
@@ -431,6 +456,51 @@ class DeepRegressor(object):
 
         correct_order_results = np.array(correct_order_results, dtype=np.float64)
         return correct_order_results
+
+    def cite(self):
+        """
+        Print citations to papers relevant to this model.
+        """
+        
+        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Instability times were predicted from the orbital evolution over short $10^4$-orbit N-body integrations using the DeepRegressor model, a Bayesian neural network \\citep{deepregressor}."""
+        bib = """
+@ARTICLE{spock,
+   author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},
+    title = "{Predicting the long-term stability of compact multiplanet systems}",
+  journal = {Proceedings of the National Academy of Science},
+ keywords = {machine learning, dynamical systems, UAT:498, orbital dynamics, UAT:222, Astrophysics - Earth and Planetary Astrophysics},
+     year = 2020,
+    month = aug,
+   volume = {117},
+   number = {31},
+    pages = {18194-18205},
+      doi = {10.1073/pnas.2001258117},
+archivePrefix = {arXiv},
+   eprint = {2007.06521},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2020PNAS..11718194T},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+
+@ARTICLE{deepregressor,
+   author = {{Cranmer}, Miles and {Tamayo}, Daniel and {Rein}, Hanno and {Battaglia}, Peter and {Hadden}, Samuel and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N.},
+    title = "{A Bayesian neural network predicts the dissolution of compact planetary systems}",
+  journal = {Proceedings of the National Academy of Science},
+ keywords = {deep learning, UAT:2173, Bayesian analysis, chaos, Astrophysics - Earth and Planetary Astrophysics, Astrophysics - Instrumentation and Methods for Astrophysics, Computer Science - Artificial Intelligence, Computer Science - Machine Learning, Statistics - Machine Learning},
+     year = 2021,
+    month = oct,
+   volume = {118},
+   number = {40},
+      eid = {e2026053118},
+    pages = {e2026053118},
+      doi = {10.1073/pnas.2026053118},
+archivePrefix = {arXiv},
+   eprint = {2101.04117},
+primaryClass = {astro-ph.EP},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2021PNAS..11826053C},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+"""
+        print(txt + "\n\n\n" + bib)
 
 @profile
 def data_setup_kernel(mass_array, cur_tseries):
