@@ -27,45 +27,61 @@ class FeatureClassifier:
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
                 Tmax: whether you want to run simulation to Tmax 
-                    (5* secular time scale from Yang and Tamayo), 
+                    (one secular time scale from Yang and Tamayo), 
                     and at least to 1e4, or all to 1e4
 
             return: the probability that each ystem is stable
         '''
+        # If a list of sims is passed, they must all have the same number of 
+        # particles in order to predict stability due to the way we pass to
+        # XGBoost.predict_proba, this limitation does not apply for generating
+        # features
+        if not isinstance(sim, rebound.Simulation) \
+            and len(set([s.N_real for s in sim])) != 1:
+            raise ValueError("If running over many sims at once, "\
+                             "they must have the same number of particles")
 
         #Generates features for each trio in each simulation
-        simFeatureList = self.simToData(sim, n_jobs, Tmax)
+        res = self.simToData(sim, n_jobs, Tmax)
 
-        results = []
-        for s in simFeatureList:
-            #loops through each simulation
-            if s[1]==False:
-                #If the system goes unstable during the intigration
-                #returns a 0% chance that it is stable
-                results.append(0)
-            else:
-                #for each simulation, predicts probability for each trio,
-                # and then returns the lowest probability
+        # Separate the feature dictionaries from the bool 
+        # for whether it was stable over short integration
+        stable = np.array([r[1] for r in res])
+        features = [r[0] for r in res]
+        Nsims = len(res)
+    
 
-                #creates a array of lists, each of which contain features for
-                # a specific trio in the simulation. Features are in a
-                # dictionary thus lambda function is used to get values.
-                # We are excluding the last element of each set of features
-                # since that is the feature that passes secular timescale
-                # which is not implimented in model yet
-                eachTrio = np.array(list(map(lambda L: list(L.values())[:-1],s[0])))
-                
-                #predict the probability for each trio in the sim
-                probability = self.model.predict_proba(eachTrio)
-                #add the lowest probability to results list
-                results.append(min(probability[:,1]))
+        # We take the small hit of evaluating XGBoost for all systems, 
+        # and overwrite prob=0 for ones that went unstable in the 
+        # short integration at the end
+
+        # Iterates through each individual system in features list
+        # for each system, iterates over each trio within,
+        # for each trio, converts the generated features into a list
+        # and adds that list to the np array
+        featurevals = np.array([list(trio.values()) for system in features for trio in system]) 
         
-        if len(results)==1:
-            #if only dealing with one sim, does not return as a list of results
-            #per old spock standard
-            return results[0]
+        # featurevals[:,:-1] since currently the model does not support the Tsec feature we have added
+        # Predicts the stability for each trio
+        probs = self.model.predict_proba(featurevals[:,:-1])[:,1] # take 2nd column for probability it belongs to stable class
+
+        # XGBoost evaluated a flattened list of all trios, reshape so that trios in same sim grouped
+        trios_per_sim = int(len(probs)/Nsims)  # determines the number of trios per simulation
+        # reshapes probabilities so that each row belongs to a system
+        probs = probs.reshape((Nsims, trios_per_sim))
+
+        # Take the minimum probability of stability within the trios 
+        # for each simulation, i.e, the minimum value in each row
+        probs = np.min(probs, axis=1)
+
+        # Set probabilities for systems that went unstable within short integration to exactly zero
+        probs[~stable] = 0
+
+        # Re format depending on number of simulations
+        if Nsims == 1:
+            return probs[0]
         else:
-            return np.array(results)
+            return probs
     
     def generate_features(self, sim, n_jobs = -1, Tmax = False):
         '''helper function to fit spock syntax standard
@@ -178,7 +194,7 @@ class FeatureClassifier:
         '''ensures enough planets/stars for spock to run'''
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only applicable to systems with 3 or more planets")
-        
+
     def cite(self):
         """
         Print citations to papers relevant to this model.
