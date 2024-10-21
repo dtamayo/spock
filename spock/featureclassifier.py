@@ -14,7 +14,7 @@ import warnings
 
 class FeatureClassifier:
 
-    def __init__(self, modelfile='models/spock.bin'):
+    def __init__(self, modelfile='models/spock.json'):
         '''initializes class and imports spock model'''
         pwd = os.path.dirname(__file__)
         self.model = XGBClassifier()
