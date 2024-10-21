@@ -80,6 +80,8 @@ def getsecT(sim, trio):
     '''
     ps = sim.particles
     p1 ,p2,p3 = ps[trio[0]], ps[trio[1]], ps[trio[2]]
+    #determins the smallest period that a particle in the system has
+    minP = np.min([p.P for p in sim.particles[1:sim.N_real]])
     m1 = p1.m
     m2 = p2.m
     m3 = p3.m
@@ -90,7 +92,8 @@ def getsecT(sim, trio):
     ec23 = alpha23**(-1/2)*alpha12**(1/8)*(1-alpha23)
     w1 = np.abs(p3.n/(2*np.pi)*m_tot*(mu1/(mu1+mu3)/ec12**2+mu3/(mu1+mu3)/ec23**2))
     Tsec = 2*np.pi/w1
-    return Tsec
+    #normalize secular timescale to be in terms of number of orbits of inner most planet
+    return Tsec/np.abs(minP)
 
 
 
