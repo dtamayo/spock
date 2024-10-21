@@ -92,7 +92,7 @@ class Trio:
         for [label,i1,i2] in self.pairs:  
             #calculate crossing eccentricity
             self.features['EMcross'+label] = (ps[i2].a-ps[i1].a)/ps[i1].a
-        #calculate secular timescale
+        #calculate secular timescale and adds feature
         self.features['Tsec']= getsecT(sim, self.trio)
 
     def fill_features(self, args):
