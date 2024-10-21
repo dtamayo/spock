@@ -26,10 +26,10 @@ def get_tseries(sim, args):
     Nout = args[1] #number of data collection
     trios = args[2] #list of each planet set trio
 
-    minP = np.min([p.P for p in sim.particles[1:sim.N_real]])#determins the smallest period that a particle in the system has
+    minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])#determins the smallest period that a particle in the system has
 
 
-    times = np.linspace(0, Norbits*np.abs(minP), Nout) #list of times to intigrate to
+    times = np.linspace(0, Norbits*minP, Nout) #list of times to intigrate to
 
     triotseries: list[features.Trio] =[]
     #forms the list that will later consist of each trio pair, and the tseries for each list
@@ -81,7 +81,7 @@ def getsecT(sim, trio):
     ps = sim.particles
     p1 ,p2,p3 = ps[trio[0]], ps[trio[1]], ps[trio[2]]
     #determins the smallest period that a particle in the system has
-    minP = np.min([p.P for p in sim.particles[1:sim.N_real]])
+    minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
     m1 = p1.m
     m2 = p2.m
     m3 = p3.m
@@ -93,7 +93,7 @@ def getsecT(sim, trio):
     w1 = np.abs(p3.n/(2*np.pi)*m_tot*(mu1/(mu1+mu3)/ec12**2+mu3/(mu1+mu3)/ec23**2))
     Tsec = 2*np.pi/w1
     #normalize secular timescale to be in terms of number of orbits of inner most planet
-    return Tsec/np.abs(minP)
+    return Tsec/minP
 
 
 
