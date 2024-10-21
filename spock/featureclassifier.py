@@ -58,9 +58,8 @@ class FeatureClassifier:
         # and adds that list to the np array
         featurevals = np.array([list(trio.values()) for system in features for trio in system]) 
         
-        # featurevals[:,:-1] since currently the model does not support the Tsec feature we have added
         # Predicts the stability for each trio
-        probs = self.model.predict_proba(featurevals[:,:-1])[:,1] # take 2nd column for probability it belongs to stable class
+        probs = self.model.predict_proba(featurevals)[:,1] # take 2nd column for probability it belongs to stable class
 
         # XGBoost evaluated a flattened list of all trios, reshape so that trios in same sim grouped
         trios_per_sim = int(len(probs)/Nsims)  # determines the number of trios per simulation
