@@ -20,15 +20,12 @@ class FeatureClassifier:
         self.model = XGBClassifier()
         self.model.load_model(pwd + '/'+modelfile)
 
-    def predict_stable(self,sim, n_jobs = -1, Tmax = False):
+    def predict_stable(self,sim, n_jobs = -1):
         '''runs spock classification on a list of simulations
 
             Arguments: 
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
-                Tmax: whether you want to run simulation to Tmax 
-                    (one secular time scale from Yang and Tamayo), 
-                    and at least to 1e4, or all to 1e4
 
             return: the probability that each ystem is stable
         '''
@@ -42,7 +39,7 @@ class FeatureClassifier:
                              "they must have the same number of particles")
 
         #Generates features for each trio in each simulation
-        res = self.simToData(sim, n_jobs, Tmax)
+        res = self.simToData(sim, n_jobs)
 
         # Separate the feature dictionaries from the bool 
         # for whether it was stable over short integration
@@ -83,31 +80,26 @@ class FeatureClassifier:
         else:
             return probs
     
-    def generate_features(self, sim, n_jobs = -1, Tmax = False):
+    def generate_features(self, sim, n_jobs = -1):
         '''helper function to fit spock syntax standard
             Arguments:
                     sim: simulation or list of simulations
                     n_jobs: number of jobs to run with multi processing
-                    Tmax: whether you want to run simulation to Tmax 
-                        (5* secular time scale from Yang and Tamayo), 
-                        and at least to 1e4, or all to 1e4
+            return: features for given system or list of systems
         '''
-        data = self.simToData(sim,n_jobs, Tmax)
+        data = self.simToData(sim,n_jobs)
         #nicely wraps data if only evaluating one system
         if len(data)==1:
             return data[0]
         else:
             return data
 
-    def simToData(self, sim, n_jobs, Tmax):
+    def simToData(self, sim, n_jobs):
         '''given a simulation(s), returns data required for spock clasification
         
             Arguments:
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
-                Tmax: whether you want to run simulation to Tmax 
-                    (5* secular time scale from Yang and Tamayo), 
-                    and at least to 1e4, or all to 1e4
             
             return:  returns a list of the simulations features/short term stability
         '''
@@ -117,27 +109,27 @@ class FeatureClassifier:
                 
         if len(sim)==1:
             #retuns the data for a single simulation
-            return [self.run(sim[0], Tmax)]
+            return [self.run(sim[0])]
         else:
             #if more then one sim is passed, uses thread pooling
             #to generate data for each
             if n_jobs == -1:
                 n_jobs = cpu_count()
             with ThreadPool(n_jobs) as pool:
-                res = pool.map(lambda s: self.run(s, Tmax), sim)
+                res = pool.map(self.run, sim)
             return res
 
-    def run(self, s, Tmax):
+    def run(self, s):
         '''
         Sets up simulation and starts data collection
 
         Arguments:
             s: The simulation you would like to generate data for
-            Tmax: Whether or not you want to run to Tmax
+        
+        return: data list for sim and whether or not it is stable in tuple
         '''
-        TIMES_TSEC = 1
-        Norbits = 1e4 #number of orbits for short intigration, usually 10000
-        Nout = 80 #number of data collections spaced throughought, usually 80
+        TIMES_TSEC = 1 #all systems get integrated to 1 secular time scale
+        
         if float(rebound.__version__[0])>=4:
             #check for rebound version here, if version 4 or later then
             # sim.copy() should be supported, if old version of rebound,
@@ -150,16 +142,18 @@ class FeatureClassifier:
         self.check_errors(s) #checks for errors
         
         trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios
-        #check if we want to use Tmax option
-        if Tmax == True:
-            maxList = []
-            for each in trios:
-                maxList.append(ClassifierSeries.getsecT(s,each))
-            intT = TIMES_TSEC * max(maxList)
-            if intT>1e5:
-                intT = 1e5
-            Norbits = intT
-            Nout = int((Norbits/1e4)*80)
+
+        maxList = []
+        for each in trios:
+            maxList.append(ClassifierSeries.getsecT(s,each)) #gets secular time
+        intT = TIMES_TSEC * max(maxList)#finds the trio with longest time scale
+        if intT>1e6:
+            intT = 1e6 #check to make sure time scale is not way to long
+            #if it is, default to 1e6, very few systems should have this issue
+        Norbits = intT #set the number of orbits to be equal to Tsec
+        #set the number of data collections to be equally spaced with same
+        #spacing as old spock, 80 data collections every 1e4 orbits, scaled
+        Nout = int((Norbits/1e4)*80)
             
             
         #featureargs is: [number of orbits, number of stops, set of trios]
