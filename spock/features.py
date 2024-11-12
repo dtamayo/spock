@@ -149,13 +149,13 @@ def resonant_period_ratios(min_per_ratio,max_per_ratio,order):
         raise AttributeError("min_per_ratio of {0} passed to resonant_period_ratios can't be < 0".format(min_per_ratio))
     if max_per_ratio >= 1.:
         raise AttributeError("max_per_ratio of {0} passed to resonant_period_ratios can't be >= 1".format(max_per_ratio))
-    minJ = int(np.floor(1. /(1. - min_per_ratio)))
-    maxJ = int(np.ceil(1. /(1. - max_per_ratio)))
+    minJ = int(np.floor(1. / (1. - min_per_ratio)))
+    maxJ = int(np.ceil(1. / (1. - max_per_ratio)))
     res_ratios=[(minJ-1,minJ)]
     for j in range(minJ,maxJ):
         res_ratios = res_ratios + [ ( x[1] * j - x[1] + x[0] , x[1] * j + x[0]) for x in farey_sequence(order)[1:] ]
     res_ratios = np.array(res_ratios)
-    msk = np.array( list(map( lambda x: min_per_ratio < x[0]/float(x[1]) < max_per_ratio , res_ratios )) )
+    msk = np.array( list(map( lambda x: min_per_ratio < x[0] / float(x[1]) < max_per_ratio , res_ratios )) )
     return res_ratios[msk]
 ##########################
 
