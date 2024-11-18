@@ -146,13 +146,13 @@ class FeatureClassifier:
         for each in trios:
             maxList.append(ClassifierSeries.getsecT(s,each)) #gets secular time
         intT = TIMES_TSEC * max(maxList)#finds the trio with longest time scale
-        if intT>1e6:
-            intT = 1e6 #check to make sure time scale is not way to long
-            warnings.warn('Sim Tsec > 1e6 orbits of inner most planet '\
-                          'thus, system will only be integrated to 1e6 orbits. '\
-                            'This might affect model performance')
-            #if it is, default to 1e6, very few systems should have this issue
-        Norbits = intT #set the number of orbits to be equal to Tsec
+        # if intT>1e6:
+        #     intT = 1e6 #check to make sure time scale is not way to long
+        #     warnings.warn('Sim Tsec > 1e6 orbits of inner most planet '\
+        #                   'thus, system will only be integrated to 1e6 orbits. '\
+        #                     'This might affect model performance')
+        #     #if it is, default to 1e6, very few systems should have this issue
+        Norbits = 1e4 #set the number of orbits to be equal to Tsec
         #set the number of data collections to be equally spaced with same
         #spacing as old spock, 80 data collections every 1e4 orbits, scaled
         Nout = int((Norbits/1e4)*80)
