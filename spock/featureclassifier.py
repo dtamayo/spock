@@ -86,9 +86,9 @@ class FeatureClassifier:
                     n_jobs: number of jobs to run with multi processing
             return: features for given system or list of systems
         '''
-        data = self.simToData(sim,n_jobs)
+        data = self.simToData(sim, n_jobs)
         #nicely wraps data if only evaluating one system
-        if len(data)==1:
+        if len(data) == 1:
             return data[0]
         else:
             return data
@@ -129,7 +129,7 @@ class FeatureClassifier:
         '''
         TIMES_TSEC = 1 #all systems get integrated to 1 secular time scale
         
-        if float(rebound.__version__[0])>=4:
+        if float(rebound.__version__[0]) >= 4:
             #check for rebound version here, if version 4 or later then
             # sim.copy() should be supported, if old version of rebound,
             # we will change the simulation in place
@@ -140,13 +140,13 @@ class FeatureClassifier:
         init_sim_parameters(s) #initializes the simulation
         self.check_errors(s) #checks for errors
         
-        trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios
+        trios = [[j, j+1, j+2] for j in range(1, s.N_real - 2)] # list of adjacent trios
 
         maxList = []
         for each in trios:
-            maxList.append(ClassifierSeries.getsecT(s,each)) #gets secular time
+            maxList.append(ClassifierSeries.getsecT(s, each)) #gets secular time
         intT = TIMES_TSEC * max(maxList)#finds the trio with longest time scale
-        if intT>1e6:
+        if intT > 1e6:
             intT = 1e6 #check to make sure time scale is not way to long
             warnings.warn('Sim Tsec > 1e6 orbits of inner most planet '\
                           'thus, system will only be integrated to 1e6 orbits. '\
@@ -155,14 +155,14 @@ class FeatureClassifier:
         Norbits = intT #set the number of orbits to be equal to Tsec
         #set the number of data collections to be equally spaced with same
         #spacing as old spock, 80 data collections every 1e4 orbits, scaled
-        Nout = int((Norbits/1e4)*80)
+        Nout = int((Norbits / 1e4) * 80)
             
             
         #featureargs is: [number of orbits, number of stops, set of trios]
         featureargs = [Norbits, Nout, trios] 
         #adds data to results. 
         #calls runSim helper function which returns the data list for sim
-        return self.runSim(s,featureargs) 
+        return self.runSim(s, featureargs) 
 
     
     def runSim(self, sim, args):
