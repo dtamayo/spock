@@ -41,7 +41,7 @@ class Trio:
         
 
     def fillVal(self, Nout):
-        '''fills with nan values
+        '''Fills with nan values
         
             Arguments: 
                 Nout: number of datasets collected
@@ -50,13 +50,13 @@ class Trio:
             self.runningList[each] = [np.nan] * Nout
 
     def getNum(self):
-        '''returns number of features collected as ran'''
+        '''Returns number of features collected as ran'''
         return len(self.runningList.keys())
 
     def populateData(self, sim, minP,i):
-        '''populates the runningList data dictionary for one time step.
+        '''Populates the runningList data dictionary for one time step.
         
-            user must specify how each is calculated and added
+            Note: must specify how each feature is calculated and added
         '''
         ps = sim.particles
         
@@ -93,9 +93,9 @@ class Trio:
 
         ps = sim.particles
         for [label, i1, i2] in self.pairs:  
-            #calculate crossing eccentricity
+            # calculate crossing eccentricity
             self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
-        #calculate secular timescale and adds feature
+        # calculate secular timescale and adds feature
         self.features['Tsec']= getsecT(sim, self.trio)
 
     def fill_features(self, args):
@@ -168,9 +168,8 @@ def get_pairs(sim, trio):
     
     Arguments:
         sim: simulation in question
-        trio: indicies of the 3 particles in question, formated as [p1, p2, p3]
-    return:
-        return: returns the two pairs in question, formated as 
+        trio: indicies of the 3 particles in question, formatted as [p1, p2, p3]
+    return: returns the two pairs in question, formatted as 
                 [[near pair, index, index], [far pair, index, index]]
     '''
  
@@ -189,9 +188,18 @@ def get_pairs(sim, trio):
         return [['near', sortedindices[1], sortedindices[2]],
                 ['far', sortedindices[0], sortedindices[1]]]
 
-# taken from original spock
+# taken from original spock, some comments changed
 ####################################################
 def find_strongest_MMR(sim, i1, i2):
+    '''Finds the strongest MMR between two planets
+
+        Arguments:
+            sim: the simulation in question
+            i1: the inner most of the two planets in question
+            i2: the outer most of the two planets in question
+        return: information about the resonance, the third item (index 2)
+                is the maximum strength of the resonance between planets
+    '''
     maxorder = 2
     ps = sim.particles
     n1 = ps[i1].n
@@ -232,5 +240,7 @@ def find_strongest_MMR(sim, i1, i2):
 
     return j, k, maxstrength
 ##############################################
+
 def swap(a, b):
+    '''Simple swap function'''
     return b, a

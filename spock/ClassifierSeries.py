@@ -11,7 +11,7 @@ from spock import features
 
 
 def get_tseries(sim, args):
-    '''gets the time series list of data for one simulation of N bodies.
+    '''Gets the time series list of data for one simulation of N bodies.
     
     Arguments:
         sim: simulation in question
@@ -29,13 +29,13 @@ def get_tseries(sim, args):
     minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
 
 
-    times = np.linspace(0, Norbits*minP, Nout) # list of times to intigrate to
+    times = np.linspace(0, Norbits*minP, Nout) # list of times to integrate to
 
     triotseries: list[features.Trio] = []
     # forms the list that will later consist of each trio pair, 
     # and the tseries for each list
     
-    for tr, trio in enumerate(trios): # in each trio there is two adjacent pairs 
+    for tr, trio in enumerate(trios): # in each trio there is two adjacent pairs
         # fills triopairs with each pair, 
         # and fills triotseries with the Trio class 
         triotseries.append(features.Trio(trio, sim))
@@ -73,7 +73,7 @@ def get_tseries(sim, args):
 
 
 def getsecT(sim, trio):
-    '''calculates the secular time scale for a given trio in a simulation
+    '''Calculates the secular time scale for a given trio in a simulation
     
         Arguments:
             sim: the simulation that contains the trio who's 
@@ -85,7 +85,7 @@ def getsecT(sim, trio):
     '''
     ps = sim.particles
     p1, p2, p3 = ps[trio[0]], ps[trio[1]], ps[trio[2]]
-    # determins the smallest period that a particle in the system has
+    # determine the smallest period that a particle in the system has
     minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
     m1 = p1.m
     m2 = p2.m
@@ -96,14 +96,14 @@ def getsecT(sim, trio):
     alpha12 = p1.a / p2.a
     alpha23 = p2.a / p3.a
 
-    ec12 = alpha12**(-1/4) * alpha23**(3/4) * alpha23**(-1/8) * (1 - alpha12)
-    ec23 = alpha23**(-1/2) * alpha12**(1/8) * (1-alpha23)
+    ec12 = alpha12**(-1 / 4) * alpha23**(3 / 4) * alpha23**(-1 / 8) * (1 - alpha12)
+    ec23 = alpha23**(-1 / 2) * alpha12**(1 / 8) * (1 - alpha23)
     w1 = np.abs((p3.n / (2*np.pi)) * m_tot * ((mu1 / (mu1+mu3))
-                / ec12**2 + (mu3 / (mu1+mu3)) / ec23**2))
+                / ec12**2 + (mu3 / (mu1 + mu3)) / ec23**2))
     Tsec = 2 * np.pi / w1
     # normalize secular timescale to be in terms of 
     # number of orbits of inner most planet
-    return Tsec/minP
+    return Tsec / minP
 
 
 

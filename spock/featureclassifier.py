@@ -27,7 +27,7 @@ class FeatureClassifier:
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
 
-            return: the probability that each ystem is stable
+            return: the probability that each system is stable
         '''
         # If a list of sims is passed, they must all have the same number of 
         # particles in order to predict stability due to the way we pass to
@@ -87,7 +87,7 @@ class FeatureClassifier:
             return: features for given system or list of systems
         '''
         data = self.simToData(sim, n_jobs)
-        #nicely wraps data if only evaluating one system
+        # Nicely wraps data if only evaluating one system
         if len(data) == 1:
             return data[0]
         else:
@@ -119,8 +119,7 @@ class FeatureClassifier:
             return res
 
     def run(self, s):
-        '''
-        Sets up simulation and starts data collection
+        '''Sets up simulation and starts data collection
 
         Arguments:
             s: The simulation you would like to generate data for
@@ -144,24 +143,24 @@ class FeatureClassifier:
 
         maxList = []
         for each in trios:
-            maxList.append(ClassifierSeries.getsecT(s, each)) #gets secular time
-        intT = TIMES_TSEC * max(maxList)#finds the trio with longest time scale
+            maxList.append(ClassifierSeries.getsecT(s, each)) # gets secular time
+        intT = TIMES_TSEC * max(maxList)# finds the trio with longest time scale
         if intT > 1e6:
-            intT = 1e6 #check to make sure time scale is not way to long
+            intT = 1e6 # check to make sure time scale is not way to long
             warnings.warn('Sim Tsec > 1e6 orbits of inner most planet '\
                           'thus, system will only be integrated to 1e6 orbits. '\
                             'This might affect model performance')
-            #if it is, default to 1e6, very few systems should have this issue
-        Norbits = intT #set the number of orbits to be equal to Tsec
-        #set the number of data collections to be equally spaced with same
-        #spacing as old spock, 80 data collections every 1e4 orbits, scaled
+            # if it is, default to 1e6, very few systems should have this issue
+        Norbits = intT # set the number of orbits to be equal to Tsec
+        # set the number of data collections to be equally spaced with same
+        # spacing as old spock, 80 data collections every 1e4 orbits, scaled
         Nout = int((Norbits / 1e4) * 80)
             
             
-        #featureargs is: [number of orbits, number of stops, set of trios]
+        # featureargs is: [number of orbits, number of stops, set of trios]
         featureargs = [Norbits, Nout, trios] 
-        #adds data to results. 
-        #calls runSim helper function which returns the data list for sim
+        # adds data to results. 
+        # calls runSim helper function which returns the data list for sim
         return self.runSim(s, featureargs) 
 
     
@@ -176,14 +175,14 @@ class FeatureClassifier:
             return: returns list containing the set of features for each trio,
                     and whether sys stable in short intigration
         '''
-        #runs the intigration on the simulation, 
-        #and returns the filled objects for each trio and short stability
+        # runs the intigration on the simulation, 
+        # and returns the filled objects for each trio and short stability
         triotseries, stable = ClassifierSeries.get_tseries(sim, args) 
-        #calculate final vals
+        # calculate final vals
         dataList = []
         for each in triotseries:
-            each.fill_features(args) #turns runningList data into final features
-            dataList.append(each.features) #appends each feature results to dataList
+            each.fill_features(args) # turns runningList data into final features
+            dataList.append(each.features) # appends each feature results to dataList
         return dataList, stable
 
     def check_errors(self, sim):
