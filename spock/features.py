@@ -96,7 +96,7 @@ class Trio:
             # calculate crossing eccentricity
             self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
         # calculate secular timescale and adds feature
-        self.features['Tsec']= getsecT(sim, self.trio)
+        # self.features['Tsec']= getsecT(sim, self.trio)
 
     def fill_features(self, args):
         '''fills the final set of features that are returned to the ML model.
