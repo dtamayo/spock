@@ -144,7 +144,7 @@ class FeatureClassifier:
         minList = []
         for each in trios:
             minList.append(ClassifierSeries.getsecT(s, each)) # gets secular time
-        intT = TIMES_TSEC * min(minList)# finds the trio with longest time scale
+        intT = TIMES_TSEC * min(minList)# finds the trio with shortest time scale
         if intT > 1e6:
             intT = 1e6 # check to make sure time scale is not way to long
             warnings.warn('Sim Tsec > 1e6 orbits of inner most planet '\
