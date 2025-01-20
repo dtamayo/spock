@@ -20,12 +20,16 @@ class FeatureClassifier:
         self.model = XGBClassifier()
         self.model.load_model(pwd + '/'+modelfile)
 
-    def predict_stable(self,sim, n_jobs = -1):
+    def predict_stable(self,sim, n_jobs = -1, Nbodytmax = 1e6):
         '''runs spock classification on a list of simulations
 
             Arguments: 
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
+                Nbodytmax: the maximum number of orbits a integration
+                        will run for, default and training number is
+                        1e6, this parameter should only be changed for testing
+                        if the user has experience with the spock system
 
             return: the probability that each system is stable
         '''
@@ -39,7 +43,7 @@ class FeatureClassifier:
                              "they must have the same number of particles")
 
         #Generates features for each trio in each simulation
-        res = self.simToData(sim, n_jobs)
+        res = self.simToData(sim, n_jobs, Nbodytmax)
 
         # Separate the feature dictionaries from the bool 
         # for whether it was stable over short integration
@@ -79,26 +83,35 @@ class FeatureClassifier:
         else:
             return probs
     
-    def generate_features(self, sim, n_jobs = -1):
+    def generate_features(self, sim, n_jobs = -1, Nbodytmax = 1e6):
         '''helper function to fit spock syntax standard
             Arguments:
                     sim: simulation or list of simulations
                     n_jobs: number of jobs to run with multi processing
+                    Nbodytmax: the maximum number of orbits a integration
+                        will run for, default and training number is
+                        1e6, this parameter should only be changed for testing
+                        if the user has experience with the spock system
+    
             return: features for given system or list of systems
         '''
-        data = self.simToData(sim, n_jobs)
+        data = self.simToData(sim, n_jobs, Nbodytmax)
         # Nicely wraps data if only evaluating one system
         if len(data) == 1:
             return data[0]
         else:
             return data
 
-    def simToData(self, sim, n_jobs):
-        '''given a simulation(s), returns data required for spock clasification
+    def simToData(self, sim, n_jobs, Nbodytmax = 1e6):
+        '''given a simulation(s), returns data required for spock classification
         
             Arguments:
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
+                Nbodytmax: the maximum number of orbits a integration
+                        will run for, default and training number is
+                        1e6, this parameter should only be changed for testing
+                        if the user has experience with the spock system
             
             return:  returns a list of the simulations features/short term stability
         '''
@@ -108,17 +121,17 @@ class FeatureClassifier:
                 
         if len(sim)==1:
             #retuns the data for a single simulation
-            return [self.run(sim[0])]
+            return [self.run(sim[0], Nbodytmax)]
         else:
             #if more then one sim is passed, uses thread pooling
             #to generate data for each
             if n_jobs == -1:
                 n_jobs = cpu_count()
             with ThreadPool(n_jobs) as pool:
-                res = pool.map(self.run, sim)
+                res = pool.map((lambda s : self.run(s, Nbodytmax)), sim)
             return res
 
-    def run(self, s):
+    def run(self, s, Nbodytmax):
         '''Sets up simulation and starts data collection
 
         Arguments:
@@ -145,12 +158,13 @@ class FeatureClassifier:
         for each in trios:
             minList.append(ClassifierSeries.getsecT(s, each)) # gets secular time
         intT = TIMES_TSEC * min(minList)# finds the trio with shortest time scale
-        if intT > 1e6:
-            intT = 1e6 # check to make sure time scale is not way to long
-            warnings.warn('Sim Tsec > 1e6 orbits of inner most planet '\
-                          'thus, system will only be integrated to 1e6 orbits. '\
+        if intT > Nbodytmax:
+            intT = Nbodytmax # check to make sure time scale is not way to long
+            warnings.warn(f'Sim Tsec > {Nbodytmax} orbits of inner most planet '\
+                          f'thus, system will only be integrated to {Nbodytmax} orbits. '\
                             'This might affect model performance')
-            # if it is, default to 1e6, very few systems should have this issue
+            # if it is, default to Nbodytmax, very few systems should have this issue
+            # if Nbodytmax >=1e6
         Norbits = intT # set the number of orbits to be equal to Tsec
         # set the number of data collections to be equally spaced with same
         # spacing as old spock, 80 data collections every 1e4 orbits, scaled
@@ -173,7 +187,7 @@ class FeatureClassifier:
                     and the set of all trios
                 
             return: returns list containing the set of features for each trio,
-                    and whether sys stable in short intigration
+                    and whether sys stable in short integration
         '''
         # runs the intigration on the simulation, 
         # and returns the filled objects for each trio and short stability
