@@ -21,15 +21,14 @@ class FeatureClassifier:
         self.model.load_model(pwd + '/'+modelfile)
 
     def predict_stable(self,sim, n_jobs = -1, Nbodytmax = 1e6):
-        '''runs spock classification on a list of simulations
+        '''Evaluates probability of stability for a list of simulations
 
             Arguments: 
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
-                Nbodytmax: the maximum number of orbits a integration
-                        will run for, default and training number is
-                        1e6, this parameter should only be changed for testing
-                        if the user has experience with the spock system
+                Nbodytmax: Max number of orbits the short integration
+                        will run for. Default used to train the model is
+                        1e6. Be sure to test the performance if changing this value.
 
             return: the probability that each system is stable
         '''
@@ -88,10 +87,9 @@ class FeatureClassifier:
             Arguments:
                     sim: simulation or list of simulations
                     n_jobs: number of jobs to run with multi processing
-                    Nbodytmax: the maximum number of orbits a integration
-                        will run for, default and training number is
-                        1e6, this parameter should only be changed for testing
-                        if the user has experience with the spock system
+                    Nbodytmax: Max number of orbits the short integration
+                        will run for. Default used to train the model is
+                        1e6. Be sure to test the performance if changing this value.
     
             return: features for given system or list of systems
         '''
@@ -103,15 +101,14 @@ class FeatureClassifier:
             return data
 
     def simToData(self, sim, n_jobs, Nbodytmax = 1e6):
-        '''given a simulation(s), returns data required for spock classification
+        '''Given a simulation(s), returns data required for spock classification
         
             Arguments:
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
-                Nbodytmax: the maximum number of orbits a integration
-                        will run for, default and training number is
-                        1e6, this parameter should only be changed for testing
-                        if the user has experience with the spock system
+                Nbodytmax: Max number of orbits the short integration
+                    will run for. Default used to train the model is
+                    1e6. Be sure to test the performance if changing this value.
             
             return:  returns a list of the simulations features/short term stability
         '''

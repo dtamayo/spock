@@ -38,3 +38,4 @@ jobs:
           python ipynb2py.py GridOfStabilityPredictions.ipynb
           python ipynb2py.py QuickStart.ipynb
           python ipynb2py.py GiantImpactPhase.ipynb
+          python ipynb2py.py HowToCite.ipynb
