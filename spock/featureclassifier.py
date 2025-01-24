@@ -1,112 +1,205 @@
-import os
-from multiprocessing import cpu_count
-from multiprocessing.pool import ThreadPool
-
+from spock import features
+from spock import ClassifierSeries
+import sys
+import pandas as pd
 import numpy as np
 import rebound
-from xgboost import XGBClassifier
-
-from .feature_functions import features
+import xgboost as xgb
+from xgboost.sklearn import XGBClassifier
 from .simsetup import init_sim_parameters
+from multiprocessing import cpu_count
+from multiprocessing.pool import ThreadPool
+import os
+import warnings
 
-class FeatureClassifier():
-    def __init__(self, modelfile='featureclassifier.json'):
+class FeatureClassifier:
+
+    def __init__(self, modelfile='models/featureclassifier.json'):
+        '''initializes class and imports spock model'''
         pwd = os.path.dirname(__file__)
         self.model = XGBClassifier()
-        self.model.load_model(pwd + '/models/'+modelfile)
+        self.model.load_model(pwd + '/'+modelfile)
 
-    def check_errors(self, sim):
-        if sim.N_real < 4:
-            raise AttributeError("SPOCK Error: SPOCK only applicable to systems with 3 or more planets") 
+    def predict_stable(self,sim, n_jobs = -1, Nbodytmax = 1e6):
+        '''Evaluates probability of stability for a list of simulations
+
+            Arguments: 
+                sim: simulation or list of simulations
+                n_jobs: number of jobs you want to run with multi processing
+                Nbodytmax: Max number of orbits the short integration
+                        will run for. Default used to train the model is
+                        1e6. Be sure to test the performance if changing this value.
+
+            return: the probability that each system is stable
+        '''
+        # If a list of sims is passed, they must all have the same number of 
+        # particles in order to predict stability due to the way we pass to
+        # XGBoost.predict_proba, this limitation does not apply for generating
+        # features
+        if not isinstance(sim, rebound.Simulation) \
+            and len(set([s.N_real for s in sim])) != 1:
+            raise ValueError("If running over many sims at once, "\
+                             "they must have the same number of particles")
+
+        #Generates features for each trio in each simulation
+        res = self.simToData(sim, n_jobs, Nbodytmax)
+
+        # Separate the feature dictionaries from the bool 
+        # for whether it was stable over short integration
+        stable = np.array([r[1] for r in res])
+        features = [r[0] for r in res]
+        Nsims = len(res)
+    
+
+        # We take the small hit of evaluating XGBoost for all systems, 
+        # and overwrite prob=0 for ones that went unstable in the 
+        # short integration at the end
+
+        # Iterates through each individual system in features list
+        # for each system, iterates over each trio within,
+        # for each trio, converts the generated features into a list
+        # and adds that list to the np array
+        featurevals = np.array([list(trio.values()) for system in features for trio in system]) 
         
-    def predict_stable(self, sim, n_jobs=-1):
-        """
-        Predict whether passed simulation will be stable over 10^9 orbits of the innermost planet.
-
-        Parameters:
-
-        sim (rebound.Simulation): Orbital configuration to test
-        n_jobs (int):               Number of cores to use for calculation (only if passing more than one simulation). Default: Use all available cores. 
-
-        Returns:
-
-        float:  Estimated probability of stability. Will return exactly zero if configuration goes 
-                unstable within first 10^4 orbits.
-
-        """
-        res = self.generate_features(sim, n_jobs=n_jobs)
-
-        try: # separate the feature dictionaries from the bool for whether it was stable over short integration
-            stable = np.array([r[1] for r in res])
-            features = [r[0] for r in res]
-            Nsims = len(sim)
-        except:
-            stable = np.array([res[1]])
-            features = [res[0]]
-            Nsims = 1
-
-        # We take the small hit of evaluating XGBoost for all systems, and overwrite prob=0 for ones that went unstable in the short integration at the end
-        # array of Ntrios x 10 features to evaluate with XGboost (Nsims*Ntriospersim x 10 features)
-        featurevals = np.array([[val for val in trio.values()] for system in features for trio in system]) 
+        # Predicts the stability for each trio
         probs = self.model.predict_proba(featurevals)[:,1] # take 2nd column for probability it belongs to stable class
+
         # XGBoost evaluated a flattened list of all trios, reshape so that trios in same sim grouped
-        trios_per_sim = int(len(probs)/Nsims)
+        trios_per_sim = int(len(probs)/Nsims)  # determines the number of trios per simulation
+        # reshapes probabilities so that each row belongs to a system
         probs = probs.reshape((Nsims, trios_per_sim))
-        # Take the minimum probability of stability within the trios for each simulation
+
+        # Take the minimum probability of stability within the trios 
+        # for each simulation, i.e, the minimum value in each row
         probs = np.min(probs, axis=1)
+
         # Set probabilities for systems that went unstable within short integration to exactly zero
         probs[~stable] = 0
 
+        # Re format depending on number of simulations
         if Nsims == 1:
             return probs[0]
         else:
             return probs
+    
+    def generate_features(self, sim, n_jobs = -1, Nbodytmax = 1e6):
+        '''helper function to fit spock syntax standard
+            Arguments:
+                    sim: simulation or list of simulations
+                    n_jobs: number of jobs to run with multi processing
+                    Nbodytmax: Max number of orbits the short integration
+                        will run for. Default used to train the model is
+                        1e6. Be sure to test the performance if changing this value.
+    
+            return: features for given system or list of systems
+        '''
+        data = self.simToData(sim, n_jobs, Nbodytmax)
+        # Nicely wraps data if only evaluating one system
+        if len(data) == 1:
+            return data[0]
+        else:
+            return data
 
-    def generate_features(self, sim, n_jobs=-1):
-        """
-        Generates the set of summary features used by the feature classifier for prediction. 
-
-        Parameters:
-
-        sim (rebound.Simulation): Orbital configuration to test
-        n_jobs (int):               Number of cores to use for calculation (only if passing more than one simulation). Default: Use all available cores. 
-
-        Returns:
-
-        List of OrderedDicts:   A list of sets of features for each adjacent trio of planets in system.
-                                Each set of features is an ordered dictionary of 10 summary features. See paper.
-       
-        stable (int):           An integer for whether the N-body integration survived the 10^4 orbits (1) or 
-                                went unstable (0).
-        """
+    def simToData(self, sim, n_jobs, Nbodytmax = 1e6):
+        '''Given a simulation(s), returns data required for spock classification
+        
+            Arguments:
+                sim: simulation or list of simulations
+                n_jobs: number of jobs you want to run with multi processing
+                Nbodytmax: Max number of orbits the short integration
+                    will run for. Default used to train the model is
+                    1e6. Be sure to test the performance if changing this value.
+            
+            return:  returns a list of the simulations features/short term stability
+        '''
+        #ensures that data is in list format so everything is identical
         if isinstance(sim, rebound.Simulation):
             sim = [sim]
-        
-        args = []
-        if len(set([s.N_real for s in sim])) != 1:
-            raise ValueError("If running over many sims at once, they must have the same number of particles")
-        for s in sim:
-            s = s.copy()
-            init_sim_parameters(s)
-            minP = np.min([p.P for p in s.particles[1:s.N_real]])
-            self.check_errors(s)
-            trios = [[j,j+1,j+2] for j in range(1,s.N_real-2)] # list of adjacent trios   
-            featureargs = [10000, 80, trios]
-            args.append([s, featureargs])
-
-        def run(params):
-            sim, featureargs = params
-            triofeatures, stable = features(sim, featureargs)
-            return triofeatures, stable
-
-        if len(args) == 1: # single sim
-            res = run(args[0])    # stable will be 0 if an orbit is hyperbolic
+                
+        if len(sim)==1:
+            #retuns the data for a single simulation
+            return [self.run(sim[0], Nbodytmax)]
         else:
+            #if more then one sim is passed, uses thread pooling
+            #to generate data for each
             if n_jobs == -1:
                 n_jobs = cpu_count()
             with ThreadPool(n_jobs) as pool:
-                res = pool.map(run, args)
-        return res
+                res = pool.map((lambda s : self.run(s, Nbodytmax)), sim)
+            return res
+
+    def run(self, s, Nbodytmax):
+        '''Sets up simulation and starts data collection
+
+        Arguments:
+            s: The simulation you would like to generate data for
+        
+        return: data list for sim and whether or not it is stable in tuple
+        '''
+        TIMES_TSEC = 1 #all systems get integrated to 1 secular time scale
+        
+        if float(rebound.__version__[0]) >= 4:
+            #check for rebound version here, if version 4 or later then
+            # sim.copy() should be supported, if old version of rebound,
+            # we will change the simulation in place
+            s = s.copy() #creates a copy as to not alter simulation
+        else:
+            warnings.warn('Due to old REBOUND, SPOCK will change sim in place')
+
+        init_sim_parameters(s) #initializes the simulation
+        self.check_errors(s) #checks for errors
+        
+        trios = [[j, j+1, j+2] for j in range(1, s.N_real - 2)] # list of adjacent trios
+
+        minList = []
+        for each in trios:
+            minList.append(ClassifierSeries.getsecT(s, each)) # gets secular time
+        intT = TIMES_TSEC * min(minList)# finds the trio with shortest time scale
+        if intT > Nbodytmax:
+            intT = Nbodytmax # check to make sure time scale is not way to long
+            warnings.warn(f'Sim Tsec > {Nbodytmax} orbits of inner most planet '\
+                          f'thus, system will only be integrated to {Nbodytmax} orbits. '\
+                            'This might affect model performance')
+            # if it is, default to Nbodytmax, very few systems should have this issue
+            # if Nbodytmax >=1e6
+        Norbits = intT # set the number of orbits to be equal to Tsec
+        # set the number of data collections to be equally spaced with same
+        # spacing as old spock, 80 data collections every 1e4 orbits, scaled
+        Nout = int((Norbits / 1e4) * 80)
+            
+            
+        # featureargs is: [number of orbits, number of stops, set of trios]
+        featureargs = [Norbits, Nout, trios] 
+        # adds data to results. 
+        # calls runSim helper function which returns the data list for sim
+        return self.runSim(s, featureargs) 
+
+    
+    def runSim(self, sim, args):
+        '''returns the data list of features for a given simulation
+            
+            Arguments: 
+                sim: simulation in question
+                args: contains number or orbits, number of data collections, 
+                    and the set of all trios
+                
+            return: returns list containing the set of features for each trio,
+                    and whether sys stable in short integration
+        '''
+        # runs the intigration on the simulation, 
+        # and returns the filled objects for each trio and short stability
+        triotseries, stable = ClassifierSeries.get_tseries(sim, args) 
+        # calculate final vals
+        dataList = []
+        for each in triotseries:
+            each.fill_features(args) # turns runningList data into final features
+            dataList.append(each.features) # appends each feature results to dataList
+        return dataList, stable
+
+    def check_errors(self, sim):
+        '''ensures enough planets/stars for spock to run'''
+        if sim.N_real < 4:
+            raise AttributeError("SPOCK Error: SPOCK only applicable to systems with 3 or more planets")
 
     def cite(self):
         """

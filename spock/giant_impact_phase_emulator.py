@@ -259,6 +259,22 @@ primaryClass = {astro-ph.EP},
 }
 
 @ARTICLE{giantimpact,
+author = {{Lammers}, Caleb and {Cranmer}, Miles and {Hadden}, Sam and {Ho}, Shirley and {Murray}, Norman and {Tamayo}, Daniel},
+        title = "{Accelerating Giant-impact Simulations with Machine Learning}",
+      journal = {\apj},
+     keywords = {Exoplanets, Extrasolar rocky planets, Planet formation, Planetary dynamics, 498, 511, 1241, 2173, Astrophysics - Earth and Planetary Astrophysics, Astrophysics - Instrumentation and Methods for Astrophysics, Computer Science - Machine Learning},
+         year = 2024,
+        month = nov,
+       volume = {975},
+       number = {2},
+          eid = {228},
+        pages = {228},
+          doi = {10.3847/1538-4357/ad7fe5},
+archivePrefix = {arXiv},
+       eprint = {2408.08873},
+ primaryClass = {astro-ph.EP},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2024ApJ...975..228L},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}i
 }
 """
         print(txt + "\n\n\n" + bib)

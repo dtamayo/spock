@@ -43,7 +43,13 @@ def init_sim_parameters(sim, megno=True, safe_mode=1):
     try:
         sim.collision = 'line'  # use line if using newer version of REBOUND
     except:
-        sim.collision = 'direct'# fall back for older versions
+        sim.collision = 'direct'# fall back for older versions direct
+
+    def collision(reb_sim, col):
+        reb_sim.contents._status = 7
+        return 0
+    if float(rebound.__version__[0])<4:
+        sim.collision_resolve = collision
 
     maxd = np.array([p.d for p in sim.particles[1:sim.N_real]]).max()
     sim.exit_max_distance = 100*maxd
