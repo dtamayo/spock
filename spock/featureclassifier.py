@@ -206,7 +206,7 @@ class FeatureClassifier:
         Print citations to papers relevant to this model.
         """
         
-        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. These were done with the FeatureClassifier decision-tree model, which provides a probability of stability over $10^9$ orbits for a given input orbital configuration, derived from dynamically relevant features extracted from short N-body integrations to a systems secular timescale \\citep[see also][]{Thadhani_2025, spockI}."""
+        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. These were done with the FeatureClassifier decision-tree model, which provides a probability of stability over $10^9$ orbits for a given input orbital configuration, derived from dynamically relevant features extracted from a short N-body integration to the system's fastest secular timescale \\citep{Thadhani_2025}."""
         bib = """
 @ARTICLE{spock,
    author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},
@@ -224,25 +224,6 @@ archivePrefix = {arXiv},
 primaryClass = {astro-ph.EP},
    adsurl = {https://ui.adsabs.harvard.edu/abs/2020PNAS..11718194T},
   adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-
-@ARTICLE{spockI,
-   author = {{Tamayo}, Daniel and {Silburt}, Ari and {Valencia}, Diana and {Menou}, Kristen and {Ali-Dib}, Mohamad and {Petrovich}, Cristobal and {Huang}, Chelsea X. and {Rein}, Hanno and {van Laerhoven}, Christa and {Paradise}, Adiv and {Obertas}, Alysa and {Murray}, Norman},
-    title = "{A Machine Learns to Predict the Stability of Tightly Packed Planetary Systems}",
-  journal = {\\apjl},
- keywords = {celestial mechanics, chaos, planets and satellites: dynamical evolution and stability, Astrophysics - Earth and Planetary Astrophysics},
-     year = 2016,
-    month = dec,
-   volume = {832},
-   number = {2},
-      eid = {L22},
-    pages = {L22},
-      doi = {10.3847/2041-8205/832/2/L22},
-archivePrefix = {arXiv},
-   eprint = {1610.05359},
-primaryClass = {astro-ph.EP},
-   adsurl = {https://ui.adsabs.harvard.edu/abs/2016ApJ...832L..22T},
-  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-}
 
 @ARTICLE{Thadhani_2025,
 doi = {10.3847/2515-5172/adb150},
