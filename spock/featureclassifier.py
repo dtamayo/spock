@@ -206,7 +206,7 @@ class FeatureClassifier:
         Print citations to papers relevant to this model.
         """
         
-        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. These were done with the FeatureClassifier decision-tree model, which provides a probability of stability over $10^9$ orbits for a given input orbital configuration, derived from dynamically relevant features extracted from short $10^4$-orbit N-body integrations \\citep[see also][]{spockI}."""
+        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. These were done with the FeatureClassifier decision-tree model, which provides a probability of stability over $10^9$ orbits for a given input orbital configuration, derived from dynamically relevant features extracted from short N-body integrations to a systems secular timescale \\citep[see also][]{Thadhani_2025, spockI}."""
         bib = """
 @ARTICLE{spock,
    author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},
@@ -228,7 +228,7 @@ primaryClass = {astro-ph.EP},
 @ARTICLE{spockI,
    author = {{Tamayo}, Daniel and {Silburt}, Ari and {Valencia}, Diana and {Menou}, Kristen and {Ali-Dib}, Mohamad and {Petrovich}, Cristobal and {Huang}, Chelsea X. and {Rein}, Hanno and {van Laerhoven}, Christa and {Paradise}, Adiv and {Obertas}, Alysa and {Murray}, Norman},
     title = "{A Machine Learns to Predict the Stability of Tightly Packed Planetary Systems}",
-  journal = {\apjl},
+  journal = {\\apjl},
  keywords = {celestial mechanics, chaos, planets and satellites: dynamical evolution and stability, Astrophysics - Earth and Planetary Astrophysics},
      year = 2016,
     month = dec,
@@ -242,6 +242,20 @@ archivePrefix = {arXiv},
 primaryClass = {astro-ph.EP},
    adsurl = {https://ui.adsabs.harvard.edu/abs/2016ApJ...832L..22T},
   adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{Thadhani_2025,
+doi = {10.3847/2515-5172/adb150},
+url = {https://dx.doi.org/10.3847/2515-5172/adb150},
+year = {2025},
+month = {feb},
+publisher = {The American Astronomical Society},
+volume = {9},
+number = {2},
+pages = {27},
+author = {{Thadhani}, Elio and {Ba}, Yanming and {Rein}, Hanno and {Tamayo}, Daniel},
+title = {SPOCK 2.0: Updates to the FeatureClassifier in the Stability of Planetary Orbital Configurations Klassifier},
+journal = {Research Notes of the AAS},
 }
 """
         print(txt + "\n\n\n" + bib)
