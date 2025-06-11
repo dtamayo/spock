@@ -36,14 +36,12 @@ class Trio:
             self.runningList['pRat' + label] = []
             self.runningList['mu1' + label] = []
             self.runningList['mu2' + label] = []
+            self.runningList['dRatio' + label] = []
 
             self.theta['order' + label] = []
             self.theta['vector' + label] = []
             self.theta['pRatio' + label] = []
             self.theta['relvector' + label] = []
-
-
-
         
         
 
@@ -57,6 +55,7 @@ class Trio:
             self.features['MMRstrength' + label] = np.nan
             self.features['conjunctionMag' + label] = np.nan
             self.features['relConjunctionMag' + label] = np.nan
+            self.features['dRatio' + label] = np.nan
         self.features['MEGNO'] = np.nan
         self.features['MEGNOstd'] = np.nan
         self.features['massOrder'] = np.nan
@@ -125,8 +124,12 @@ class Trio:
                 self.theta['pRatio' + label],
                 np.angle(erel)
                 )
-            
-        
+
+            #calculate the lowest delta ratio
+            dRatios = find_strongest_MMR_width(sim, i1, i2)
+            self.runningList['dRatio' + label][i] = dRatios[2]
+
+
         # check rebound version, if old use .calculate_megno, otherwise use .megno, old is just version less then 4
         if float(rebound.__version__[0]) < 4:
             self.runningList['MEGNO'][i] = sim.calculate_megno()
@@ -134,7 +137,6 @@ class Trio:
             self.runningList['MEGNO'][i] = sim.megno()
 
         
-
 
 
     def startingFeatures(self, sim):
@@ -149,6 +151,7 @@ class Trio:
             self.theta['order' + label] = pRat[1] - pRat[0]
             self.theta['vector' + label] = np.zeros(pRat[1] - pRat[0] + 1, dtype = complex)
             self.theta['relvector' + label] = 0.0j
+            self.theta['dRatio' + label] = None   # leave at none for now because unsure what it should be
         # calculate secular timescale and adds feature
         self.features['Tsec']= getsecT(sim, self.trio)
 
@@ -209,6 +212,11 @@ class Trio:
             # calculates conjunction angle consistency based on relative pomega
             self.features['relConjunctionMag' + label] = np.abs(self.theta['relvector' + label]) / Nout
             self.features['threeBRfillfac']= np.mean(self.runningList['threeBRfill'])
+
+            #calculates delta_max
+            self.features['dRatio' + label] = np.median(
+                self.runningList['dRatio' + label][1:]
+            )
 
 
 
@@ -311,8 +319,12 @@ def find_strongest_MMR(sim, i1, i2):
     res = resonant_period_ratios(minperiodratio, maxperiodratio, order=maxorder)
 
     # Calculating EM exactly would have to be done in celmech for each j/k res below, and would slow things down. This is good enough for approx expression
-    EM = np.sqrt((ps[i1].e * np.cos(ps[i1].pomega) - ps[i2].e * np.cos(ps[i2].pomega))**2 + 
-                 (ps[i1].e * np.sin(ps[i1].pomega) - ps[i2].e * np.sin(ps[i2].pomega))**2)
+    ex = ps[i1].e * np.cos(ps[i1].pomega) - ps[i2].e * np.cos(ps[i2].pomega)
+    ey = ps[i1].e * np.sin(ps[i1].pomega) - ps[i2].e * np.sin(ps[i2].pomega)
+    
+    EM = np.sqrt(ex**2 + ey**2)
+    pomega12 = np.atan2(ex, ey)
+    
     
     EMcross = (ps[i2].a - ps[i1].a) / ps[i1].a
 
@@ -332,6 +344,88 @@ def find_strongest_MMR(sim, i1, i2):
 
     return j, k, maxstrength
 ##############################################
+
+# testing new version of find_strongest_MMR
+
+# taken from https://arxiv.org/pdf/2410.21748
+Aq_values = {
+    1: 0.845, 2: 0.754, 3: 0.748, 4: 0.778, 5: 0.832, 6: 0.904, 7: 0.995, 8: 1.104, 9: 1.235, 10: 1.388
+}
+
+def find_strongest_MMR_width(sim, i1, i2):
+    """
+    Calculates the normalized, actual resonant width (Δ) and normalized, maximum resonance width (Δ_max) 
+    for the strongest resonance between planets i1 and i2. 
+    Uses the Δ_max equation and assumes best case where θ = π.
+
+    Arguments:
+        sim: rebound simulation
+        i1: index of the inner planet
+        i2: index of the outer planet
+
+    Returns:
+        j: if system is 2:3, j=3
+        k: order of resonance (if system is 2:3, k = 1)
+        deltaRatio: normalized width of system (Δ) / normalized max resonance width (Δ_max)
+    """
+    maxorder = 2
+    ps = sim.particles
+    p1 = ps[i1]
+    p2 = ps[i2]
+
+    # Sort by semi-major axis
+    if p1.a < p2.a:
+        inner, outer = p1, p2
+    else:
+        inner, outer = p2, p1
+
+    # Period ratio 
+    Pratio_actual = inner.P / outer.P
+    if Pratio_actual < 0 or Pratio_actual > 1: # n < 0 = hyperbolic orbit, Pratio > 1 = orbits are crossing
+        return np.nan, np.nan, np.nan
+
+    delta = 0.03
+    minperiodratio = max(Pratio_actual - delta, 0.)
+    maxperiodratio = min(Pratio_actual + delta, 0.99) # too many resonances close to 1
+    res = resonant_period_ratios(minperiodratio, maxperiodratio, order=maxorder)
+    
+    # Calculating EM exactly would have to be done in celmech for each j/k res below, and would slow things down. This is good enough for approx expression
+    EM = np.sqrt((ps[i1].e * np.cos(ps[i1].pomega) - ps[i2].e * np.cos(ps[i2].pomega))**2 + 
+                 (ps[i1].e * np.sin(ps[i1].pomega) - ps[i2].e * np.sin(ps[i2].pomega))**2)
+    
+
+    # Calculation for delta_max
+    ec = (outer.a - inner.a) / outer.a # valid in assumption ((delta a)/a) << 1
+    mu = (outer.m + inner.m) / ps[0].m
+
+    j, k, min_ratio = np.nan, np.nan, np.inf
+
+    for a, b in res:
+        q = b - a  # resonance order
+        if q not in Aq_values:
+            min_ratio = np.nan
+        
+        Pratio_res = a / b
+        delta_actual = abs(Pratio_actual - Pratio_res) / Pratio_res
+
+        Aq = Aq_values[q]
+        delta_max = 3 * Aq * np.sqrt(mu * (EM / ec) ** q)
+
+        if delta_max == 0 or np.isnan(delta_max):
+            min_ratio = np.nan
+
+        ratio = delta_actual / delta_max
+        if ratio < min_ratio:
+            j = b
+            k = b - a
+            min_ratio = ratio
+
+    if min_ratio == np.inf:
+        min_ratio = np.nan
+
+    return j, k, min_ratio
+
+
 
 def swap(a, b):
     '''Simple swap function'''
