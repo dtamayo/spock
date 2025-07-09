@@ -33,11 +33,11 @@ def exponential_decaying_prior(decay_rate):
 
 profile = lambda _: _
 
-def generate_dataset(sim): 
+def generate_dataset(sim):
     sim = sim.copy()
     init_sim_parameters(sim, megno=False, safe_mode=0)
     if sim.N_real < 4:
-        raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets") 
+        raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets")
     trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
 
     kwargs = OrderedDict()
@@ -72,7 +72,7 @@ def fast_truncnorm(
         loc, scale, left=np.inf, right=np.inf,
         d=10000, nsamp=50):
     """Fast truncnorm sampling.
-    
+
     Assumes scale and loc have the desired shape of output.
     length is number of elements.
     Select nsamp based on expecting at minimum one sample of a Gaussian
@@ -82,18 +82,18 @@ def fast_truncnorm(
     """
     oldscale = scale
     oldloc = loc
-    
+
     scale = scale.reshape(-1)
     loc = loc.reshape(-1)
     t_inst_samples = np.zeros_like(scale)
     start = 0
-        
+
     for start in range(0, scale.shape[0], d):
 
         end = start + d
         if end > scale.shape[0]:
             end = scale.shape[0]
-        
+
         cd = end-start
         rand_out = np.random.normal(size=(nsamp, cd))
 
@@ -101,7 +101,7 @@ def fast_truncnorm(
             rand_out * scale[None, start:end]
             + loc[None, start:end]
         )
-        
+
         #rand_out is (nsamp, cd)
         if right == np.inf:
             mask = (rand_out > left)
@@ -109,12 +109,12 @@ def fast_truncnorm(
             mask = (rand_out < right)
         else:
             mask = (rand_out > left) & (rand_out < right)
-            
+
         first_good_val = rand_out[
             mask.argmax(0), np.arange(cd)
         ]
         t_inst_samples[start:end] = first_good_val
-        
+
     return t_inst_samples.reshape(*oldscale.shape)
 
 class DeepRegressor(object):
@@ -174,7 +174,7 @@ class DeepRegressor(object):
     def sample_full_swag(self, X_sample):
         """Pick a random model from the ensemble and sample from it
             within each model, it samples from its weights."""
-        
+
         swag_i = np.random.randint(0, len(self.swag_ensemble))
         swag_model = self.swag_ensemble[swag_i]
         swag_model.eval()
@@ -213,7 +213,7 @@ class DeepRegressor(object):
             planet. By default is a decaying prior which was fit to the training dataset.
             This takes as input time in terms of the orbits of the innermost planet.
         Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation).
-            Default: Use all available cpus. 
+            Default: Use all available cpus.
 
         Returns:
 
@@ -243,7 +243,7 @@ class DeepRegressor(object):
         else:
             return center_estimate, lower, upper
 
-    def predict_stable(self, sim, tmax=None, samples=1000, seed=None, 
+    def predict_stable(self, sim, tmax=None, samples=1000, seed=None,
             return_samples=False, max_model_samples=100, prior_above_9=fitted_prior(), Ncpus=None):
         """Estimate chance of stability for given simulation(s).
 
@@ -262,7 +262,7 @@ class DeepRegressor(object):
             planet. By default is a decaying prior which was fit to the training dataset.
             This takes as input time in terms of the orbits of the innermost planet.
         Ncpus (int): Number of CPUs to use for calculation (only if passing more than one simulation).
-            Default: Use all available cpus. 
+            Default: Use all available cpus.
 
         Returns:
 
@@ -278,7 +278,7 @@ class DeepRegressor(object):
         if tmax is None:
             if batched:
                 tmax = np.array([
-                    1e9 *  
+                    1e9 *
                     np.min([np.abs(p.P) for p in s.particles[1:s.N_real]])
                     for s in sim])
             else:
@@ -297,12 +297,12 @@ class DeepRegressor(object):
             out = np.average(t_inst_samples[:, :] > tmax[:, None], 1)
         else:
             out = np.average(t_inst_samples > tmax)
-        
+
         if return_samples:
             return out, t_inst_samples
         else:
             return out
-    
+
     def cite(self):
         """
         Generate citations
@@ -359,7 +359,7 @@ class DeepRegressor(object):
             planet. By default is a decaying prior which was fit to the training dataset.
             This takes as input time in terms of the orbits of the innermost planet.
         Ncpus (int): Number of CPUs to use for calculation (only if
-            passing more than one simulation). Default: Use all available cpus. 
+            passing more than one simulation). Default: Use all available cpus.
 
         Returns:
 
@@ -461,8 +461,8 @@ class DeepRegressor(object):
         """
         Print citations to papers relevant to this model.
         """
-        
-        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Instability times were predicted from the orbital evolution over short $10^4$-orbit N-body integrations using the DeepRegressor model, a Bayesian neural network \\citep{deepregressor}."""
+
+        txt = r"""This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Instability times were predicted from the orbital evolution over short $10^4$-orbit N-body integrations using the DeepRegressor model, a Bayesian neural network \\citep{deepregressor}."""
         bib = """
 @ARTICLE{spock,
    author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},

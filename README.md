@@ -134,7 +134,7 @@ The most straightforward way to avoid any version conflicts is to download the A
 
 Here we create we create a new conda environment called `spock` and install all the required dependencies
 ```
-conda create -q --name spock -c pytorch -c conda-forge python=3.7 numpy scipy pandas scikit-learn matplotlib torchvision pytorch xgboost rebound einops jupyter pytorch-lightning ipython h5py
+conda create -q --name spock -c pytorch -c conda-forge python=3.13 numpy scipy pandas scikit-learn matplotlib torchvision pytorch xgboost rebound einops jupyter pytorch-lightning ipython h5py
 conda activate spock
 pip install spock
 ```

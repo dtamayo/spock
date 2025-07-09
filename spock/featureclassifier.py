@@ -23,7 +23,7 @@ class FeatureClassifier:
     def predict_stable(self,sim, n_jobs = -1, Nbodytmax = 1e6):
         '''Evaluates probability of stability for a list of simulations
 
-            Arguments: 
+            Arguments:
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
                 Nbodytmax: Max number of orbits the short integration
@@ -49,7 +49,7 @@ class FeatureClassifier:
         stable = np.array([r[1] for r in res])
         features = [r[0] for r in res]
         Nsims = len(res)
-    
+
 
         # We take the small hit of evaluating XGBoost for all systems, 
         # and overwrite prob=0 for ones that went unstable in the 
@@ -59,8 +59,8 @@ class FeatureClassifier:
         # for each system, iterates over each trio within,
         # for each trio, converts the generated features into a list
         # and adds that list to the np array
-        featurevals = np.array([list(trio.values()) for system in features for trio in system]) 
-        
+        featurevals = np.array([list(trio.values()) for system in features for trio in system])
+
         # Predicts the stability for each trio
         probs = self.model.predict_proba(featurevals)[:,1] # take 2nd column for probability it belongs to stable class
 
@@ -81,7 +81,7 @@ class FeatureClassifier:
             return probs[0]
         else:
             return probs
-    
+
     def generate_features(self, sim, n_jobs = -1, Nbodytmax = 1e6):
         '''helper function to fit spock syntax standard
             Arguments:
@@ -90,7 +90,7 @@ class FeatureClassifier:
                     Nbodytmax: Max number of orbits the short integration
                         will run for. Default used to train the model is
                         1e6. Be sure to test the performance if changing this value.
-    
+
             return: features for given system or list of systems
         '''
         data = self.simToData(sim, n_jobs, Nbodytmax)
@@ -102,20 +102,20 @@ class FeatureClassifier:
 
     def simToData(self, sim, n_jobs, Nbodytmax = 1e6):
         '''Given a simulation(s), returns data required for spock classification
-        
+
             Arguments:
                 sim: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
                 Nbodytmax: Max number of orbits the short integration
                     will run for. Default used to train the model is
                     1e6. Be sure to test the performance if changing this value.
-            
+
             return:  returns a list of the simulations features/short term stability
         '''
         #ensures that data is in list format so everything is identical
         if isinstance(sim, rebound.Simulation):
             sim = [sim]
-                
+
         if len(sim)==1:
             #retuns the data for a single simulation
             return [self.run(sim[0], Nbodytmax)]
@@ -133,11 +133,11 @@ class FeatureClassifier:
 
         Arguments:
             s: The simulation you would like to generate data for
-        
+
         return: data list for sim and whether or not it is stable in tuple
         '''
         TIMES_TSEC = 1 #all systems get integrated to 1 secular time scale
-        
+
         if float(rebound.__version__[0]) >= 4:
             #check for rebound version here, if version 4 or later then
             # sim.copy() should be supported, if old version of rebound,
@@ -148,7 +148,7 @@ class FeatureClassifier:
 
         init_sim_parameters(s) #initializes the simulation
         self.check_errors(s) #checks for errors
-        
+
         trios = [[j, j+1, j+2] for j in range(1, s.N_real - 2)] # list of adjacent trios
 
         minList = []
@@ -166,29 +166,29 @@ class FeatureClassifier:
         # set the number of data collections to be equally spaced with same
         # spacing as old spock, 80 data collections every 1e4 orbits, scaled
         Nout = int((Norbits / 1e4) * 80)
-            
-            
+
+
         # featureargs is: [number of orbits, number of stops, set of trios]
-        featureargs = [Norbits, Nout, trios] 
+        featureargs = [Norbits, Nout, trios]
         # adds data to results. 
         # calls runSim helper function which returns the data list for sim
-        return self.runSim(s, featureargs) 
+        return self.runSim(s, featureargs)
 
-    
+
     def runSim(self, sim, args):
         '''returns the data list of features for a given simulation
-            
-            Arguments: 
+
+            Arguments:
                 sim: simulation in question
-                args: contains number or orbits, number of data collections, 
+                args: contains number or orbits, number of data collections,
                     and the set of all trios
-                
+
             return: returns list containing the set of features for each trio,
                     and whether sys stable in short integration
         '''
         # runs the intigration on the simulation, 
         # and returns the filled objects for each trio and short stability
-        triotseries, stable = ClassifierSeries.get_tseries(sim, args) 
+        triotseries, stable = ClassifierSeries.get_tseries(sim, args)
         # calculate final vals
         dataList = []
         for each in triotseries:
@@ -205,8 +205,8 @@ class FeatureClassifier:
         """
         Print citations to papers relevant to this model.
         """
-        
-        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. These were done with the FeatureClassifier decision-tree model, which provides a probability of stability over $10^9$ orbits for a given input orbital configuration, derived from dynamically relevant features extracted from a short N-body integration to the system's fastest secular timescale \\citep{Thadhani_2025}."""
+
+        txt = r"""This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. These were done with the FeatureClassifier decision-tree model, which provides a probability of stability over $10^9$ orbits for a given input orbital configuration, derived from dynamically relevant features extracted from a short N-body integration to the system's fastest secular timescale \\citep{Thadhani_2025}."""
         bib = """
 @ARTICLE{spock,
    author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},

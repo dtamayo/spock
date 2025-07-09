@@ -9,7 +9,7 @@ from .tseries_feature_functions import get_collision_tseries
 
 # pytorch MLP
 class reg_MLP(torch.nn.Module):
-    
+
     # initialize pytorch MLP with specified number of input/hidden/output nodes
     def __init__(self, n_feature, n_hidden, n_output, num_hidden_layers):
         super(reg_MLP, self).__init__()
@@ -33,11 +33,11 @@ class reg_MLP(torch.nn.Module):
                                   0.68390679, 0.70470389, 0.62941292, 0.70706072, 0.70825354, 0.7082275,
                                   0.70715261, 0.70595807, 0.70598297, 0.68020376, 0.67983686, 0.66536654,
                                   0.73082135, 0.73034166, 0.73768424])
-        
+
         self.output_means = np.array([1.20088092, 1.31667089, -1.4599554, -1.16721504, -2.10491322, -1.3807749])
         self.output_stds = np.array([0.23123815, 0.63026354, 0.51926874, 0.49942197, 0.74455827, 0.58098256])
         self.output_maxes = (np.array([50.0, 50.0, 0.0, 0.0, np.log10(np.pi), np.log10(np.pi)]) - self.output_means)/self.output_stds
-        
+
         self.input_means = np.concatenate((self.mass_means, np.tile(self.orb_means, 100)))
         self.input_stds = np.concatenate((self.mass_stds, np.tile(self.orb_stds, 100)))
 
@@ -68,9 +68,9 @@ class reg_MLP(torch.nn.Module):
         pooled_Xs = self.get_means_stds(torch.tensor(Xs, dtype=torch.float32))
         Ys = self(pooled_Xs).detach().numpy()
         Ys = Ys*self.output_stds + self.output_means
-        
+
         return Ys
-    
+
 # collision outcome model class
 class CollisionOrbitalOutcomeRegressor():
     # load regression model
@@ -78,14 +78,14 @@ class CollisionOrbitalOutcomeRegressor():
         self.reg_model = reg_MLP(45, 60, 6, 1)
         pwd = os.path.dirname(__file__)
         self.reg_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
-        
+
         # set random seed
         if not seed is None:
             os.environ["PL_GLOBAL_SEED"] = str(seed)
             random.seed(seed)
             np.random.seed(seed)
             torch.manual_seed(seed)
-    
+
     def predict_collision_outcome(self, sims, collision_inds, trio_inds=None):
         """
         Predict outcome of a planet-planet collision in system(s) of three (or more) planets.
@@ -97,7 +97,7 @@ class CollisionOrbitalOutcomeRegressor():
         trio_inds (list): Indices of the three planets that make up the three-planet subset of the full system (e.g., [1, 2, 3] for the innermost three planets). Post-collision orbital elements will be predicted for the newly-merged planet and the planet in the trio that was not involved in the collision.
 
         Returns:
-        
+
         rebound.Simulation or list: Predicted state of the post-collision system(s).
         """
         single_sim = False
@@ -105,7 +105,7 @@ class CollisionOrbitalOutcomeRegressor():
             sims = [sims]
             collision_inds = [collision_inds]
             single_sim = True
-            
+
         # if trio_inds was not provided, assume first three planets (doesn't need to be passed for three-planet systems)
         if trio_inds is None:
             trio_inds = []
@@ -119,12 +119,12 @@ class CollisionOrbitalOutcomeRegressor():
         done_inds = []
         for i, sim in enumerate(sims):
             out, trio_sim, _ = get_collision_tseries(sim, trio_inds[i])
-            
+
             if len(trio_sim.particles) == 4:
                 # no merger (or ejection)
                 mlp_inputs.append(out)
                 trio_sims.append(trio_sim)
-            else: 
+            else:
                 # if merger/ejection occurred, save sim
                 done_sims.append(replace_trio(sim, trio_inds[i], trio_sim))
                 done_inds.append(i)
@@ -136,9 +136,9 @@ class CollisionOrbitalOutcomeRegressor():
             subset_collision_inds = list(np.array(collision_inds)[mask])
         else:
             subset_collision_inds = collision_inds
-        
+
         return self._predict_collision_probs_from_inputs(sims, subset_collision_inds, trio_inds, trio_sims, mlp_inputs, done_sims, done_inds, single_sim)
-    
+
     # function to predict collision outcomes provided all inputs (useful if re-using inputs for the class and reg models)
     def _predict_collision_probs_from_inputs(self, sims, collision_inds, trio_inds, trio_sims, mlp_inputs, done_sims, done_inds, single_sim=False):
         if 0 < len(mlp_inputs):
@@ -174,7 +174,7 @@ class CollisionOrbitalOutcomeRegressor():
             e2s = 10**reg_outputs[:,3]
             inc1s = 10**reg_outputs[:,4]
             inc2s = 10**reg_outputs[:,5]
-            
+
         new_sims = []
         j = 0 # index for new sims array
         k = 0 # index for mlp prediction arrays
@@ -182,12 +182,12 @@ class CollisionOrbitalOutcomeRegressor():
             if i in done_inds:
                 new_sims.append(done_sims[j])
                 j += 1
-            else:                
+            else:
                 # create sim that contains state of two predicted planets
                 new_state_sim = rb.Simulation()
                 new_state_sim.G = 4*np.pi**2 # units in which a1=1.0 and P1=1.0
                 new_state_sim.add(m=1.00)
-               
+
                 try:
                     if (0.0 < a1s[k] < 50.0) and (0.0 <= e1s[k] < 1.0):
                         new_state_sim.add(m=m1s[k], a=a1s[k], e=e1s[k], inc=inc1s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
@@ -203,29 +203,29 @@ class CollisionOrbitalOutcomeRegressor():
                 except Exception as e:
                     warnings.warn('Removing planet with unphysical orbital elements')
                 new_state_sim.move_to_com()
-                
+
                 for p in new_state_sim.particles[:new_state_sim.N]:
                     p.x, p.y, p.z = npEulerAnglesTransform(p.xyz, -trio_sims[k].theta1, -trio_sims[k].theta2, 0)
                     p.vx, p.vy, p.vz = npEulerAnglesTransform(p.vxyz, -trio_sims[k].theta1, -trio_sims[k].theta2, 0)
-                
+
                 # replace trio with predicted duo (or single/zero if planets have unphysical orbital elements)
                 new_sims.append(replace_trio(sims[i], trio_inds[i], new_state_sim))
                 k += 1
-        
+
         # convert sims back to original units
         new_sims = revert_sim_units(new_sims)
-        
+
         if single_sim:
             new_sims = new_sims[0]
-            
+
         return new_sims
 
     def cite(self):
         """
         Print citations to papers relevant to this model.
         """
-        
-        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Predictions for the orbital outcomes from dynamical instabilities were made with the CollisionOrbitalOutcomeRegressor, a multilayer perceptron model (MLP), which, when given an unstable pair of planets to merge in an adjacent trio of planets, predicts the resulting orbits of the two remaining planets \citep{giantimpact}."""
+
+        txt = r"""This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Predictions for the orbital outcomes from dynamical instabilities were made with the CollisionOrbitalOutcomeRegressor, a multilayer perceptron model (MLP), which, when given an unstable pair of planets to merge in an adjacent trio of planets, predicts the resulting orbits of the two remaining planets \citep{giantimpact}."""
         bib = """
 @ARTICLE{spock,
    author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},

@@ -7,7 +7,7 @@ from .simsetup import scale_sim, replace_trio
 
 # pytorch MLP class
 class class_MLP(torch.nn.Module):
-    
+
     # initialize MLP with specified number of input/hidden/output nodes
     def __init__(self, n_feature, n_hidden, n_output, num_hidden_layers):
         super(class_MLP, self).__init__()
@@ -31,7 +31,7 @@ class class_MLP(torch.nn.Module):
                                   0.67640293, 0.63564565, 0.7098103, 0.70693578, 0.70823902, 0.70836691,
                                   0.7072773, 0.70597252, 0.70584421, 0.67243801, 0.68578479, 0.66805109,
                                   0.73568308, 0.72400948, 0.7395117])
-        
+
         self.input_means = np.concatenate((self.mass_means, np.tile(self.orb_means, 100)))
         self.input_stds = np.concatenate((self.mass_stds, np.tile(self.orb_stds, 100)))
 
@@ -66,13 +66,13 @@ class class_MLP(torch.nn.Module):
 
 # collision classification model class
 class CollisionMergerClassifier():
-    
+
     # load classification model
     def __init__(self, model_file='collision_merger_classifier.torch'):
         self.class_model = class_MLP(45, 30, 3, 1)
         pwd = os.path.dirname(__file__)
         self.class_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
-        
+
     def predict_collision_probs(self, sims, trio_inds=None, return_ML_inputs=False):
         """
         Predict probabilities of a collision occurring between different pairs of planets in system(s) of three (or more) planets.
@@ -84,7 +84,7 @@ class CollisionMergerClassifier():
         return_ML_inputs (bool): Whether to also return the inputs for the ML model. Useful if re-using inputs with regression model, as done in the giant impact emulator (only encouraged for the painstaking user).
 
         Returns:
-        
+
         array: Collision pair probabilities for the input system(s). If trio_inds = [i1, i2, i3], the probabilities of a collision occurring between planets i1-i2, i2-i3, and i1-i3 will be returned, in that order.
         """
         single_sim = False
@@ -107,19 +107,19 @@ class CollisionMergerClassifier():
         mlp_inputs = []
         done_inds = []
         for i, sim in enumerate(sims):
-            out, trio_sim, col_prob = get_collision_tseries(sim, trio_inds[i]) 
-            
+            out, trio_sim, col_prob = get_collision_tseries(sim, trio_inds[i])
+
             if len(trio_sim.particles) == 4:
                 # no merger/ejection
                 mlp_inputs.append(out)
-                
+
                 if return_ML_inputs: # record trio_sims, if desired
                     trio_sims.append(trio_sim)
             else:
                 # merger/ejection occurred
                 probs.append(col_prob)
                 done_inds.append(i)
-                
+
                 if return_ML_inputs: # record done_sims, if desired
                     done_sims.append(replace_trio(sim, trio_inds[i], trio_sim))
 
@@ -137,13 +137,13 @@ class CollisionMergerClassifier():
             else:
                 final_probs.append(mlp_probs[k])
                 k += 1
-                
+
         if single_sim:
             final_probs = final_probs[0]
 
         if return_ML_inputs:
             return np.array(final_probs), [sims, trio_sims, mlp_inputs, done_sims, done_inds]
-            
+
         return np.array(final_probs)
 
     def predict_collision_pair(self, sims, trio_inds=None, return_ML_inputs=False):
@@ -157,7 +157,7 @@ class CollisionMergerClassifier():
         return_ML_inputs (bool): Whether to also return the inputs for the ML model. Useful if re-using inputs with regression model, as done in the giant impact emulator (only encouraged for the painstaking user).
 
         Returns:
-        
+
         array: Indices for the planets in the trio predicted to be involved in the collision (e.g., [1, 2] for a collision between planets 1 and 2).
         """
         single_sim = False
@@ -166,12 +166,12 @@ class CollisionMergerClassifier():
             if not trio_inds is None:
                 trio_inds = [trio_inds]
             single_sim = True
-        
+
         if return_ML_inputs:
             pred_probs, ML_input_data = self.predict_collision_probs(sims, trio_inds, return_ML_inputs=True)
         else:
             pred_probs = self.predict_collision_probs(sims, trio_inds, return_ML_inputs=False)
-        
+
         rand_nums = np.random.rand(len(pred_probs))
         collision_inds = np.zeros((len(pred_probs), 2))
         for i, rand_num in enumerate(rand_nums):
@@ -181,21 +181,21 @@ class CollisionMergerClassifier():
                 collision_inds[i] = [2, 3]
             else:
                 collision_inds[i] = [1, 3]
-        
+
         if single_sim:
             collision_inds = collision_inds[0]
-            
+
         if return_ML_inputs:
             return collision_inds, ML_input_data
-        
+
         return collision_inds
 
     def cite(self):
         """
         Print citations to papers relevant to this model.
         """
-        
-        txt = """This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Predictions of which planet pairs collided with one another were made using the CollisionMergerClassifier, a multilayer perceptron model (MLP) that estimates a collision probability between each pair of planets in an adjacent planetary trio from a short $10^4$-orbit N-body integration \citep{giantimpact}."""
+
+        txt = r"""This paper made use of stability predictions from the Stability of Planetary Orbital Configurations Klassifier (SPOCK) package \\citep{spock}. Predictions of which planet pairs collided with one another were made using the CollisionMergerClassifier, a multilayer perceptron model (MLP) that estimates a collision probability between each pair of planets in an adjacent planetary trio from a short $10^4$-orbit N-body integration \citep{giantimpact}."""
         bib = """
 @ARTICLE{spock,
    author = {{Tamayo}, Daniel and {Cranmer}, Miles and {Hadden}, Samuel and {Rein}, Hanno and {Battaglia}, Peter and {Obertas}, Alysa and {Armitage}, Philip J. and {Ho}, Shirley and {Spergel}, David N. and {Gilbertson}, Christian and {Hussain}, Naireen and {Silburt}, Ari and {Jontof-Hutter}, Daniel and {Menou}, Kristen},
