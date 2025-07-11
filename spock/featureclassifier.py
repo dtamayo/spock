@@ -1,5 +1,5 @@
 from spock import features
-from spock import ClassifierSeries
+from spock.features import get_min_secT, Trio
 import sys
 import pandas as pd
 import numpy as np
@@ -20,11 +20,11 @@ class FeatureClassifier:
         self.model = XGBClassifier()
         self.model.load_model(pwd + '/'+modelfile)
 
-    def predict_stable(self,sim, n_jobs = -1, Nbodytmax = 1e6):
+    def predict_stable(self, sims, n_jobs = -1, Nbodytmax = 1e6):
         '''Evaluates probability of stability for a list of simulations
 
             Arguments:
-                sim: simulation or list of simulations
+                sims: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
                 Nbodytmax: Max number of orbits the short integration
                         will run for. Default used to train the model is
@@ -36,13 +36,13 @@ class FeatureClassifier:
         # particles in order to predict stability due to the way we pass to
         # XGBoost.predict_proba, this limitation does not apply for generating
         # features
-        if not isinstance(sim, rebound.Simulation) \
-            and len(set([s.N_real for s in sim])) != 1:
+        if not isinstance(sims, rebound.Simulation) \
+            and len(set([sim.N_real for sim in sims])) != 1:
             raise ValueError("If running over many sims at once, "\
                              "they must have the same number of particles")
 
         #Generates features for each trio in each simulation
-        res = self.simToData(sim, n_jobs, Nbodytmax)
+        res = self.generate_features(sims, n_jobs, Nbodytmax)
 
         # Separate the feature dictionaries from the bool 
         # for whether it was stable over short integration
@@ -82,29 +82,11 @@ class FeatureClassifier:
         else:
             return probs
 
-    def generate_features(self, sim, n_jobs = -1, Nbodytmax = 1e6):
-        '''helper function to fit spock syntax standard
-            Arguments:
-                    sim: simulation or list of simulations
-                    n_jobs: number of jobs to run with multi processing
-                    Nbodytmax: Max number of orbits the short integration
-                        will run for. Default used to train the model is
-                        1e6. Be sure to test the performance if changing this value.
-
-            return: features for given system or list of systems
-        '''
-        data = self.simToData(sim, n_jobs, Nbodytmax)
-        # Nicely wraps data if only evaluating one system
-        if len(data) == 1:
-            return data[0]
-        else:
-            return data
-
-    def simToData(self, sim, n_jobs, Nbodytmax = 1e6):
-        '''Given a simulation(s), returns data required for spock classification
+    def generate_features(self, sims, n_jobs=-1, Nbodytmax = 1e6):
+        '''Given a simulation(s), returns features used for spock classification
 
             Arguments:
-                sim: simulation or list of simulations
+                sims: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing
                 Nbodytmax: Max number of orbits the short integration
                     will run for. Default used to train the model is
@@ -113,90 +95,98 @@ class FeatureClassifier:
             return:  returns a list of the simulations features/short term stability
         '''
         #ensures that data is in list format so everything is identical
-        if isinstance(sim, rebound.Simulation):
-            sim = [sim]
+        if isinstance(sims, rebound.Simulation):
+            sims = [sims]
 
-        if len(sim)==1:
-            #retuns the data for a single simulation
-            return [self.run(sim[0], Nbodytmax)]
-        else:
-            #if more then one sim is passed, uses thread pooling
-            #to generate data for each
-            if n_jobs == -1:
-                n_jobs = cpu_count()
-            with ThreadPool(n_jobs) as pool:
-                res = pool.map((lambda s : self.run(s, Nbodytmax)), sim)
-            return res
+        if n_jobs == -1:
+            n_jobs = cpu_count()
+        with ThreadPool(n_jobs) as pool:
+            res = pool.map((lambda sim: self._generate_features(sim, Nbodytmax)), sims)
+        return res
 
-    def run(self, s, Nbodytmax):
-        '''Sets up simulation and starts data collection
+    def _generate_features(self, sim, Nbodytmax):
+        # internal function that generates features for an individual simulation. User uses generate_features wrapper
 
-        Arguments:
-            s: The simulation you would like to generate data for
-
-        return: data list for sim and whether or not it is stable in tuple
-        '''
-        TIMES_TSEC = 1 #all systems get integrated to 1 secular time scale
-
+        # copy sim so as to not alter if supported
         if float(rebound.__version__[0]) >= 4:
-            #check for rebound version here, if version 4 or later then
-            # sim.copy() should be supported, if old version of rebound,
-            # we will change the simulation in place
-            s = s.copy() #creates a copy as to not alter simulation
+            sim = sim.copy()
         else:
             warnings.warn('Due to old REBOUND, SPOCK will change sim in place')
 
-        init_sim_parameters(s) #initializes the simulation
-        self.check_errors(s) #checks for errors
+        init_sim_parameters(sim) #initializes the simulation
+        self._check_errors(sim) # checks for errors
 
-        trios = [[j, j+1, j+2] for j in range(1, s.N_real - 2)] # list of adjacent trios
+        # calculate Norbits for how long to run short integration and number of outputs Nout
 
-        minList = []
-        for each in trios:
-            minList.append(ClassifierSeries.getsecT(s, each)) # gets secular time
-        intT = TIMES_TSEC * min(minList)# finds the trio with shortest time scale
-        if intT > Nbodytmax:
-            intT = Nbodytmax # check to make sure time scale is not way to long
-            warnings.warn(f'Sim Tsec > {Nbodytmax} orbits of inner most planet '\
-                          f'thus, system will only be integrated to {Nbodytmax} orbits. '\
-                            'This might affect model performance')
-            # if it is, default to Nbodytmax, very few systems should have this issue
-            # if Nbodytmax >=1e6
-        Norbits = intT # set the number of orbits to be equal to Tsec
-        # set the number of data collections to be equally spaced with same
-        # spacing as old spock, 80 data collections every 1e4 orbits, scaled
+        Norbits = get_min_secT(sim) # systems get integrated to shortest secular timescale among all trios (see SPOCK 2.0 paper)
+        if Norbits > Nbodytmax:
+            Norbits = Nbodytmax # failsafe to avoid cases with very long short integration times
+            warnings.warn(f'Min secular timescale > Nbodytmax orbits of inner most planet '\
+                          f'Defaulting to integrating to {Nbodytmax} orbits. Might affect model performance')
+        # set the number of outputs in short integration to be same as in original model (80 outputs over 1e4 orbits)
         Nout = int((Norbits / 1e4) * 80)
 
+        # make list of Trio objects for each adjacent trio
+        trios = []
+        for trio_indices in [[j, j+1, j+2] for j in range(1, sim.N_real - 2)]:
+            trios.append(Trio(trio_indices, sim, Nout))
 
-        # featureargs is: [number of orbits, number of stops, set of trios]
-        featureargs = [Norbits, Nout, trios]
-        # adds data to results. 
-        # calls runSim helper function which returns the data list for sim
-        return self.runSim(s, featureargs)
+        # fill in features based on initial conditions
+        for trio in trios: # in each trio there is two adjacent pairs
+            trio.fill_starting_features(sim)
 
+        # runs short integration and get time series for quantities we want to track
+        trios, stable = self.get_tseries(sim, trios, Norbits, Nout)
 
-    def runSim(self, sim, args):
-        '''returns the data list of features for a given simulation
+        # calculate final features at end of short integration
+        for trio in trios:
+            trio.fill_final_features(sim)
 
-            Arguments:
-                sim: simulation in question
-                args: contains number or orbits, number of data collections,
-                    and the set of all trios
+        return [trio.features for trio in trios], stable
 
-            return: returns list containing the set of features for each trio,
-                    and whether sys stable in short integration
-        '''
-        # runs the intigration on the simulation, 
-        # and returns the filled objects for each trio and short stability
-        triotseries, stable = ClassifierSeries.get_tseries(sim, args)
-        # calculate final vals
-        dataList = []
-        for each in triotseries:
-            each.fill_features(args) # turns runningList data into final features
-            dataList.append(each.features) # appends each feature results to dataList
-        return dataList, stable
+    def get_tseries(self, sim, trios, Norbits, Nout):
+        '''Gets the time series list of data for one simulation of N bodies.
 
-    def check_errors(self, sim):
+        Arguments:
+            sim: simulation in question
+            args: arguments in format [number of orbits,
+                     number of data collections equally spaced, list of trios]
+
+        return:
+                trios: A list of Trio objects with trio.runningList being a dict of all the time series
+                stable: whether or not the end configuration is stable
+            '''
+        # determine the smallest period that a particle in the system has
+        minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
+        times = np.linspace(0, Norbits*minP, Nout) # list of times to integrate to
+
+        stable = True # stable by default and update if not
+        for i, time in enumerate(times):
+            # integrates each step and collects required data
+            try:
+                sim.integrate(time, exact_finish_time = 0)
+                if  (sim._status == 4 or sim._status == 7):
+                    # check for escaped particles or collisions
+                    stable=False
+                    return [trios, stable]
+            except:
+                # catch exception 
+                # sim._status == 7 is checking for collisions and sim._status==4 
+                # is checking for ejections
+                if sim._status == 7 or sim._status == 4 :
+                    # case of ejection or collision
+                    stable = False
+                    return [trios, stable]
+                else:
+                    # something else went wrong
+                    raise
+            for trio in trios:
+                trio.fill_tseries_entry(sim, minP, i)
+
+        # returns list of objects and whether or not stable after short integration
+        return [trios, stable]
+
+    def _check_errors(self, sim):
         '''ensures enough planets/stars for spock to run'''
         if sim.N_real < 4:
             raise AttributeError("SPOCK Error: SPOCK only applicable to systems with 3 or more planets")

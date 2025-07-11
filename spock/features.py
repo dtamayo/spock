@@ -1,112 +1,103 @@
 from collections import OrderedDict
-from spock.ClassifierSeries import getsecT
 import numpy as np
 import math
 import rebound
 
 
 class Trio:
-    def __init__(self, trio, sim):
+    def __init__(self, trio_indices, sim, Nout):
         '''initializes new set of features.
-        
-            note: each list of the key is the series of data points, 
+
+            trio_indices: numerical indices for the planets in the trio
+            note: runningList stores all the time series over the short integration
                   second dict is for final features
+                  all values get initialized to nan and get populated afterward
         '''
         # We keep track of the this trio and the adjacent pairs
-        self.trio = trio
-        self.pairs = get_pairs(sim, trio)
-        
-        # innitialize running list which keeps track of data during simulation
+        self.trio = trio_indices
+        self.pairs = get_pairs(sim, trio_indices)
+
+        # initialize running list which keeps track of data during simulation
         self.runningList = OrderedDict()
-        self.runningList['time'] = []
-        self.runningList['MEGNO'] = []
-        
+
+        # add keys here for time series that belong to the trio as a whole
+        self.runningList['time'] = [np.nan] * Nout
+        self.runningList['MEGNO'] = [np.nan] * Nout
+
+        # add keys here for time series that belong to each pair in the trio
         for each in ['near','far']:
-            self.runningList['EM' + each] = []
-            self.runningList['EP' + each] = []
-            self.runningList['MMRstrength' + each] = []
+            self.runningList['EM' + each] = [np.nan] * Nout
+            self.runningList['EP' + each] = [np.nan] * Nout
+            self.runningList['MMRstrength' + each] = [np.nan] * Nout
 
-        
+        # dict of features to calculate
 
-    #returned features
         self.features = OrderedDict()
 
+        # add keys here for features that belong to each pair in the trio
         for each in ['near', 'far']:
             self.features['EMcross' + each] = np.nan
             self.features['EMfracstd' + each] = np.nan
             self.features['EPstd' + each] = np.nan
             self.features['MMRstrength' + each] = np.nan
+
+        # add keys here for features that belong to trio as a whole
         self.features['MEGNO'] = np.nan
         self.features['MEGNOstd'] = np.nan
-        
 
-    def fillVal(self, Nout):
-        '''Fills with nan values
-        
-            Arguments: 
-                Nout: number of datasets collected
-        '''
-        for each in self.runningList.keys():
-            self.runningList[each] = [np.nan] * Nout
 
-    def getNum(self):
-        '''Returns number of features collected as ran'''
-        return len(self.runningList.keys())
+    def fill_starting_features(self, sim):
+        '''Fill the features that only depend on initial conditions
+           sim is passed with the initial state before the short integration is run'''
 
-    def populateData(self, sim, minP,i):
+        ps = sim.particles
+        for [label, i1, i2] in self.pairs:
+            # calculate crossing eccentricity
+            self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
+        # calculate secular timescale and adds feature
+        self.features['Tsec']= get_min_secT_trio(sim, self.trio)
+
+    def fill_tseries_entry(self, sim, minP,i):
         '''Populates the runningList data dictionary for one time step.
-        
-            Note: must specify how each feature is calculated and added
+           Fill in all entries that are tracked through the short integration
+
+           minP: minimum orbital period among planets (needs passing since doesn't necessarily belong to trio)
+
+           Note: must specify how each feature is calculated and added
         '''
         ps = sim.particles
-        
+
         for q, [label, i1, i2] in enumerate(self.pairs):
             m1 = ps[i1].m
             m2 = ps[i2].m
             #calculate eccentricity vector
             e1x, e1y = ps[i1].e * np.cos(ps[i1].pomega), ps[i1].e * np.sin(ps[i1].pomega)
             e2x, e2y = ps[i2].e * np.cos(ps[i2].pomega), ps[i2].e * np.sin(ps[i2].pomega)
-            
+
             self.runningList['time'][i]= sim.t/minP
             #crossing eccentricity
             self.runningList['EM'+label][i] = np.sqrt((e2x - e1x)**2 + (e2y - e1y)**2)
             #mass weighted crossing eccentricity
-            self.runningList['EP'+label][i] = np.sqrt((m1 * e1x + m2 * e2x)**2 + 
+            self.runningList['EP'+label][i] = np.sqrt((m1 * e1x + m2 * e2x)**2 +
                                                       (m1 * e1y + m2 * e2y)**2) / (m1+m2)
             #calculate the strength of MMRs
             MMRs = find_strongest_MMR(sim, i1, i2)
             self.runningList['MMRstrength' + label][i] = MMRs[2]
-            
-        
+
+
         # check rebound version, if old use .calculate_megno, otherwise use .megno, old is just version less then 4
         if float(rebound.__version__[0]) < 4:
             self.runningList['MEGNO'][i] = sim.calculate_megno()
         else:
             self.runningList['MEGNO'][i] = sim.megno()
 
-        
-
-
-
-    def startingFeatures(self, sim):
-        '''Initializes, adding to the features that only depend on initial conditions'''
-
-        ps = sim.particles
-        for [label, i1, i2] in self.pairs:  
-            # calculate crossing eccentricity
-            self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
-        # calculate secular timescale and adds feature
-        self.features['Tsec']= getsecT(sim, self.trio)
-
-    def fill_features(self, args):
+    def fill_final_features(self, sim):
         '''fills the final set of features that are returned to the ML model.
-            
+           sim is passed with the final state after the short integration is run
+
             Each feature is filled depending on some combination of runningList features and initial condition features
         '''
-        Norbits = args[0]
-        Nout = args[1]
-        trio = args[2]
-        
+        Nout = len(self.runningList['MEGNO'])
 
         if not np.isnan(self.runningList['MEGNO']).any(): # no nans
             # smooth last 10% to remove oscillations around 2
@@ -118,19 +109,58 @@ class Trio:
                 self.runningList['MEGNO'][(Nout // 5):]
             )
 
-        for label in ['near', 'far']: 
+        for label in ['near', 'far']:
             # cut out first value (init cond) to avoid cases
             # where user sets exactly b * n2 - a * n1 and strength is inf
             self.features['MMRstrength' + label] = np.median(
                 self.runningList['MMRstrength' + label][1:]
             )
             self.features['EMfracstd' + label] = (
-                np.std(self.runningList['EM' + label]) 
+                np.std(self.runningList['EM' + label])
                 / self.features['EMcross' + label])
 
             self.features['EPstd' + label] = \
                 np.std(self.runningList['EP' + label])
-            
+
+def get_min_secT(sim):
+    minList = []
+    for trio_indices in [[j, j+1, j+2] for j in range(1, sim.N_real - 2)]:  # list of adjacent trios
+        minList.append(get_min_secT_trio(sim, trio_indices))                # gets min secular time for that trio
+    return min(minList)                                                     # returns min among all trios
+
+def get_min_secT_trio(sim, trio):
+    '''Calculates the secular time scale for a given trio in a simulation
+
+        Arguments:
+            sim: the simulation that contains the trio who's
+                secular time scale you want
+            trio: the trio who's secular timescale you want,
+                Note: should be a list of body indexes
+
+        Note: Calculated following Yang & Tamayo 2024
+    '''
+    ps = sim.particles
+    p1, p2, p3 = ps[trio[0]], ps[trio[1]], ps[trio[2]]
+    # determine the smallest period that a particle in the system has
+    minP = np.min([np.abs(p.P) for p in sim.particles[1:sim.N_real]])
+    mStar = ps[0].m  # star should be the zero indexed body
+    m1 = p1.m
+    m2 = p2.m
+    m3 = p3.m
+    m_tot = m1 + m2 + m3
+    mu1 = m1 / m_tot
+    mu3 = m3 / m_tot
+    alpha12 = p1.a / p2.a
+    alpha23 = p2.a / p3.a
+
+    ec12 = alpha12**(-1 / 4) * alpha23**(3 / 4) * alpha23**(-1 / 8) * (1 - alpha12)
+    ec23 = alpha23**(-1 / 2) * alpha12**(1 / 8) * (1 - alpha23)
+    w1 = np.abs((p3.n / (2*np.pi)) * (m_tot / mStar) * ((mu1 / (mu1+mu3))
+                / ec12**2 + (mu3 / (mu1 + mu3)) / ec23**2))
+    Tsec = 2 * np.pi / w1
+    # normalize secular timescale to be in terms of 
+    # number of orbits of inner most planet
+    return Tsec / minP
 
 
  ######################### Taken from celmech github.com/shadden/celmech

@@ -8,14 +8,14 @@ from sklearn.metrics import roc_curve, confusion_matrix, auc
 from spock import FeatureClassifier, NbodyRegressor
 from spock.feature_functions import get_tseries
 from spock.simsetup import init_sim_parameters
-
+from spock.features import Trio
 
 def get_sim(row, dataset):
     '''Given a row number, and a data sheet containing initial conditions, returns a corresponding simulation
-    
+
         Arguments:
             row: what row the simulation you would like to create is on
-                format of row is in order: 
+                format of row is in order:
                 [index, 'p0m', 'p0x', 'p0y', 'p0z', 'p0vx', 'p0vy', 'p0vz', 'p1m', 'p1x', 'p1y',
                 'p1z', 'p1vx', 'p1vy', 'p1vz', 'p2m', 'p2x', 'p2y', 'p2z', 'p2vx',
                 'p2vy', 'p2vz', 'p3m', 'p3x', 'p3y', 'p3z', 'p3vx', 'p3vy', 'p3vz']
@@ -106,9 +106,9 @@ def escapesim():
     sim.add(m=1.e-12, a=100, e=0.999)
     return sim
 
-def rescale(sim, dscale, tscale, mscale):                                                                      
+def rescale(sim, dscale, tscale, mscale):
     simr = rebound.Simulation()
-    vscale = dscale/tscale 
+    vscale = dscale/tscale
     simr.G *= mscale*tscale**2/dscale**3
 
     for p in sim.particles:
@@ -153,7 +153,8 @@ class TestClassifier(unittest.TestCase):
         sim = longstablesim()
         init_sim_parameters(sim)
         testClass = FeatureClassifier()
-        _, _ = testClass.runSim(sim, (1e4, 80, [[1,2,3]]))
+        trios = [Trio(trio_indices=[1,2,3], sim=sim, Nout=80)]
+        _, _ = testClass.get_tseries(sim, trios, Norbits=1e4, Nout=80)
         x1 = sim.particles[1].x
 
         sim = longstablesim()
