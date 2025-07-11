@@ -119,15 +119,15 @@ def rescale(sim, dscale, tscale, mscale):
 class TestClassifier(unittest.TestCase):
     def setUp(self):
         self.model = FeatureClassifier()
-    
+
     def test_list(self):
         stable_target = [0, 0, 0, 0.7]
         stable = self.model.predict_stable([hyperbolicsim(), escapesim(), unstablesim(), longstablesim()])
         self.assertEqual(stable[0], 0)
         self.assertEqual(stable[1], 0)
         self.assertEqual(stable[2], 0)
-        self.assertGreater(stable[3], 0.7) 
-    
+        self.assertGreater(stable[3], 0.7)
+
     def test_sim_unchanged(self):
         sim = rebound.Simulation()
         sim.add(m=1.)
