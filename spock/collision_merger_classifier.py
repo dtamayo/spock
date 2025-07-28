@@ -68,10 +68,12 @@ class class_MLP(torch.nn.Module):
 class CollisionMergerClassifier():
 
     # load classification model
-    def __init__(self, model_file='collision_merger_classifier.torch'):
+    def __init__(self, model_file='collision_merger_classifier.torch', seed=None):
         self.class_model = class_MLP(45, 30, 3, 1)
         pwd = os.path.dirname(__file__)
         self.class_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
+        
+        self.seed = seed
 
     def predict_collision_probs(self, sims, trio_inds=None, return_ML_inputs=False):
         """
@@ -107,8 +109,7 @@ class CollisionMergerClassifier():
         mlp_inputs = []
         done_inds = []
         for i, sim in enumerate(sims):
-            out, trio_sim, col_prob = get_collision_tseries(sim, trio_inds[i])
-
+            out, trio_sim, col_prob = get_collision_tseries(sim, trio_inds[i], seed=self.seed)
             if len(trio_sim.particles) == 4:
                 # no merger/ejection
                 mlp_inputs.append(out)
@@ -181,7 +182,6 @@ class CollisionMergerClassifier():
                 collision_inds[i] = [2, 3]
             else:
                 collision_inds[i] = [1, 3]
-
         if single_sim:
             collision_inds = collision_inds[0]
 

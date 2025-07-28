@@ -238,7 +238,7 @@ def perfect_merge(sim_pointer, collided_particles_index):
     return 2 # remove particle with index j
 
 # run short sim to get input for MLP model (returns a sim if merger/ejection occurs)
-def get_collision_tseries(sim, trio_inds):
+def get_collision_tseries(sim, trio_inds, seed=None):
     # get three-planet sim
     trio_sim = scale_sim(sim, trio_inds)
     ps = trio_sim.particles
@@ -253,6 +253,8 @@ def get_collision_tseries(sim, trio_inds):
     # set integration settings
     trio_sim.integrator = 'mercurius'
     trio_sim.collision = 'direct'
+    if not seed is None:
+        trio_sim.rand_seed = seed
     trio_sim.collision_resolve = perfect_merge
     Ps = np.array([p.P for p in ps[1:len(ps)]])
     es = np.array([p.e for p in ps[1:len(ps)]])

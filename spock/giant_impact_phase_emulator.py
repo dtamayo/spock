@@ -19,8 +19,8 @@ class GiantImpactPhaseEmulator():
             torch.manual_seed(seed)
         
         # load classification and regression models
-        self.class_model = CollisionMergerClassifier()
-        self.reg_model = CollisionOrbitalOutcomeRegressor()
+        self.class_model = CollisionMergerClassifier(seed=seed)
+        self.reg_model = CollisionOrbitalOutcomeRegressor(seed=seed)
         self.deep_model = DeepRegressor()
             
     def predict(self, sims, tmaxs=None, verbose=False, deepregressor_kwargs={'samples':100, 'max_model_samples':10}):
@@ -86,7 +86,10 @@ class GiantImpactPhaseEmulator():
         sims_to_update = [sim for i, sim in enumerate(sims) if sim.t < tmaxs[i]]
         # estimate instability times for the subset of systems
         if len(sims_to_update) == 0:
-            return sims
+            if len(sims) == 1:
+                return sims[0] # return single sim
+            else: 
+                return sims
 
         if verbose:
             print('Number of sims to update:', len(sims_to_update), '\n')
@@ -209,9 +212,10 @@ class GiantImpactPhaseEmulator():
             tmaxs = [1e9*sim.particles[1].P for sim in sims]
 
         for i, t in enumerate(tmaxs):
-            orbsmax = t/sims[i].particles[1].P
-            if orbsmax > 10**9.5:
-                warnings.warn('Giant impact phase emulator not trained to predict beyond 10^9 orbits, check results carefully (tmax for sim {0} = {1:3e} = {2:3e} orbits)'.format(i, t, orbsmax))
+            if sims[i].N > 1: # otherwise ps[1].P will error, these sims will not get run anyway so OK
+                orbsmax = t/sims[i].particles[1].P
+                if orbsmax > 10**9.5:
+                    warnings.warn('Giant impact phase emulator not trained to predict beyond 10^9 orbits, check results carefully (tmax for sim {0} = {1:3e} = {2:3e} orbits)'.format(i, t, orbsmax))
         return sims, tmaxs
 
     def cite(self):
