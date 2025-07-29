@@ -1,5 +1,4 @@
 import numpy as np
-import random
 import os
 import torch
 import warnings
@@ -79,12 +78,7 @@ class CollisionOrbitalOutcomeRegressor():
         pwd = os.path.dirname(__file__)
         self.reg_model.load_state_dict(torch.load(pwd + '/models/' + model_file))
 
-        # set random seed
-        if not seed is None:
-            os.environ["PL_GLOBAL_SEED"] = str(seed)
-            random.seed(seed)
-            np.random.seed(seed)
-            torch.manual_seed(seed)
+        self.seed = seed
 
     def predict_collision_outcome(self, sims, collision_inds, trio_inds=None):
         """
@@ -118,7 +112,7 @@ class CollisionOrbitalOutcomeRegressor():
         mlp_inputs = []
         done_inds = []
         for i, sim in enumerate(sims):
-            out, trio_sim, _ = get_collision_tseries(sim, trio_inds[i])
+            out, trio_sim, _ = get_collision_tseries(sim, trio_inds[i], seed=self.seed)
 
             if len(trio_sim.particles) == 4:
                 # no merger (or ejection)
