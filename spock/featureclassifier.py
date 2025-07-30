@@ -1,5 +1,5 @@
 from spock import features
-from spock.features import get_min_secT, Trio
+from spock.features import get_min_secT, Trio, hillfac
 import sys
 import pandas as pd
 import numpy as np
@@ -40,6 +40,24 @@ class FeatureClassifier:
             and len(set([sim.N_real for sim in sims])) != 1:
             raise ValueError("If running over many sims at once, "\
                              "they must have the same number of particles")
+
+        try:
+            Nplanets = sims[0].N_real-1 # we require above that all simulations have same N
+        except:
+            Nplanets = sims.N_real-1
+
+        if Nplanets == 0 or Nplanets == 1:
+            try:
+                return np.ones(len(sims))
+            except:
+                return 1.
+
+        if Nplanets == 2:
+            try:
+                probs = np.float64([hillfac(sim) > 1 for sim in sims])
+            except:
+                probs = np.float64(hillfac(sims) > 1)
+            return probs
 
         #Generates features for each trio in each simulation
         res = self.generate_features(sims, n_jobs, Nbodytmax)
@@ -114,7 +132,6 @@ class FeatureClassifier:
             warnings.warn('Due to old REBOUND, SPOCK will change sim in place')
 
         init_sim_parameters(sim) #initializes the simulation
-        self._check_errors(sim) # checks for errors
 
         # calculate Norbits for how long to run short integration and number of outputs Nout
 
@@ -185,11 +202,6 @@ class FeatureClassifier:
 
         # returns list of objects and whether or not stable after short integration
         return [trios, stable]
-
-    def _check_errors(self, sim):
-        '''ensures enough planets/stars for spock to run'''
-        if sim.N_real < 4:
-            raise AttributeError("SPOCK Error: SPOCK only applicable to systems with 3 or more planets")
 
     def cite(self):
         """

@@ -43,6 +43,26 @@ def ROC_curve( preds,y):
     roc_auc = metrics.roc_auc_score(y, preds)
     return roc_auc, fpr, tpr, ROCthresholds
 
+def unstable2psim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, P=1)
+    sim.add(m=1.e-4, P=1.01)
+    return sim
+
+def stable2psim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, P=1)
+    sim.add(m=1.e-4, P=2.3)
+    return sim
+
+def singlesim():
+    sim = rebound.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, P=1)
+    return sim
+
 def unstablesim():
     sim = rebound.Simulation()
     sim.add(m=1.)
@@ -164,7 +184,37 @@ class TestClassifier(unittest.TestCase):
         sim = sa[-1]
         x2 = sim.particles[1].x
         self.assertAlmostEqual(x1, x2, delta=1.e-5)
-   
+
+    def test_single(self):
+        sim = singlesim()
+        prob = self.model.predict_stable(sim)
+        self.assertEqual(prob, 1)
+
+    def test_single_list(self):
+        sims = [singlesim(), singlesim()]
+        probs = self.model.predict_stable(sims)
+        self.assertTrue(all(prob == 1 for prob in probs))
+
+    def test_stable2p(self):
+        sim = stable2psim()
+        prob = self.model.predict_stable(sim)
+        self.assertEqual(prob, 1)
+
+    def test_unstable2p(self):
+        sim = unstable2psim()
+        prob = self.model.predict_stable(sim)
+        self.assertEqual(prob, 0)
+
+    def test_stable2p_list(self):
+        sims = [stable2psim(), stable2psim()]
+        probs = self.model.predict_stable(sims)
+        self.assertTrue(all(prob == 1 for prob in probs))
+ 
+    def test_unstable2p_list(self):
+        sims = [unstable2psim(), unstable2psim()]
+        probs = self.model.predict_stable(sims)
+        self.assertTrue(all(prob == 0 for prob in probs))
+
     # when chaotic realization matters, probs will vary more (eg t_inst=2e4)
     def test_galilean_transformation(self):
         sim = longstablesim()

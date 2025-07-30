@@ -218,6 +218,9 @@ def get_pairs(sim, trio):
         return [['near', sortedindices[1], sortedindices[2]],
                 ['far', sortedindices[0], sortedindices[1]]]
 
+def hillfac(sim, i1=1, i2=2): # edit
+    return 1.5
+
 # taken from original spock, some comments changed
 ####################################################
 def find_strongest_MMR(sim, i1, i2):
