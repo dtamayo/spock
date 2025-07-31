@@ -40,6 +40,7 @@ class Trio:
             self.features['EMfracstd' + each] = np.nan
             self.features['EPstd' + each] = np.nan
             self.features['MMRstrength' + each] = np.nan
+            self.features['hillFac' + each] = np.nan
 
         # add keys here for features that belong to trio as a whole
         self.features['MEGNO'] = np.nan
@@ -54,6 +55,8 @@ class Trio:
         for [label, i1, i2] in self.pairs:
             # calculate crossing eccentricity
             self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
+            self.features['hillFac' + label] = hillfac(sim, i1, i2)
+            
         # calculate secular timescale and adds feature
         self.features['Tsec']= get_min_secT_trio(sim, self.trio)
 
@@ -218,8 +221,71 @@ def get_pairs(sim, trio):
         return [['near', sortedindices[1], sortedindices[2]],
                 ['far', sortedindices[0], sortedindices[1]]]
 
-def hillfac(sim, i1=1, i2=2): # edit
-    return 1.5
+def hillfac(sim, i1=1, i2=2): 
+    '''
+    Calculates the Hill stability ratio for a two-planet system.
+
+    Arguments:
+        sim: rebound simulation
+        i1: index of the inner planet
+        i2: index of the outer planet
+    Returns:
+        hillFac: the information necessary to determine if a two planet system is stable or 
+        not. 
+
+        If hillFac > 1: stable (close approaches are not allowed). If hillFac < 1: unstable 
+        (close approaches are allowed)
+    '''
+    ps = sim.particles
+    m0 = ps[0].m  #star 
+    m1 = ps[i1].m
+    m2 = ps[i2].m
+
+    M = m1 + m2 + m0  # total system mass 
+
+    M_prod = m1*m2 + m1*m0 + m2*m0 
+
+    G = sim.G # gravitational constant
+
+    c_vec = np.zeros(3) # total angular momentum
+    KE = 0
+    for j in [0, i1, i2]:
+        r_j = np.array([ps[j].x, ps[j].y, ps[j].z])
+        v_j = np.array([ps[j].vx, ps[j].vy, ps[j].vz])
+
+        c_vec += ps[j].m * np.cross(r_j, v_j) # angular momentum vector
+    
+        v = np.linalg.norm(v_j) 
+        m_j = ps[j].m 
+
+        KE += 0.5 * m_j * (v**2) # add each particle
+
+    c = np.linalg.norm(c_vec)
+
+    U = 0 # initialize potential energy
+
+    for j1, j2 in [[0, i1], [0, i2], [i1, i2]]:
+        r_a = np.array([ps[j1].x, ps[j1].y, ps[j1].z])
+        r_b = np.array([ps[j2].x, ps[j2].y, ps[j2].z])
+        r = np.linalg.norm(r_a - r_b)
+        
+        m_a = ps[j1].m
+        m_b = ps[j2].m
+
+        U += - (G*m_a*m_b)/r # add all of the potential energies     
+    
+    h = KE + U
+
+    # calculate p/a from Eq. 12
+    param = - ((2*M) / (G**2 * M_prod**3)) * c**2 * h 
+    
+    # calculate p/a_crit from Eq. 13
+    term1 = ((3**(4/3)) * (m1 * m2)) / (m0**(2/3) * (m1 + m2)**(4/3))
+    paramCrit = 1 + term1  # ignore remaining terms since it only gets smaller
+    
+    hillFac = (abs((param - 1) / (paramCrit - 1)))**(1/2)
+
+    return hillFac
 
 # taken from original spock, some comments changed
 ####################################################
