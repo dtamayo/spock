@@ -30,6 +30,10 @@ class Trio:
             self.runningList['EM' + each] = [np.nan] * Nout
             self.runningList['EP' + each] = [np.nan] * Nout
             self.runningList['MMRstrength' + each] = [np.nan] * Nout
+            self.runningList['pRat' + each] = [np.nan] * Nout 
+            self.runningList['mu1' + each] = [np.nan] * Nout
+            self.runningList['mu2' + each] = [np.nan] * Nout
+
 
         # dict of features to calculate
 
@@ -41,6 +45,8 @@ class Trio:
             self.features['EMfracstd' + each] = np.nan
             self.features['EPstd' + each] = np.nan
             self.features['MMRstrength' + each] = np.nan
+            self.features['2BRFillFac' + each] = np.nan
+
 
         # add keys here for features that belong to trio as a whole
         self.features['MEGNO'] = np.nan
@@ -85,6 +91,11 @@ class Trio:
             MMRs = find_strongest_MMR(sim, i1, i2)
             self.runningList['MMRstrength' + label][i] = MMRs[2]
 
+            # save mass ratios and integer period ratios
+            self.runningList['mu1' + label][i] = m1 / ps[0].m
+            self.runningList['mu2' + label][i] = m2 / ps[0].m
+            self.runningList['pRat' + label][i] = ps[i1].P / ps[i2].P
+
 
         # check rebound version, if old use .calculate_megno, otherwise use .megno, old is just version less then 4
         if float(rebound.__version__[0]) < 4:
@@ -122,6 +133,13 @@ class Trio:
 
             self.features['EPstd' + label] = \
                 np.std(self.runningList['EP' + label])
+            
+            self.features['2BRFillFac' + label] = twoBRFillFac( 
+                                                            np.nanmean(self.runningList['pRat' + label]),
+                                                            np.nanmean(self.runningList['mu1' + label]),
+                                                            np.nanmean(self.runningList['mu2' + label]),
+                                                            np.nanmean(self.runningList['EM' + label])
+                                                            )
 
 def get_min_secT(sim):
     minList = []
