@@ -20,7 +20,7 @@ class FeatureClassifier:
         self.model = XGBClassifier()
         self.model.load_model(pwd + '/'+modelfile)
 
-    def predict_stable(self, sims, n_jobs = -1, Nbodytmax = 1e6):
+    def predict_stable(self, sims, n_jobs = -1, Nbodytmax = 1e6, singleWrap = False):
         '''Evaluates probability of stability for a list of simulations
 
             Arguments:
@@ -29,6 +29,10 @@ class FeatureClassifier:
                 Nbodytmax: Max number of orbits the short integration
                         will run for. Default used to train the model is
                         1e6. Be sure to test the performance if changing this value.
+                singleWrap: if a single sim is passed, whether to return the results
+                            in a list of length one or not. Included for backward 
+                            compatibility since original spock behaves as if
+                            singleWrap = False
 
             return: the probability that each system is stable
         '''
@@ -60,7 +64,7 @@ class FeatureClassifier:
             return probs
 
         #Generates features for each trio in each simulation
-        res = self.generate_features(sims, n_jobs, Nbodytmax)
+        res = self.generate_features(sims, n_jobs, Nbodytmax, singleWrap = True)
 
         # Separate the feature dictionaries from the bool 
         # for whether it was stable over short integration
@@ -94,13 +98,13 @@ class FeatureClassifier:
         # Set probabilities for systems that went unstable within short integration to exactly zero
         probs[~stable] = 0
 
-        # Re format depending on number of simulations
-        if Nsims == 1:
+        # Re format depending on number of simulations and if singleWrap == False
+        if Nsims == 1 and singleWrap == False:
             return probs[0]
-        else:
-            return probs
 
-    def generate_features(self, sims, n_jobs=-1, Nbodytmax = 1e6):
+        return probs
+
+    def generate_features(self, sims, n_jobs=-1, Nbodytmax = 1e6, singleWrap = False):
         '''Given a simulation(s), returns features used for spock classification
 
             Arguments:
@@ -109,6 +113,10 @@ class FeatureClassifier:
                 Nbodytmax: Max number of orbits the short integration
                     will run for. Default used to train the model is
                     1e6. Be sure to test the performance if changing this value.
+                singleWrap: if a single sim is passed, whether to return the features
+                            in a list of length one or not. Included for backward 
+                            compatibility since original spock behaves as if
+                            singleWrap = False
 
             return:  returns a list of the simulations features/short term stability
         '''
@@ -120,7 +128,14 @@ class FeatureClassifier:
             n_jobs = cpu_count()
         with ThreadPool(n_jobs) as pool:
             res = pool.map((lambda sim: self._generate_features(sim, Nbodytmax)), sims)
+        
+        # check to unwrap data if only looking at one system and singleWrap == False
+        if len(sims) == 1 and singleWrap == False:
+            return res[0]
+
         return res
+    
+        
 
     def _generate_features(self, sim, Nbodytmax):
         # internal function that generates features for an individual simulation. User uses generate_features wrapper
