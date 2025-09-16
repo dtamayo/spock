@@ -25,6 +25,9 @@ class Trio:
         self.runningList['time'] = [np.nan] * Nout
         self.runningList['MEGNO'] = [np.nan] * Nout
 
+        # Make the ordered dictionary to keep track of theta values
+        self.theta = OrderedDict()
+
         # add keys here for time series that belong to each pair in the trio
         for each in ['Max','Min']:
             self.runningList['EM' + each] = [np.nan] * Nout
@@ -33,6 +36,10 @@ class Trio:
             self.runningList['pRat' + each] = [np.nan] * Nout 
             self.runningList['mu1' + each] = [np.nan] * Nout
             self.runningList['mu2' + each] = [np.nan] * Nout
+            self.theta['order' + each] = []
+            self.theta['vector' + each] = []
+            self.theta['pRatio' + each] = []
+            self.theta['relvector' + each] = []
 
 
         # dict of features to calculate
@@ -60,7 +67,12 @@ class Trio:
         for [label, i1, i2] in self.pairs:
             # calculate crossing eccentricity
             self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
-            
+        pRat = getIntPrat(ps[i1].P/ps[i2].P)
+        self.theta['pRatio' + label] = pRat
+        self.theta['order' + label] = pRat[1] - pRat[0]
+        self.theta['vector' + label] = np.zeros(pRat[1] - pRat[0] + 1, dtype = complex)
+        self.theta['relvector' + label] = 0.0j
+        
         # calculate secular timescale and adds feature
         self.features['Tsec']= get_min_secT_trio(sim, self.trio)
 
@@ -80,7 +92,7 @@ class Trio:
             #calculate eccentricity vector
             e1x, e1y = ps[i1].e * np.cos(ps[i1].pomega), ps[i1].e * np.sin(ps[i1].pomega)
             e2x, e2y = ps[i2].e * np.cos(ps[i2].pomega), ps[i2].e * np.sin(ps[i2].pomega)
-
+            erel = ps[i2].e*np.exp(ps[i2].pomega*1j)-ps[i1].e*np.exp(ps[i1].pomega*1j)
             self.runningList['time'][i]= sim.t/minP
             #crossing eccentricity
             self.runningList['EM'+label][i] = np.sqrt((e2x - e1x)**2 + (e2y - e1y)**2)
@@ -95,6 +107,24 @@ class Trio:
             self.runningList['mu1' + label][i] = m1 / ps[0].m
             self.runningList['mu2' + label][i] = m2 / ps[0].m
             self.runningList['pRat' + label][i] = ps[i1].P / ps[i2].P
+
+            # calculates the conjunction angle based on each possible formula
+            order = self.theta['order' + label]
+            for o in range(order + 1):
+                self.theta['vector' + label][o] += calcThetaVec(
+                    ps[i1].l, 
+                    ps[i1].pomega,
+                    o,
+                    ps[i2].l,
+                    ps[i2].pomega,
+                    order - o,
+                    self.theta['pRatio' + label]
+                    )
+            self.theta['relvector' + label] += calcThetaRelVec(
+                ps[i1].l, ps[i2].l, 
+                self.theta['pRatio' + label],
+                np.angle(erel)
+                )
 
 
         # check rebound version, if old use .calculate_megno, otherwise use .megno, old is just version less then 4
@@ -422,4 +452,34 @@ def twoBRFillFac(pRat, mu1, mu2, EM):
     #now we can multiply by the normalization factor and returl
 
     return sumVal / (firstAbove - firstBelow)
+
+def getIntPrat( Pratio: list):
+    maxorder = 4
+    delta = 0.05
+    minperiodratio = Pratio-delta
+    maxperiodratio = Pratio+delta # too many resonances close to 1
+    if maxperiodratio >.999:
+        maxperiodratio =.999
+    res = resonant_period_ratios(minperiodratio,maxperiodratio, order=maxorder)
+    ratio = [10000000,10]
+    for i,each in enumerate(res):
+        if np.abs((each[0]/each[1])-Pratio)<np.abs((ratio[0]/ratio[1])-Pratio):
+            #which = i
+            
+            ratio = each
+    
+    # frac = fractions.Fraction(Pratio).limit_denominator(40)
+    # val = frac.numerator, frac.denominator
+
+    return ratio
+
+def calcThetaVec(la, pomegaa, coefa, lb, pomegab, coefb, val,):
+    theta = (val[1]*lb) - (val[0]*la) - (pomegaa * coefa) -(pomegab * coefb)
+    return np.exp(theta*1j)
+
+
+def calcThetaRelVec(la, lb, val, pomegarel):
+    theta = (val[1]*lb) -(val[0]*la)-(val[1]-val[0])*pomegarel
+    return np.exp(theta*1j)
+
 
