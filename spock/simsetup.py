@@ -1,5 +1,6 @@
 import numpy as np
 import rebound
+import warnings
 
 def check_hyperbolic(sim):
     orbits = sim.orbits()
@@ -50,6 +51,9 @@ def setup_sim(sim, megno=True, safe_mode=1):
     # rotate into the invariable plane to avoid user errors using i~90 in observer elements
     rot = rebound.Rotation.to_new_axes(newz=sim.angular_momentum())
     sim.rotate(rot)
+
+    if any([orb.inc > 0.2 for orb in sim.orbits()]):
+        warnings.warn('At least one planet has an orbital inclination > 0.2 relative to the invariable plane, which is outside the range used to train SPOCK. ')
 
     try:
         sim.collision = 'line'  # use line if using newer version of REBOUND

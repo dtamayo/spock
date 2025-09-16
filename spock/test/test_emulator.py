@@ -61,6 +61,40 @@ def escapesim():
     sim.add(m=1.e-12, a=100, e=0.999, hash='escaper')
     return sim
 
+def unstable2psim():
+    sim = rb.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, P=1)
+    sim.add(m=1.e-4, P=1.01, f=np.pi)
+    return sim
+
+def unstable2psimhyperbolic():
+    sim = rb.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, a=-1, e=1.01)
+    sim.add(m=1.e-4, a=-1.05, e=1.01, f=np.pi/6)
+    return sim
+
+def unstable2psimhighe():
+    sim = rb.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, a=1, e=.99)
+    sim.add(m=1.e-4, a=1.05, e=0.99, f=np.pi/6)
+    return sim
+
+def stable2psim():
+    sim = rb.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, P=1)
+    sim.add(m=1.e-4, P=2.3, f=np.pi)
+    return sim
+
+def singlesim():
+    sim = rb.Simulation()
+    sim.add(m=1.)
+    sim.add(m=1.e-4, P=1)
+    return sim
+
 class TestClassifier(unittest.TestCase):
     def setUp(self):
         self.model = GiantImpactPhaseEmulator(seed=0)
@@ -88,6 +122,46 @@ class TestClassifier(unittest.TestCase):
         N = sim.N
         pred_sim = self.model.predict(sim)
         self.assertLess(pred_sim.N, N)
+
+    def test_single(self):
+        sim = singlesim()
+        pred_sim = self.model.predict(sim)
+        self.assertEqual(pred_sim.N, 2)
+
+    def test_single_list(self):
+        sims = [singlesim(), singlesim()]
+        pred_sims = self.model.predict(sims)
+        self.assertEqual(all([sim.N == 2 for sim in pred_sims]), True)
+
+    def test_stable2p(self):
+        sim = stable2psim()
+        pred_sim = self.model.predict(sim)
+        self.assertEqual(pred_sim.N, 3)
+
+    def test_unstable2p(self):
+        sim = unstable2psim()
+        pred_sim = self.model.predict(sim)
+        self.assertEqual(pred_sim.N, 2)
+
+    def test_unstable2phyperbolic(self):
+        sim = unstable2psimhyperbolic()
+        pred_sim = self.model.predict(sim)
+        self.assertEqual(pred_sim.N, 2)
+
+    def test_unstable2phighe(self):
+        sim = unstable2psimhighe()
+        pred_sim = self.model.predict(sim)
+        self.assertEqual(pred_sim.N, 2)
+
+    def test_stable2p_list(self):
+        sims = [stable2psim(), stable2psim()]
+        pred_sims = self.model.predict(sims)
+        self.assertEqual(all([sim.N == 3 for sim in pred_sims]), True)
+
+    def test_unstable2p_list(self):
+        sims = [unstable2psim(), unstable2psim()]
+        pred_sims = self.model.predict(sims)
+        self.assertEqual(all([sim.N == 2 for sim in pred_sims]), True)
 
     def test_scale_invariance(self):
         sim = largePsim()
