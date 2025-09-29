@@ -58,7 +58,7 @@ class FeatureClassifier:
 
         if Nplanets == 2:
             try:
-                probs = np.float64([hillfac(sim) > 1 for sim in sims])
+                probs = np.float64([hillfac(sim) > 1 for sim in sims]) # return probstability=1 if hillfac > 1
             except:
                 probs = np.float64(hillfac(sims) > 1)
             return probs

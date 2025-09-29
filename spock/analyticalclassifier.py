@@ -6,7 +6,7 @@ import numpy as np
 import rebound
 from celmech import Poincare
 from celmech.secular import LaplaceLagrangeSystem
-
+from .features import hillfac
 from .simsetup import setup_sim
 
 def eminus_max(lsys, Lambda, i1, i2):
@@ -85,8 +85,18 @@ def calc_tau(sim):
     Returns the maximum tau among the values calculated for each of the planets.
     '''
     if np.isnan(sim.dt): # setup_sim sets timestep to nan if any orbit is hyperbolic. Return tau=inf, i.e. chaotic/unstable
-        tau = np.inf 
+        tau = np.inf
         return tau
+
+    Nplanets = sim.N_real-1
+
+    if Nplanets == 0 or Nplanets == 1:
+        tau = 0
+        return tau # tau = 0 = not overlapped (stable)
+    if Nplanets == 2:
+        tau = 0 if hillfac(sim) > 1 else 1 # if hillfac > 1 hill stable, so set tau=0, else 1
+        return tau
+
     lsys = LaplaceLagrangeSystem.from_Simulation(sim)
     pvars = Poincare.from_Simulation(sim)
     Lambda = np.array([p.Lambda for p in pvars.particles[1:]])
@@ -106,10 +116,7 @@ def calc_tau(sim):
 class AnalyticalClassifier():
     def __init__(self):
         pass
-    def check_errors(self, sim):
-        if sim.N_real < 4:
-            raise AttributeError("SPOCK Error: SPOCK only applicable to systems with 3 or more planets") 
-        
+ 
     def predict_tau(self, sim, n_jobs=-1):
         if isinstance(sim, rebound.Simulation):
             sim = [sim]
@@ -119,7 +126,6 @@ class AnalyticalClassifier():
         for s in sim:
             s = setup_sim(s)
             minP = np.min([p.P for p in s.particles[1:s.N_real]])
-            self.check_errors(s)
             args.append(s)
 
         if len(args) == 1: # single sim

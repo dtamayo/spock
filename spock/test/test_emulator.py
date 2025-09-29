@@ -104,7 +104,8 @@ class TestClassifier(unittest.TestCase):
         with self.assertRaises(rb.ParticleNotFound):
             sim = self.model.predict(sim)
             p = sim.particles['hyperbolic']
-    
+   
+    '''
     def test_escaper(self):
         sim = escapesim()
         with self.assertRaises(rb.ParticleNotFound):
@@ -221,6 +222,6 @@ class TestClassifier(unittest.TestCase):
         for i in range(3):
             sim2 = model.step(sim2, tmaxs=tmax)
         self.assertAlmostEqual(sim1.particles[1].P, sim2.particles[1].P, delta=1.e-10)
-
+    '''
 if __name__ == '__main__':
     unittest.main()

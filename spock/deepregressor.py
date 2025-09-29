@@ -16,6 +16,7 @@ from scipy.interpolate import interp1d
 from .simsetup import setup_sim
 from .spock_reg_model import load_swag_safetensors
 from .tseries_feature_functions import get_extended_tseries
+from .features import hillfac
 
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
@@ -35,9 +36,8 @@ profile = lambda _: _
 
 def generate_dataset(sim):
     sim = setup_sim(sim, megno=False, safe_mode=0)
-    if sim.N_real < 4:
-        raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets")
-    trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
+
+    trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios. Only get here after testing Np>=3
 
     kwargs = OrderedDict()
     kwargs['Norbits'] = int(1e4)
@@ -224,6 +224,7 @@ class DeepRegressor(object):
         upper (float): 84th percentile instability time
         [t_inst_samples (array): raw samples of the posterior]
         """
+        print(type(sim))
         batched = self.is_batched(sim)
         t_inst_samples = self.sample_instability_time(sim,
                 samples=samples, seed=seed, max_model_samples=max_model_samples,
@@ -273,7 +274,6 @@ class DeepRegressor(object):
         t_inst_samples = self.sample_instability_time(sim,
                 samples=samples, seed=seed, max_model_samples=max_model_samples,
                 prior_above_9=prior_above_9)
-
         if tmax is None:
             if batched:
                 tmax = np.array([
@@ -366,6 +366,17 @@ class DeepRegressor(object):
             instability time, in units of the rebound simulation.
         """
         batched = self.is_batched(sim)
+
+        Nplanets = sim[0].N_real-1 if batched else sim.N_real-1
+
+        if Nplanets == 0 or Nplanets == 1:
+            return np.array([np.full(samples, np.inf) for i in range(len(sim))]) if batched else np.full(samples, np.inf)
+
+        if Nplanets == 2:
+            if batched:
+                return np.array([np.full(samples, np.inf) if hillfac(s)>1 else np.zeros(samples) for s in sim])
+            else:
+                return np.full(samples, np.inf) if hillfac(sim)>1 else np.zeros(samples)
 
         if seed is not None:
             os.environ["PL_GLOBAL_SEED"] = str(seed)

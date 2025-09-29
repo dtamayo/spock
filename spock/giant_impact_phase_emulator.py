@@ -79,10 +79,6 @@ class GiantImpactPhaseEmulator():
         
         sims, tmaxs = self._make_lists(sims, tmaxs)
         
-        for i, sim in enumerate(sims): # assume all 2 planet systems (N=3) are stable (could use Hill stability criterion)
-            if sim.N < 4:
-                sim.t = tmaxs[i]
-        
         sims_to_update = [sim for i, sim in enumerate(sims) if sim.t < tmaxs[i]]
         # estimate instability times for the subset of systems
         if len(sims_to_update) == 0:
@@ -145,7 +141,7 @@ class GiantImpactPhaseEmulator():
         
         # predict instability times for sub-trios
         t_insts, _, _ = self.deep_model.predict_instability_time(trio_sims, **deepregressor_kwargs)
-
+        print(t_insts)
         # get the minimum sub-trio instability time for each system
         min_trio_inds = []
         for i in range(len(sims)):
@@ -209,7 +205,7 @@ class GiantImpactPhaseEmulator():
             except:
                 tmaxs = tmaxs*np.ones(len(sims)) # convert from float to array
         else:       # default = 1e9 orbits
-            tmaxs = [1e9*sim.particles[1].P for sim in sims]
+            tmaxs = [1e9*sim.particles[1].P if sim.N > 1 else 1e9 for sim in sims] # if N=1 no planets just set to 1e9
 
         for i, t in enumerate(tmaxs):
             if sims[i].N > 1: # otherwise ps[1].P will error, these sims will not get run anyway so OK
