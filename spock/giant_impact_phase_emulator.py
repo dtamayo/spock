@@ -46,6 +46,7 @@ class GiantImpactPhaseEmulator():
         # main loop
         sims, tmaxs = self._make_lists(sims, tmaxs)
         while np.any([sim.t < tmaxs[i] for i, sim in enumerate(sims)]): # take another step if any sims are still at t < tmax
+            print('Calling step at t=', sims[0].t)
             sims = self.step(sims, tmaxs, verbose=verbose, deepregressor_kwargs=deepregressor_kwargs)
             if isinstance(sims, rb.Simulation): sims = [sims] # passed a single sim
                
@@ -79,6 +80,7 @@ class GiantImpactPhaseEmulator():
         
         sims, tmaxs = self._make_lists(sims, tmaxs)
         
+        print('after make_lists:', sims[0].particles[1].a)
         sims_to_update = [sim for i, sim in enumerate(sims) if sim.t < tmaxs[i]]
         # estimate instability times for the subset of systems
         if len(sims_to_update) == 0:
@@ -114,7 +116,8 @@ class GiantImpactPhaseEmulator():
         if verbose:
             print('Predicting instability outcomes')
             start = time.time()
-        
+       
+        print('Before handle_mergers:', sims[0].particles[1].a, sims_to_merge[0].particles[1].a)
         # get new sims with planets merged
         sims = self._handle_mergers(sims, sims_to_merge, trios_to_merge)
         
@@ -197,7 +200,8 @@ class GiantImpactPhaseEmulator():
     # internal function with logic for initializing orbsmax as an array and checking for warnings
     def _make_lists(self, sims, tmaxs):
         sims = remove_ejected_ps(sims) # remove ejected/hyperbolic particles (do here so we don't use a negative period for tmaxs)
-        
+       
+        print('in make_lists', sims[0].particles[1].a)
         # use passed value
         if not tmaxs is None:
             try:
