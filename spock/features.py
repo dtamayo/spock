@@ -53,6 +53,8 @@ class Trio:
             self.features['EPstd' + each] = np.nan
             self.features['MMRstrength' + each] = np.nan
             self.features['2BRFillFac' + each] = np.nan
+            self.features['conjunctionMag' + each] = np.nan
+            self.features['relConjunctionMag' + each] = np.nan
 
 
         # add keys here for features that belong to trio as a whole
@@ -62,16 +64,15 @@ class Trio:
     def fill_starting_features(self, sim):
         '''Fill the features that only depend on initial conditions
            sim is passed with the initial state before the short integration is run'''
-
         ps = sim.particles
         for [label, i1, i2] in self.pairs:
             # calculate crossing eccentricity
             self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
-        pRat = getIntPrat(ps[i1].P/ps[i2].P)
-        self.theta['pRatio' + label] = pRat
-        self.theta['order' + label] = pRat[1] - pRat[0]
-        self.theta['vector' + label] = np.zeros(pRat[1] - pRat[0] + 1, dtype = complex)
-        self.theta['relvector' + label] = 0.0j
+            pRat = getIntPrat(ps[i1].P/ps[i2].P)
+            self.theta['pRatio' + label] = pRat
+            self.theta['order' + label] = pRat[1] - pRat[0]
+            self.theta['vector' + label] = np.zeros(pRat[1] - pRat[0] + 1, dtype = complex)
+            self.theta['relvector' + label] = 0.0j
         
         # calculate secular timescale and adds feature
         self.features['Tsec']= get_min_secT_trio(sim, self.trio)
@@ -170,6 +171,8 @@ class Trio:
                                                             np.nanmean(self.runningList['mu2' + label]),
                                                             np.nanmean(self.runningList['EM' + label])
                                                             )
+            self.features['conjunctionMag' + label] = np.max(np.abs(self.theta['vector' + label])) / Nout
+            self.features['relConjunctionMag' + label] = np.abs(self.theta['relvector' + label]) / Nout
 
 def get_min_secT(sim):
     minList = []
