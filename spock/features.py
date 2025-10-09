@@ -28,9 +28,6 @@ class Trio:
         # Make the ordered dictionary to keep track of theta values
         self.theta = OrderedDict()
 
-        # Make the ordered dictionary to keep track of theta values
-        self.theta = OrderedDict()
-
         # add keys here for time series that belong to each pair in the trio
         for each in ['Max','Min']:
             self.runningList['EM' + each] = [np.nan] * Nout
@@ -39,10 +36,6 @@ class Trio:
             self.runningList['pRat' + each] = [np.nan] * Nout 
             self.runningList['mu1' + each] = [np.nan] * Nout
             self.runningList['mu2' + each] = [np.nan] * Nout
-            self.theta['order' + each] = []
-            self.theta['vector' + each] = []
-            self.theta['pRatio' + each] = []
-            self.theta['relvector' + each] = []
             self.theta['order' + each] = []
             self.theta['vector' + each] = []
             self.theta['pRatio' + each] = []
@@ -115,24 +108,6 @@ class Trio:
             self.runningList['mu1' + label][i] = m1 / ps[0].m
             self.runningList['mu2' + label][i] = m2 / ps[0].m
             self.runningList['pRat' + label][i] = ps[i1].P / ps[i2].P
-
-            # calculates the conjunction angle based on each possible formula
-            order = self.theta['order' + label]
-            for o in range(order + 1):
-                self.theta['vector' + label][o] += calcThetaVec(
-                    ps[i1].l, 
-                    ps[i1].pomega,
-                    o,
-                    ps[i2].l,
-                    ps[i2].pomega,
-                    order - o,
-                    self.theta['pRatio' + label]
-                    )
-            self.theta['relvector' + label] += calcThetaRelVec(
-                ps[i1].l, ps[i2].l, 
-                self.theta['pRatio' + label],
-                np.angle(erel)
-                )
 
             # calculates the conjunction angle based on each possible formula
             order = self.theta['order' + label]
@@ -480,36 +455,6 @@ def twoBRFillFac(pRat, mu1, mu2, EM):
     #now we can multiply by the normalization factor and returl
 
     return sumVal / (firstAbove - firstBelow)
-
-def getIntPrat( Pratio: list):
-    maxorder = 4
-    delta = 0.05
-    minperiodratio = Pratio-delta
-    maxperiodratio = Pratio+delta # too many resonances close to 1
-    if maxperiodratio >.999:
-        maxperiodratio =.999
-    res = resonant_period_ratios(minperiodratio,maxperiodratio, order=maxorder)
-    ratio = [10000000,10]
-    for i,each in enumerate(res):
-        if np.abs((each[0]/each[1])-Pratio)<np.abs((ratio[0]/ratio[1])-Pratio):
-            #which = i
-            
-            ratio = each
-    
-    # frac = fractions.Fraction(Pratio).limit_denominator(40)
-    # val = frac.numerator, frac.denominator
-
-    return ratio
-
-def calcThetaVec(la, pomegaa, coefa, lb, pomegab, coefb, val,):
-    theta = (val[1]*lb) - (val[0]*la) - (pomegaa * coefa) -(pomegab * coefb)
-    return np.exp(theta*1j)
-
-
-def calcThetaRelVec(la, lb, val, pomegarel):
-    theta = (val[1]*lb) -(val[0]*la)-(val[1]-val[0])*pomegarel
-    return np.exp(theta*1j)
-
 
 def getIntPrat( Pratio: list):
     maxorder = 4
