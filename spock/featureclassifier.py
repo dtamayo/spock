@@ -23,6 +23,10 @@ class FeatureClassifier:
     def predict_stable(self, sims, n_jobs = -1, Nbodytmax = 1e6, singleWrap = False):
         '''Evaluates probability of stability for a list of simulations
 
+            If system has 3 or more planets, returns SPOCK probability of stability
+            If system has 2 planets, will return prob = 1 if Hill stable, prob = 0 if not Hill stable.
+            If system has 0 or 1 planets, will return prob=1 always.
+
             Arguments:
                 sims: simulation or list of simulations
                 n_jobs: number of jobs you want to run with multi processing

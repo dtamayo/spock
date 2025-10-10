@@ -83,6 +83,9 @@ def calc_tau(sim):
     '''
     Calculates tau for each planet using adjacent neighbors, taking the maximum eminus over the Laplace-Lagrange secular cycle.
     Returns the maximum tau among the values calculated for each of the planets.
+
+    If system has two planets, will return tau = 0 if Hill stable, tau=1 if not Hill stable.
+    If system has zero or one planets, will return tau=0 always.
     '''
     if np.isnan(sim.dt): # setup_sim sets timestep to nan if any orbit is hyperbolic. Return tau=inf, i.e. chaotic/unstable
         tau = np.inf
@@ -144,6 +147,9 @@ class AnalyticalClassifier():
         """
         Predict whether passed simulation will be stable over 10^9 orbits of the innermost planet.
 
+        If system has two planets, will return whether or not the system is Hill stable. 
+        If system has zero or one planets, will always return stable.
+        
         Parameters:
 
         sim (rebound.Simulation): Orbital configuration to test
