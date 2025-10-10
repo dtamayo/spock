@@ -98,13 +98,12 @@ def singlesim():
 class TestClassifier(unittest.TestCase):
     def setUp(self):
         self.model = GiantImpactPhaseEmulator(seed=0)
-   
     def test_hyperbolic(self):
         sim = hyperbolicsim()
         with self.assertRaises(rb.ParticleNotFound):
             sim = self.model.predict(sim)
             p = sim.particles['hyperbolic']
-    
+   
     def test_escaper(self):
         sim = escapesim()
         with self.assertRaises(rb.ParticleNotFound):
@@ -122,37 +121,30 @@ class TestClassifier(unittest.TestCase):
         N = sim.N
         pred_sim = self.model.predict(sim)
         self.assertLess(pred_sim.N, N)
-
     def test_single(self):
         sim = singlesim()
         pred_sim = self.model.predict(sim)
         self.assertEqual(pred_sim.N, 2)
-
     def test_single_list(self):
         sims = [singlesim(), singlesim()]
         pred_sims = self.model.predict(sims)
         self.assertEqual(all([sim.N == 2 for sim in pred_sims]), True)
-
     def test_stable2p(self):
         sim = stable2psim()
         pred_sim = self.model.predict(sim)
         self.assertEqual(pred_sim.N, 3)
-
     def test_unstable2p(self):
         sim = unstable2psim()
         pred_sim = self.model.predict(sim)
         self.assertEqual(pred_sim.N, 2)
-
     def test_unstable2phyperbolic(self):
         sim = unstable2psimhyperbolic()
         pred_sim = self.model.predict(sim)
-        self.assertEqual(pred_sim.N, 2)
-
+        self.assertEqual(pred_sim.N, 1)
     def test_unstable2phighe(self):
         sim = unstable2psimhighe()
         pred_sim = self.model.predict(sim)
         self.assertEqual(pred_sim.N, 2)
-
     def test_stable2p_list(self):
         sims = [stable2psim(), stable2psim()]
         pred_sims = self.model.predict(sims)
@@ -162,7 +154,6 @@ class TestClassifier(unittest.TestCase):
         sims = [unstable2psim(), unstable2psim()]
         pred_sims = self.model.predict(sims)
         self.assertEqual(all([sim.N == 2 for sim in pred_sims]), True)
-
     def test_scale_invariance(self):
         sim = largePsim()
         Pmin = sim.particles[1].P
@@ -181,7 +172,6 @@ class TestClassifier(unittest.TestCase):
         model = GiantImpactPhaseEmulator(seed=0)
         pred_sim2 = model.predict(sim)
         self.assertAlmostEqual(pred_sim.particles[1].P, pred_sim2.particles[1].P, delta=1.e-10)
-
     def test_L_conservation(self):
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
@@ -190,7 +180,7 @@ class TestClassifier(unittest.TestCase):
         L = pred_sim.angular_momentum()
         for i in range(3):
             self.assertAlmostEqual(L0[i], L[i], delta=0.25*L0[2]) # must agree to within 25% of initial Lz value
-            
+
     def test_E_conservation(self):
         self.model = GiantImpactPhaseEmulator(seed=0)
         sim = unstablesim()
@@ -208,7 +198,6 @@ class TestClassifier(unittest.TestCase):
             sim = model.step(sim, tmaxs=1e7)
             xs.append(sim.particles[2].x)
         self.assertTrue(all(x==xs[0] for x in xs))
-
     def test_step_equivalence(self):
         sim = unstablesim()
         model = GiantImpactPhaseEmulator(seed=0)
@@ -221,6 +210,5 @@ class TestClassifier(unittest.TestCase):
         for i in range(3):
             sim2 = model.step(sim2, tmaxs=tmax)
         self.assertAlmostEqual(sim1.particles[1].P, sim2.particles[1].P, delta=1.e-10)
-
 if __name__ == '__main__':
     unittest.main()

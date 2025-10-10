@@ -13,6 +13,7 @@
 
 The SPOCK package incorporates several machine learning and analytical tools for estimating the stability of compact planetary configurations.
 All estimators use a common API to facilitate comparisons between them and with N-body integrations.
+SPOCK has been updated to handle the edge cases of systems with 0-2 planets (2-planet systems evaluated using Hill stability). See [changelog.md](https://github.com/dtamayo/spock/blob/master/changelog.md).
 
 # Quickstart
 

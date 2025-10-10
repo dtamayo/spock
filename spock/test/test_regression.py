@@ -148,7 +148,7 @@ class TestRegressor(unittest.TestCase):
 
     def relative(self, p1, p2):
         return abs(p1 - p2) / (p1 + p2) / 2
-
+    
     def test_seed(self):
         sim = rebound.Simulation()
         sim.add(m=1.)
@@ -160,7 +160,6 @@ class TestRegressor(unittest.TestCase):
         self.assertTrue(self.relative(p1, p2) < 0.1)
         self.assertTrue(self.relative(p1, p2) > 0.0)
 
-   
     def test_prediction(self):
         times = []
         sims = []
@@ -177,17 +176,17 @@ class TestRegressor(unittest.TestCase):
         self.assertTrue(times[0] < 4.0)
         # Should get more stable:
         self.assertTrue(np.all(times[1:] > times[:-1]))
-   
+    
     def test_single(self):
         sim = singlesim()
         prob = self.model.predict_stable(sim)
         self.assertEqual(prob, 1)
-
+     
     def test_single_list(self):
         sims = [singlesim(), singlesim()]
         probs = self.model.predict_stable(sims)
         self.assertTrue(all(prob == 1 for prob in probs))
-
+    
     def test_stable2p(self):
         sim = stable2psim()
         prob = self.model.predict_stable(sim)
@@ -207,12 +206,12 @@ class TestRegressor(unittest.TestCase):
         sim = unstable2psimhighe()
         prob = self.model.predict_stable(sim)
         self.assertEqual(prob, 0)
-
+    
     def test_stable2p_list(self):
         sims = [stable2psim(), stable2psim()]
         probs = self.model.predict_stable(sims)
         self.assertTrue(all(prob == 1 for prob in probs))
- 
+     
     def test_unstable2p_list(self):
         sims = [unstable2psim(), unstable2psim()]
         probs = self.model.predict_stable(sims)
@@ -417,7 +416,7 @@ class TestRegressorClassification(unittest.TestCase):
         self.assertGreater(self.model.predict_stable(sim, seed=0, **SAMPLE_SETTINGS), 0.7)
 
     def test_auc(self):
-        '''Tests to ensure that the models stability prediction has a high enough AUC'''
+        #Tests to ensure that the models stability prediction has a high enough AUC
         path = os.path.abspath(os.path.dirname(__file__))
         conditions = pd.read_csv(path+'/test100ResTest.csv')
         simlist = []
@@ -425,6 +424,5 @@ class TestRegressorClassification(unittest.TestCase):
             simlist.append(get_sim(x,conditions))
         roc_auc, fpr, tpr, ROCthresholds = ROC_curve(self.model.predict_stable(simlist),conditions['Stable'])
         self.assertGreater(roc_auc,0.93)
-
 if __name__ == '__main__':
     unittest.main()

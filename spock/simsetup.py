@@ -208,11 +208,9 @@ def revert_sim_units(sims):
 
 def remove_ejected_ps(sims):
     for sim in sims:
-        ps = sim.particles
-        remove_hashes = []
-        for i in range(1, len(ps)):
-            if ps[i].a < 0:
-                remove_hashes.append(ps[i].hash)
-        for hash in remove_hashes:
-            sim.remove(hash=hash, keep_sorted=False)
+        N = len(sim.particles)
+        # run backwards so that removing particles doesn't change indices still needing removal
+        for i in range(1, N)[::-1]: 
+            if sim.particles[i].a < 0:
+                sim.remove(i, keep_sorted=True)
     return sims

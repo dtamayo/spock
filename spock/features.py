@@ -293,7 +293,8 @@ def hillfac(sim, i1=1, i2=2):
         hillFac: Returns sqrt(|(p/a)/(p/a)_crit}) (see Gladman 1993 and Marchal and Bozis 1982). 
 
         If hillFac > 1: stable (close approaches are not allowed). If hillFac < 1: unstable 
-        (close approaches are allowed)
+        (close approaches are allowed). Note that hillfac tends to get smaller the closer the orbits are, 
+        but if planets get inside their mutual Hill spheres, the contribution of the potential energy makes hillfac > 1 again.
     '''
     ps = sim.particles
     m0 = ps[0].m  #star 
@@ -306,35 +307,8 @@ def hillfac(sim, i1=1, i2=2):
 
     G = sim.G # gravitational constant
 
-    c_vec = np.zeros(3) # total angular momentum
-    KE = 0
-    for j in [0, i1, i2]:
-        r_j = np.array([ps[j].x, ps[j].y, ps[j].z])
-        v_j = np.array([ps[j].vx, ps[j].vy, ps[j].vz])
-
-        c_vec += ps[j].m * np.cross(r_j, v_j) # angular momentum vector
-
-        v = np.linalg.norm(v_j)
-        m_j = ps[j].m
-
-        KE += 0.5 * m_j * (v**2) # add each particle
-
-    c = np.linalg.norm(c_vec)
-
-    U = 0 # initialize potential energy
-
-    for j1, j2 in [[0, i1], [0, i2], [i1, i2]]:
-        r_a = np.array([ps[j1].x, ps[j1].y, ps[j1].z])
-        r_b = np.array([ps[j2].x, ps[j2].y, ps[j2].z])
-        r = np.linalg.norm(r_a - r_b)
-
-        m_a = ps[j1].m
-        m_b = ps[j2].m
-
-        U += - (G*m_a*m_b)/r # add all of the potential energies     
-
-    h = KE + U
-
+    c = np.linalg.norm(sim.angular_momentum())
+    h = sim.energy()
     # calculate p/a from Eq. 12 of Gladman 1993
     pOvera = - ((2*M) / (G**2 * M_prod**3)) * c**2 * h
 

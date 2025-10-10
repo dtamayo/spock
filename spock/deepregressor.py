@@ -16,6 +16,7 @@ from scipy.interpolate import interp1d
 from .simsetup import setup_sim
 from .spock_reg_model import load_swag_safetensors
 from .tseries_feature_functions import get_extended_tseries
+from .features import hillfac
 
 warnings.filterwarnings('ignore', "DeprecationWarning: Using or importing the ABCs")
 
@@ -35,9 +36,8 @@ profile = lambda _: _
 
 def generate_dataset(sim):
     sim = setup_sim(sim, megno=False, safe_mode=0)
-    if sim.N_real < 4:
-        raise AttributeError("SPOCK Error: SPOCK only works for systems with 3 or more planets")
-    trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios
+
+    trios = [[i,i+1,i+2] for i in range(1,sim.N_real-2)] # list of adjacent trios. Only get here after testing Np>=3
 
     kwargs = OrderedDict()
     kwargs['Norbits'] = int(1e4)
@@ -199,6 +199,10 @@ class DeepRegressor(object):
             the 84th percentile. Uses `samples` samples of the posterior
             to calculate this.
 
+            If system has 3 or more planets, returns SPOCK instability time.
+            If system has two planets, will return instability_time = np.inf if
+            pair is Hill stable, and zero if not. If system has zero or one planets, 
+            function will return np.inf always.
         Parameters:
 
         sim (rebound.Simulation or list): Orbital configuration(s) to test
@@ -232,10 +236,16 @@ class DeepRegressor(object):
             center_estimate = np.median(t_inst_samples, axis=1)
             upper = np.percentile(t_inst_samples, 100-16, axis=1)
             lower = np.percentile(t_inst_samples,     16, axis=1)
+            # when t_inst_samples are np.inf, percentiles will be NaN. Change to 0
+            upper[np.isnan(upper)] = 0
+            lower[np.isnan(lower)] = 0
         else:
             center_estimate = np.median(t_inst_samples)
-            upper = np.percentile(t_inst_samples, 100-16)
-            lower = np.percentile(t_inst_samples,     16)
+            if np.isinf(center_estimate):
+                upper, lower = 0, 0
+            else:
+                upper = np.percentile(t_inst_samples, 100-16)
+                lower = np.percentile(t_inst_samples,     16)
 
         if return_samples:
             return center_estimate, lower, upper, t_inst_samples
@@ -245,6 +255,11 @@ class DeepRegressor(object):
     def predict_stable(self, sim, tmax=None, samples=1000, seed=None,
             return_samples=False, max_model_samples=100, prior_above_9=fitted_prior(), Ncpus=None):
         """Estimate chance of stability for given simulation(s).
+
+            If system has 3 or more planets, will return SPOCK probability of stability
+            If system has two planets, will return p(stable) = 1 if
+            pair is Hill stable, and zero if not. If system has zero or one planets, 
+            function will return p=1 always.
 
         Parameters:
 
@@ -273,7 +288,6 @@ class DeepRegressor(object):
         t_inst_samples = self.sample_instability_time(sim,
                 samples=samples, seed=seed, max_model_samples=max_model_samples,
                 prior_above_9=prior_above_9)
-
         if tmax is None:
             if batched:
                 tmax = np.array([
@@ -334,7 +348,6 @@ class DeepRegressor(object):
         batched = False
         if isinstance(sim, list):
             batched = True
-            nsim = len(sim)
             if len(set([s.N_real for s in sim])) != 1:
                 raise ValueError("If running over many sims at once, they must have the same number of particles!")
         return batched
@@ -345,6 +358,11 @@ class DeepRegressor(object):
         """Return samples from a posterior over instability time for
             given simulation(s). This returns samples from a simple prior for
             all times greater than 10^9 orbits.
+
+            If system has 3 or more planets, will return SPOCK instability time.
+            If system has two planets, will return instability_time = np.inf if
+            pair is Hill stable, and zero if not. If system has zero or one planets, 
+            function will return np.inf always.
 
         Parameters:
 
@@ -366,6 +384,17 @@ class DeepRegressor(object):
             instability time, in units of the rebound simulation.
         """
         batched = self.is_batched(sim)
+
+        Nplanets = sim[0].N_real-1 if batched else sim.N_real-1
+
+        if Nplanets == 0 or Nplanets == 1:
+            return np.array([np.full(samples, np.inf) for i in range(len(sim))]) if batched else np.full(samples, np.inf)
+
+        if Nplanets == 2:
+            if batched:
+                return np.array([np.full(samples, np.inf) if hillfac(s)>1 else np.zeros(samples) for s in sim])
+            else:
+                return np.full(samples, np.inf) if hillfac(sim)>1 else np.zeros(samples)
 
         if seed is not None:
             os.environ["PL_GLOBAL_SEED"] = str(seed)

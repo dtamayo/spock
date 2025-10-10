@@ -101,7 +101,6 @@ class CollisionMergerClassifier():
             trio_inds = []
             for i in range(len(sims)):
                 trio_inds.append([1, 2, 3])
-
         sims = [scale_sim(sim, np.arange(1, sim.N)) for sim in sims] # re-scale input sims and convert units
         probs = []
         done_sims = []
@@ -167,7 +166,7 @@ class CollisionMergerClassifier():
             if not trio_inds is None:
                 trio_inds = [trio_inds]
             single_sim = True
-
+        
         if return_ML_inputs:
             pred_probs, ML_input_data = self.predict_collision_probs(sims, trio_inds, return_ML_inputs=True)
         else:

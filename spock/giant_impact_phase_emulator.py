@@ -79,10 +79,6 @@ class GiantImpactPhaseEmulator():
         
         sims, tmaxs = self._make_lists(sims, tmaxs)
         
-        for i, sim in enumerate(sims): # assume all 2 planet systems (N=3) are stable (could use Hill stability criterion)
-            if sim.N < 4:
-                sim.t = tmaxs[i]
-        
         sims_to_update = [sim for i, sim in enumerate(sims) if sim.t < tmaxs[i]]
         # estimate instability times for the subset of systems
         if len(sims_to_update) == 0:
@@ -97,13 +93,13 @@ class GiantImpactPhaseEmulator():
             start = time.time()
         
         t_insts, trio_inds = self._get_unstable_trios(sims_to_update, deepregressor_kwargs=deepregressor_kwargs)
-        
         if verbose:
             end = time.time()
             print('Done:', end - start, 's' + '\n')
         
         # get list of sims for which planets need to be merged
         sims_to_merge = []
+        sims_to_merge_2p = []
         trios_to_merge = []
         for i, sim in enumerate(sims_to_update):
             idx = sims.index(sim)           # get index in original list
@@ -112,15 +108,20 @@ class GiantImpactPhaseEmulator():
             else:                           # need to merge
                 #sim.t += t_insts[i]         # update time
                 sim.t = t_insts[i]         # update time
-                sims_to_merge.append(sim)
-                trios_to_merge.append(trio_inds[i])
+                if sim.N == 3:
+                    sims_to_merge_2p.append(sim)
+                else:
+                    sims_to_merge.append(sim)
+                    trios_to_merge.append(trio_inds[i])
         
         if verbose:
             print('Predicting instability outcomes')
             start = time.time()
-        
+       
         # get new sims with planets merged
-        sims = self._handle_mergers(sims, sims_to_merge, trios_to_merge)
+        sims = self._handle_2p_mergers(sims, sims_to_merge_2p)
+        if sims_to_merge:
+            sims = self._handle_mergers(sims, sims_to_merge, trios_to_merge)
         
         if verbose:
             end = time.time()
@@ -142,26 +143,29 @@ class GiantImpactPhaseEmulator():
             for j in range(Npls[i] - 2):
                 trio_inds.append([j+1, j+2, j+3])
                 trio_sims.append(sim_subset(sims[i], [j+1, j+2, j+3]))
-        
         # predict instability times for sub-trios
-        t_insts, _, _ = self.deep_model.predict_instability_time(trio_sims, **deepregressor_kwargs)
-
-        # get the minimum sub-trio instability time for each system
+        if trio_sims: # there might not be any 3+ planet systems to evaluate, in which case want to skip to avoid errors
+            t_insts, _, _ = self.deep_model.predict_instability_time(trio_sims, **deepregressor_kwargs)
+        # get the minimum sub-trio instability time for each system to store which trio indices are the least stable
         min_trio_inds = []
         for i in range(len(sims)):
-            temp_t_insts = []
-            temp_trio_inds = []
-            for j in range(Npls[i] - 2):
-                temp_t_insts.append(t_insts[int(np.sum(Npls[:i]) - 2*i + j)])
-                temp_trio_inds.append(trio_inds[int(np.sum(Npls[:i]) - 2*i + j)])
-            min_ind = np.argmin(temp_t_insts)
-            min_trio_inds.append(temp_trio_inds[min_ind])
+            if sims[i].N < 4: # < 3 planets
+                min_trio_inds.append([i for i in range(1,sims[i].N)])
+            else:
+                temp_t_insts = []
+                temp_trio_inds = []
+                for j in range(Npls[i] - 2):
+                    temp_t_insts.append(t_insts[int(np.sum(Npls[:i]) - 2*i + j)])
+                    temp_trio_inds.append(trio_inds[int(np.sum(Npls[:i]) - 2*i + j)])
+                min_ind = np.argmin(temp_t_insts)
+                min_trio_inds.append(temp_trio_inds[min_ind])
 
-        # predict full-system instability times (systems are grouped according to Npl)
+        # We want to return the most unstable trio, but the instability time corresponding to the full system, so rerun with all planets
+        # Need to group according to Npl for deepregressor to run in parallel
         full_t_insts = []
         full_inds = []
         max_Npl = max(Npls)
-        for Npl in range(3, max_Npl+1):
+        for Npl in range(max_Npl+1):
             subset_sims = [sim_subset(sim, np.arange(1, sim.N)) for i, sim in enumerate(sims) if Npls[i] == Npl]
             subset_inds = [i for i, sim in enumerate(sims) if Npls[i] == Npl]
             
@@ -172,7 +176,26 @@ class GiantImpactPhaseEmulator():
         sort_inds = np.argsort(full_inds)
         full_t_insts = np.array(full_t_insts)[sort_inds]
             
-        return full_t_insts, min_trio_inds
+        return full_t_insts, min_trio_inds # return the most unstable trio (by itself) and predicted inst time including all planets
+
+    # internal function for handling mergers with class_model and reg_model
+    def _handle_2p_mergers(self, sims, sims_to_merge):
+        new_sims = []
+        for sim in sims_to_merge:
+            new_sim = sim.copy()
+            ps = new_sim.particles
+            sum_mass = ps[1].m + ps[2].m
+            mergedPlanet = (ps[1]*ps[1].m + ps[2]*ps[2].m)/sum_mass 
+            mergedPlanet.m  = sum_mass
+            new_sim.remove(index=2)
+            new_sim.remove(index=1)
+            new_sim.add(mergedPlanet)
+            new_sims.append(new_sim)
+        # update sims
+        for i, sim in enumerate(sims_to_merge):
+            idx = sims.index(sim) # find index in original list
+            sims[idx] = new_sims[i]
+        return sims
 
     # internal function for handling mergers with class_model and reg_model
     def _handle_mergers(self, sims, sims_to_merge, trio_inds):
@@ -201,7 +224,6 @@ class GiantImpactPhaseEmulator():
     # internal function with logic for initializing orbsmax as an array and checking for warnings
     def _make_lists(self, sims, tmaxs):
         sims = remove_ejected_ps(sims) # remove ejected/hyperbolic particles (do here so we don't use a negative period for tmaxs)
-        
         # use passed value
         if not tmaxs is None:
             try:
@@ -209,7 +231,7 @@ class GiantImpactPhaseEmulator():
             except:
                 tmaxs = tmaxs*np.ones(len(sims)) # convert from float to array
         else:       # default = 1e9 orbits
-            tmaxs = [1e9*sim.particles[1].P for sim in sims]
+            tmaxs = [1e9*sim.particles[1].P if sim.N > 1 else 1e9 for sim in sims] # if N=1 no planets just set to 1e9
 
         for i, t in enumerate(tmaxs):
             if sims[i].N > 1: # otherwise ps[1].P will error, these sims will not get run anyway so OK

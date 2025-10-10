@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spock"
-version = "2.0.1"
+version = "2.1.0"
 description = "Stability of Planetary Orbital Configurations Klassifier"
 readme = "README.md"
 requires-python = ">=3.9"  # Limited by pytensor (<= celmech)
@@ -13,7 +13,9 @@ authors = [
     {name = "Daniel Tamayo", email = "tamayo.daniel@gmail.com"},
     {name = "Miles Cranmer", email = "miles.cranmer@gmail.com"},
     {name = "Hanno Rein", email = "hanno@hanno-rein.de"},
-    {name = "Caleb Lammers", email = "cl5968@princeton.edu"}
+    {name = "Caleb Lammers", email = "cl5968@princeton.edu"},
+    {name = "Elio Thadhani", email = "ethadhani@hmc.edu"},
+    {name = "Yolanda Ba", email = "yba@hmc.edu"}
 ]
 keywords = ["astronomy", "astrophysics", "exoplanets", "stability"]
 classifiers = [
