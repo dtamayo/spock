@@ -7,7 +7,7 @@ with open("pyproject.toml") as f:
     cl = f.readlines()
     for l in cl:
         if l.startswith("version = "):
-            spockversion = l[-5:-1]
+            spockversion = l[-7:-2]
 
 print(spockversion)
 # find changelog
