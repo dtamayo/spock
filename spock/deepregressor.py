@@ -234,11 +234,11 @@ class DeepRegressor(object):
                 prior_above_9=prior_above_9, Ncpus=Ncpus)
         if batched:
             center_estimate = np.median(t_inst_samples, axis=1)
-            if np.isinf(center_estimate):
-                upper, lower = 0, 0
-            else:
-                upper = np.percentile(t_inst_samples, 100-16, axis=1)
-                lower = np.percentile(t_inst_samples,     16, axis=1)
+            upper = np.percentile(t_inst_samples, 100-16, axis=1)
+            lower = np.percentile(t_inst_samples,     16, axis=1)
+            # when t_inst_samples are np.inf, percentiles will be NaN. Change to 0
+            upper[np.isnan(upper)] = 0
+            lower[np.isnan(lower)] = 0
         else:
             center_estimate = np.median(t_inst_samples)
             if np.isinf(center_estimate):
@@ -391,7 +391,6 @@ class DeepRegressor(object):
             return np.array([np.full(samples, np.inf) for i in range(len(sim))]) if batched else np.full(samples, np.inf)
 
         if Nplanets == 2:
-            print(hillfac(sim))
             if batched:
                 return np.array([np.full(samples, np.inf) if hillfac(s)>1 else np.zeros(samples) for s in sim])
             else:
