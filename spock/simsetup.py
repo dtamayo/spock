@@ -180,7 +180,6 @@ def scale_sim(sim, p_inds):
     sim_copy.add(m=1.00)
     for i in range(1, sim.N):
         if i in p_inds:
-            #print(i, ps[i].a, ps[i].e, ps[i].P, P1)
             sim_copy.add(m=ps[i].m/Mstar, P=ps[i].P/P1, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
 
     sim_copy.t = sim.t/P1
@@ -209,24 +208,9 @@ def revert_sim_units(sims):
 
 def remove_ejected_ps(sims):
     for sim in sims:
-        for i in range(1, len(sim.particles)):
+        N = len(sim.particles)
+        # run backwards so that removing particles doesn't change indices still needing removal
+        for i in range(1, N)[::-1]: 
             if sim.particles[i].a < 0:
-                print(i)
-        success = False
-        while success is False:
-            N = len(sim.particles)
-            print('N = ', N)
-            for i in range(1, N):
-                #print(i)
-                if sim.particles[i].a < 0:
-                    sim.remove(i, keep_sorted=True)
-                    break
-                if i==N-1:
-                    success = True
-
-        print('done')
-        for i in range(1, len(sim.particles)):
-            if sim.particles[i].a < 0:
-                print(i)
-
+                sim.remove(i, keep_sorted=True)
     return sims

@@ -224,7 +224,6 @@ class DeepRegressor(object):
         upper (float): 84th percentile instability time
         [t_inst_samples (array): raw samples of the posterior]
         """
-        print(type(sim))
         batched = self.is_batched(sim)
         t_inst_samples = self.sample_instability_time(sim,
                 samples=samples, seed=seed, max_model_samples=max_model_samples,
@@ -334,7 +333,6 @@ class DeepRegressor(object):
         batched = False
         if isinstance(sim, list):
             batched = True
-            nsim = len(sim)
             if len(set([s.N_real for s in sim])) != 1:
                 raise ValueError("If running over many sims at once, they must have the same number of particles!")
         return batched
