@@ -78,6 +78,6 @@ dataset = pd.DataFrame.join(formattedFeat,labels)
 # We can then save the new training data spreadsheet.
 
 # %%
-dataset.to_csv(datapath+'2pTestData.csv')
+dataset.to_csv(datapath+'conjAngData.csv')
 
 

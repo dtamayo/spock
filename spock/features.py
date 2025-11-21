@@ -2,7 +2,8 @@ from collections import OrderedDict
 import numpy as np
 import math
 import rebound
-
+from celmech.resonances import resonance_pratio_span
+from celmech.resonances import resonance_jk_list
 
 class Trio:
     def __init__(self, trio_indices, sim, Nout):
@@ -24,22 +25,37 @@ class Trio:
         self.runningList['time'] = [np.nan] * Nout
         self.runningList['MEGNO'] = [np.nan] * Nout
 
+        # Make the ordered dictionary to keep track of theta values
+        self.theta = OrderedDict()
+
         # add keys here for time series that belong to each pair in the trio
-        for each in ['near','far']:
+        for each in ['Max','Min']:
             self.runningList['EM' + each] = [np.nan] * Nout
             self.runningList['EP' + each] = [np.nan] * Nout
             self.runningList['MMRstrength' + each] = [np.nan] * Nout
+            self.runningList['pRat' + each] = [np.nan] * Nout 
+            self.runningList['mu1' + each] = [np.nan] * Nout
+            self.runningList['mu2' + each] = [np.nan] * Nout
+            self.theta['order' + each] = []
+            self.theta['vector' + each] = []
+            self.theta['pRatio' + each] = []
+            self.theta['relvector' + each] = []
+
 
         # dict of features to calculate
 
         self.features = OrderedDict()
 
         # add keys here for features that belong to each pair in the trio
-        for each in ['near', 'far']:
+        for each in ['Max', 'Min']:
             self.features['EMcross' + each] = np.nan
             self.features['EMfracstd' + each] = np.nan
             self.features['EPstd' + each] = np.nan
             self.features['MMRstrength' + each] = np.nan
+            self.features['2BRFillFac' + each] = np.nan
+            self.features['conjunctionMag' + each] = np.nan
+            self.features['relConjunctionMag' + each] = np.nan
+
 
         # add keys here for features that belong to trio as a whole
         self.features['MEGNO'] = np.nan
@@ -48,12 +64,16 @@ class Trio:
     def fill_starting_features(self, sim):
         '''Fill the features that only depend on initial conditions
            sim is passed with the initial state before the short integration is run'''
-
         ps = sim.particles
         for [label, i1, i2] in self.pairs:
             # calculate crossing eccentricity
             self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
-            
+            pRat = getIntPrat(ps[i1].P/ps[i2].P)
+            self.theta['pRatio' + label] = pRat
+            self.theta['order' + label] = pRat[1] - pRat[0]
+            self.theta['vector' + label] = np.zeros(pRat[1] - pRat[0] + 1, dtype = complex)
+            self.theta['relvector' + label] = 0.0j
+        
         # calculate secular timescale and adds feature
         self.features['Tsec']= get_min_secT_trio(sim, self.trio)
 
@@ -73,7 +93,7 @@ class Trio:
             #calculate eccentricity vector
             e1x, e1y = ps[i1].e * np.cos(ps[i1].pomega), ps[i1].e * np.sin(ps[i1].pomega)
             e2x, e2y = ps[i2].e * np.cos(ps[i2].pomega), ps[i2].e * np.sin(ps[i2].pomega)
-
+            erel = ps[i2].e*np.exp(ps[i2].pomega*1j)-ps[i1].e*np.exp(ps[i1].pomega*1j)
             self.runningList['time'][i]= sim.t/minP
             #crossing eccentricity
             self.runningList['EM'+label][i] = np.sqrt((e2x - e1x)**2 + (e2y - e1y)**2)
@@ -83,6 +103,29 @@ class Trio:
             #calculate the strength of MMRs
             MMRs = find_strongest_MMR(sim, i1, i2)
             self.runningList['MMRstrength' + label][i] = MMRs[2]
+
+            # save mass ratios and integer period ratios
+            self.runningList['mu1' + label][i] = m1 / ps[0].m
+            self.runningList['mu2' + label][i] = m2 / ps[0].m
+            self.runningList['pRat' + label][i] = ps[i1].P / ps[i2].P
+
+            # calculates the conjunction angle based on each possible formula
+            order = self.theta['order' + label]
+            for o in range(order + 1):
+                self.theta['vector' + label][o] += calcThetaVec(
+                    ps[i1].l, 
+                    ps[i1].pomega,
+                    o,
+                    ps[i2].l,
+                    ps[i2].pomega,
+                    order - o,
+                    self.theta['pRatio' + label]
+                    )
+            self.theta['relvector' + label] += calcThetaRelVec(
+                ps[i1].l, ps[i2].l, 
+                self.theta['pRatio' + label],
+                np.angle(erel)
+                )
 
 
         # check rebound version, if old use .calculate_megno, otherwise use .megno, old is just version less then 4
@@ -109,7 +152,7 @@ class Trio:
                 self.runningList['MEGNO'][(Nout // 5):]
             )
 
-        for label in ['near', 'far']:
+        for label in ['Max', 'Min']:
             # cut out first value (init cond) to avoid cases
             # where user sets exactly b * n2 - a * n1 and strength is inf
             self.features['MMRstrength' + label] = np.median(
@@ -121,6 +164,15 @@ class Trio:
 
             self.features['EPstd' + label] = \
                 np.std(self.runningList['EP' + label])
+            
+            self.features['2BRFillFac' + label] = twoBRFillFac( 
+                                                            np.nanmean(self.runningList['pRat' + label]),
+                                                            np.nanmean(self.runningList['mu1' + label]),
+                                                            np.nanmean(self.runningList['mu2' + label]),
+                                                            np.nanmean(self.runningList['EM' + label])
+                                                            )
+            self.features['conjunctionMag' + label] = np.max(np.abs(self.theta['vector' + label])) / Nout
+            self.features['relConjunctionMag' + label] = np.abs(self.theta['relvector' + label]) / Nout
 
 def get_min_secT(sim):
     minList = []
@@ -189,34 +241,45 @@ def resonant_period_ratios(min_per_ratio,max_per_ratio,order):
     return res_ratios[msk]
 ##########################
 
-# sorts out which pair of planets has a smaller EMcross, labels that pair inner, other adjacent pair outer
-# returns a list of two lists, with [label (near or far), i1, i2], where i1 and i2 are the indices, with i1 
-# having the smaller semimajor axis
-
 def get_pairs(sim, trio):
-    ''' returns the three pairs of the given trio.
+    ''' 
+    returns the three pairs of the given trio sorted by 2BRfill factor.
     
     Arguments:
         sim: simulation in question
-        trio: indicies of the 3 particles in question, formatted as [p1, p2, p3]
-    return: returns the two pairs in question, formatted as 
-                [[near pair, index, index], [far pair, index, index]]
+        trio: indices of the 3 particles in question, formatted as [p1, p2, p3]
+    return: returns the two pairs in question, formatted based on the magnitude of 
+            the two body filling factor between said pair
+                [[Max 2BR fill, index, index], [Min 2BR fill, index, index]]
     '''
  
     ps = sim.particles
-    sortedindices = sorted(trio, key = lambda i: ps[i].a) # sort from inner to outer
-    EMcrossInner = ((ps[sortedindices[1]].a - ps[sortedindices[0]].a)
-                    / ps[sortedindices[0]].a)
+    # sort trio from inner to outer
+    sortedIndices = sorted(trio, key = lambda i: ps[i].a) 
+    
+    a,b,c = sortedIndices
 
-    EMcrossOuter = ((ps[sortedindices[2]].a - ps[sortedindices[1]].a)
-                    / ps[sortedindices[1]].a)
+    # Calculate the eccentricity vectors
+    eveca = ps[a].e*np.exp(1j*ps[a].pomega)
+    evecb = ps[b].e*np.exp(1j*ps[b].pomega)
+    evecc = ps[c].e*np.exp(1j*ps[c].pomega)
 
-    if EMcrossInner < EMcrossOuter:
-        return [['near', sortedindices[0], sortedindices[1]],
-                ['far', sortedindices[1], sortedindices[2]]]
+    # Calculate relative eccentricity magnitude
+
+    EMab = np.abs(evecb - eveca)
+    EMbc = np.abs(evecc - evecb)
+    
+    # Calculate the two body filling factor
+    fillab = twoBRFillFac(ps[a].P/ps[b].P, ps[a].m / ps[0].m, ps[b].m / ps[0].m, EMab)
+    fillbc = twoBRFillFac(ps[b].P/ps[c].P, ps[b].m / ps[0].m, ps[c].m / ps[0].m, EMbc)
+
+
+    if fillbc < fillab:
+        return [['Max', sortedIndices[0], sortedIndices[1]],
+                ['Min', sortedIndices[1], sortedIndices[2]]]
     else:
-        return [['near', sortedindices[1], sortedindices[2]],
-                ['far', sortedindices[0], sortedindices[1]]]
+        return [['Max', sortedIndices[1], sortedIndices[2]],
+                ['Min', sortedIndices[0], sortedIndices[1]]]
 
 def hillfac(sim, i1=1, i2=2): 
     '''
@@ -317,3 +380,83 @@ def find_strongest_MMR(sim, i1, i2):
 def swap(a, b):
     '''Simple swap function'''
     return b, a
+
+def twoBRFillFac(pRat, mu1, mu2, EM):
+    '''Calculates the two body resonance overlap filling factor for a given pair.
+        Derived in Hadden 2018
+        Param:
+            pRat: the period ratio of the two planets in question
+            mu1: the mass ratio of inner planet and sun
+            mu2: the mass ratio of outer planet and sun
+            EM: the combined eccentricity
+    '''
+    # uses periods instead of semimajor axis
+    # checking for nan
+    if pRat != pRat or EM != EM or pRat <= 0.5 or pRat >=1:
+        # if ratio is less then 1/2 then there is no first order res that is near
+        # if pRat >=1 it means something is wrong
+        # if ratio or EM are nan something is wrong
+        return np.nan
+
+    orderConsider = 4 # up to what order to consider
+    
+
+    #first we will find the first order res on either side
+    firstBelow = 0
+    firstAbove = 0
+    o = 1
+    while (firstBelow == 0 or firstAbove == 0):
+        # while we have not found the adjacent first order resonances,
+        # look for them
+        rat = o/(o+1)
+        if rat <= pRat and rat > firstBelow:
+            firstBelow = rat
+        elif rat > pRat:
+            firstAbove = rat
+        o+=1
+    # now we can generate a list of all the resonances in between along with their order
+    resList = resonance_jk_list(firstBelow, firstAbove,orderConsider)
+    sumVal = 0
+    # we can now sum all of the resonance widths
+
+    
+    Z0 = EM
+    
+    for e in resList:
+        minP, maxP = resonance_pratio_span(mu1, mu2, Z0, e[0], e[1])
+        sumVal+= maxP - minP
+    
+    #now we can multiply by the normalization factor and returl
+
+    return sumVal / (firstAbove - firstBelow)
+
+def getIntPrat( Pratio: list):
+    maxorder = 4
+    delta = 0.05
+    minperiodratio = Pratio-delta
+    maxperiodratio = Pratio+delta # too many resonances close to 1
+    if maxperiodratio >.999:
+        maxperiodratio =.999
+    res = resonant_period_ratios(minperiodratio,maxperiodratio, order=maxorder)
+    ratio = [10000000,10]
+    for i,each in enumerate(res):
+        if np.abs((each[0]/each[1])-Pratio)<np.abs((ratio[0]/ratio[1])-Pratio):
+            #which = i
+            
+            ratio = each
+    
+    # frac = fractions.Fraction(Pratio).limit_denominator(40)
+    # val = frac.numerator, frac.denominator
+
+    return ratio
+
+def calcThetaVec(la, pomegaa, coefa, lb, pomegab, coefb, val,):
+    theta = (val[1]*lb) - (val[0]*la) - (pomegaa * coefa) -(pomegab * coefb)
+    return np.exp(theta*1j)
+
+
+def calcThetaRelVec(la, lb, val, pomegarel):
+    theta = (val[1]*lb) -(val[0]*la)-(val[1]-val[0])*pomegarel
+    return np.exp(theta*1j)
+
+
