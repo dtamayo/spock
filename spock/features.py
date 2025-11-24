@@ -437,8 +437,10 @@ def getIntPrat( Pratio: list):
     maxperiodratio = Pratio+delta # too many resonances close to 1
     if maxperiodratio >.999:
         maxperiodratio =.999
+    if minperiodratio < 0:
+        minperiodratio = 0 # account for escaped orbits
     res = resonant_period_ratios(minperiodratio,maxperiodratio, order=maxorder)
-    ratio = [10000000,10]
+    ratio = [10,10000000] # inner planet must have smaller period
     for i,each in enumerate(res):
         if np.abs((each[0]/each[1])-Pratio)<np.abs((ratio[0]/ratio[1])-Pratio):
             #which = i
