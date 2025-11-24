@@ -188,6 +188,7 @@ class TestClassifier(unittest.TestCase):
         sim = setup_sim(sim)
         testClass = FeatureClassifier()
         trios = [Trio(trio_indices=[1,2,3], sim=sim, Nout=80)]
+        trios[0].fill_starting_features(sim)
         _, _ = testClass.get_tseries(sim, trios, Norbits=1e4, Nout=80)
         x1 = sim.particles[1].x
 
