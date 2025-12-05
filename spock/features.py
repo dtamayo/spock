@@ -68,7 +68,7 @@ class Trio:
         for [label, i1, i2] in self.pairs:
             # calculate crossing eccentricity
             self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
-            pRat = getIntPrat(ps[i1].P/ps[i2].P)
+            pRat = getIntPrat(sim, i1, i2)
             self.theta['pRatio' + label] = pRat
             self.theta['order' + label] = pRat[1] - pRat[0]
             self.theta['vector' + label] = np.zeros(pRat[1] - pRat[0] + 1, dtype = complex)
@@ -101,7 +101,7 @@ class Trio:
             self.runningList['EP'+label][i] = np.sqrt((m1 * e1x + m2 * e2x)**2 +
                                                       (m1 * e1y + m2 * e2y)**2) / (m1+m2)
             #calculate the strength of MMRs
-            MMRs = find_strongest_MMR(sim, i1, i2)
+            MMRs = find_strongest_MMR_width(sim, i1, i2)
             self.runningList['MMRstrength' + label][i] = MMRs[2]
 
             # save mass ratios and integer period ratios
@@ -324,57 +324,109 @@ def hillfac(sim, i1=1, i2=2):
 
     return hillFac
 
-# taken from original spock, some comments changed
+# modified from original spock, some comments changed
 ####################################################
-def find_strongest_MMR(sim, i1, i2):
-    '''Finds the strongest MMR between two planets
+def get_resonance_window(pratio):
+    """
+    Returns minperiodratio and maxperiodratio resonances to test.
+    """
+    small = 1e-10
+    if pratio > 0.5:
+        jmin = 1
+        jmax = 100000
 
-        Arguments:
-            sim: the simulation in question
-            i1: the inner most of the two planets in question
-            i2: the outer most of the two planets in question
-        return: information about the resonance, the third item (index 2)
-                is the maximum strength of the resonance between planets
-    '''
-    maxorder = 2
+        while jmax - jmin > 1:
+            jtest = (jmin + jmax) // 2
+            test_ratio = jtest / (jtest + 1)
+
+            if pratio < test_ratio:
+                jmax = jtest
+            else:
+                jmin = jtest
+
+        minperiodratio = jmin / (jmin + 1) - small
+        maxperiodratio = jmax / (jmax + 1) + small
+
+    else: # resonances below 1/2
+        minperiodratio = 0
+        maxperiodratio = 0.5 + small
+
+    return minperiodratio, maxperiodratio
+
+
+# from https://arxiv.org/pdf/2410.21748
+Aq_values = [None, 0.845, 0.754, 0.748, 0.778, 0.832, 0.904, 0.995, 1.104, 1.235, 1.388]
+
+def find_strongest_MMR_width(sim, i1, i2, maxorder = 5):
+    """
+    Calculates the normalized, actual resonant width (Δ) and normalized, maximum resonance width (Δ_max) 
+    for the strongest resonance between planets i1 and i2. 
+    Uses the Δ_max equation and assumes best case where θ = π.
+
+    Arguments:
+        sim: rebound simulation
+        i1: index of the inner planet
+        i2: index of the outer planet
+
+    Returns:
+        j: if system is 2:3, j=3
+        k: order of resonance (if system is 2:3, k = 1)
+        min_ratio: The lowest ratio will be the system with the strongest resonance
+                   Calculate as normalized width of system (Δ) / normalized max resonance width (Δ_max)
+    """
     ps = sim.particles
-    n1 = ps[i1].n
-    n2 = ps[i2].n
+    p1 = ps[i1]
+    p2 = ps[i2]
 
-    m1 = ps[i1].m / ps[0].m
-    m2 = ps[i2].m / ps[0].m
+    # sort by semi-major axis
+    if p1.a < p2.a:
+        inner, outer = p1, p2
+    else:
+        inner, outer = p2, p1
 
-    Pratio = n2 / n1
-
-    delta = 0.03
-    if Pratio < 0 or Pratio > 1: # n < 0 = hyperbolic orbit, Pratio > 1 = orbits are crossing
+    # period ratio 
+    Pratio_actual = inner.P / outer.P
+    if Pratio_actual < 0 or Pratio_actual > 1: # n < 0 = hyperbolic orbit, Pratio > 1 = orbits are crossing
         return np.nan, np.nan, np.nan
 
-    minperiodratio = max(Pratio - delta, 0.)
-    maxperiodratio = min(Pratio + delta, 0.99) # too many resonances close to 1
+    minperiodratio, maxperiodratio = get_resonance_window(Pratio_actual)
+    if np.isnan(minperiodratio) or np.isnan(maxperiodratio):
+        return np.nan, np.nan, np.nan
     res = resonant_period_ratios(minperiodratio, maxperiodratio, order=maxorder)
-
-    # Calculating EM exactly would have to be done in celmech for each j/k res below, and would slow things down. This is good enough for approx expression
+    
+    # calculating EM exactly would have to be done in celmech for each j/k res below, and would slow things down. This is good enough for approx expression
     EM = np.sqrt((ps[i1].e * np.cos(ps[i1].pomega) - ps[i2].e * np.cos(ps[i2].pomega))**2 + 
                  (ps[i1].e * np.sin(ps[i1].pomega) - ps[i2].e * np.sin(ps[i2].pomega))**2)
     
-    EMcross = (ps[i2].a - ps[i1].a) / ps[i1].a
 
-    j, k, maxstrength = np.nan, np.nan, 0 
+    # calculation for delta_max
+    ec = (outer.a - inner.a) / outer.a # valid in assumption ((delta a)/a) << 1
+    mu = (outer.m + inner.m) / ps[0].m
+
+    min_p, min_q, min_ratio = np.nan, np.nan, np.inf
+
     for a, b in res:
-        nres = (b * n2 - a * n1) / n1
-        if nres == 0:
-            s = np.inf # still want to identify as strongest MMR if initial condition is exatly b*n2-a*n1 = 0
-        else:
-            s = np.abs(np.sqrt(m1 + m2) * (EM / EMcross)**((b - a) / 2.) / nres)
-        if s > maxstrength:
-            j = b
-            k = b-a
-            maxstrength = s
-    if maxstrength == 0:
-        maxstrength = np.nan
+        q = b - a  # resonance order
+        
+        Pratio_res = a / b
+        delta_actual = abs(Pratio_actual - Pratio_res) / Pratio_res
 
-    return j, k, maxstrength
+        Aq = Aq_values[q]
+        delta_max = 3 * Aq * np.sqrt(mu * (EM / ec) ** q)
+
+        if delta_max == 0 or np.isnan(delta_max):
+            min_ratio = np.nan
+
+        ratio = delta_actual / delta_max
+        if ratio < min_ratio:
+            min_p = b
+            min_q = b - a
+            min_ratio = ratio
+
+    if min_ratio == np.inf:
+        min_ratio = np.nan
+
+    return min_p, min_q, min_ratio
 ##############################################
 
 def swap(a, b):
@@ -430,25 +482,21 @@ def twoBRFillFac(pRat, mu1, mu2, EM):
 
     return sumVal / (firstAbove - firstBelow)
 
-def getIntPrat( Pratio: list):
-    maxorder = 4
-    delta = 0.05
-    minperiodratio = Pratio-delta
-    maxperiodratio = Pratio+delta # too many resonances close to 1
-    if maxperiodratio >.999:
-        maxperiodratio =.999
-    res = resonant_period_ratios(minperiodratio,maxperiodratio, order=maxorder)
-    ratio = [10000000,10]
-    for i,each in enumerate(res):
-        if np.abs((each[0]/each[1])-Pratio)<np.abs((ratio[0]/ratio[1])-Pratio):
-            #which = i
-            
-            ratio = each
-    
-    # frac = fractions.Fraction(Pratio).limit_denominator(40)
-    # val = frac.numerator, frac.denominator
+def getIntPrat(sim, i1, i2, maxorder=5):
+    """
+    Returns the j,k resonance closest to the current period ratio,
+    using find_strongest_MMR_width().
+    """
+    j, k, strength = find_strongest_MMR_width(sim, i1, i2, maxorder=maxorder)
 
-    return ratio
+    if np.isnan(j) or np.isnan(k):
+        return None
+
+    #convert j,k into the integer period ratio format
+    p = j - k
+    q = j
+    
+    return p, q, strength
 
 def calcThetaVec(la, pomegaa, coefa, lb, pomegab, coefb, val,):
     theta = (val[1]*lb) - (val[0]*la) - (pomegaa * coefa) -(pomegab * coefb)
