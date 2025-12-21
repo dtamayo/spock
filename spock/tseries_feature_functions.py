@@ -251,7 +251,6 @@ def get_collision_tseries(sim, trio_inds, seed=None):
         ps[i].r = get_rad(ps[i].m)
 
     # set integration settings
-    trio_sim.integrator = 'mercurius'
     trio_sim.collision = 'direct'
     if not seed is None:
         trio_sim.rand_seed = seed
@@ -260,6 +259,11 @@ def get_collision_tseries(sim, trio_inds, seed=None):
     es = np.array([p.e for p in ps[1:len(ps)]])
     minTperi = np.min(Ps*(1 - es)**1.5/np.sqrt(1 + es))
     trio_sim.dt = 0.05*minTperi
+    
+    if np.max(es) > 0.99: # avoid stall with mercurius for e ~ 1
+        trio_sim.integrator = 'ias15'
+    else:
+        trio_sim.integrator = 'mercurius'
 
     global global_col_probs
     global_col_probs = np.array([-1.0, -1.0, -1.0]) # default
