@@ -184,14 +184,14 @@ class CollisionOrbitalOutcomeRegressor():
 
                 try:
                     if (0.0 < a1s[k] < 50.0) and (0.0 <= e1s[k] < 1.0):
-                        new_state_sim.add(m=m1s[k], a=a1s[k], e=e1s[k], inc=inc1s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                        new_state_sim.add(primary=new_state_sim.particles[0], m=m1s[k], a=a1s[k], e=e1s[k], inc=inc1s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
                     else:
                         warnings.warn('Removing ejected planet')
                 except Exception as e:
                     warnings.warn('Removing planet with unphysical orbital elements')
                 try:
                     if (0.0 < a2s[k] < 50.0) and (0.0 <= e2s[k] < 1.0):
-                        new_state_sim.add(m=m2s[k], a=a2s[k], e=e2s[k], inc=inc2s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
+                        new_state_sim.add(primary=new_state_sim.particles[0], m=m2s[k], a=a2s[k], e=e2s[k], inc=inc2s[k], pomega=np.random.uniform(0.0, 2*np.pi), Omega=np.random.uniform(0.0, 2*np.pi), l=np.random.uniform(0.0, 2*np.pi))
                     else:
                         warnings.warn('Removing ejected planet')
                 except Exception as e:
@@ -201,7 +201,10 @@ class CollisionOrbitalOutcomeRegressor():
                 new_state_sim.rotate(trio_sims[k].rot.inverse()) # rotate back to original orientation
 
                 # replace trio with predicted duo (or single/zero if planets have unphysical orbital elements)
-                new_sims.append(replace_trio(sims[i], trio_inds[i], new_state_sim))
+                print("Old new sims were", new_sims, "and i is", i, "and old sims were", sims)
+                #i is just the index of the individual sim where the trio is being replaced. This is for the parallelization.
+                new_sims.append(replace_trio(sims[i], trio_inds[i], new_state_sim)) #ERROR HERE
+                print("new new_sims is", new_sims)
                 k += 1
 
         # convert sims back to original units

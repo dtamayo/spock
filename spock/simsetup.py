@@ -97,26 +97,73 @@ def get_rad(m):
 # replace particle in sim with new state (in place)
 def replace_p(sim, p_ind, new_particle):
     sim.particles[p_ind].m = new_particle.m
-    sim.particles[p_ind].a = new_particle.a
-    sim.particles[p_ind].e = new_particle.e
-    sim.particles[p_ind].inc = new_particle.inc
-    sim.particles[p_ind].pomega = new_particle.pomega
-    sim.particles[p_ind].Omega = new_particle.Omega
-    sim.particles[p_ind].l = new_particle.l
-    
+    sim.particles[p_ind].x = new_particle.x
+    sim.particles[p_ind].y = new_particle.y
+    sim.particles[p_ind].z = new_particle.z
+    sim.particles[p_ind].vx = new_particle.vx
+    sim.particles[p_ind].vy = new_particle.vy
+    sim.particles[p_ind].vz = new_particle.vz
+   
+def _find_crossing_pair(sim, trio_inds):                                         
+    """Check adjacent pairs in trio for orbit crossing (overlapping radial ranges).    
+    Returns (i, j) indices of the first crossing pair found, or None if none cross.""" 
+    ps = sim.particles                                                                 
+    primary = ps[0]                                                                    
+    for k in range(len(trio_inds) - 1):                                                
+        i, j = trio_inds[k], trio_inds[k+1]                                            
+        oi = ps[i].orbit(primary=primary)                                    
+        oj = ps[j].orbit(primary=primary)                                    
+        ai, exi, eyi = oi.a, oi.e*np.cos(oi.pomega), oi.e*np.sin(oi.pomega)                                                            
+        aj, exj, eyj = oj.a, oj.e*np.cos(oj.pomega), oj.e*np.sin(oj.pomega)
+        e12 = np.sqrt((exi-exj)**2 + (eyi-eyj)**2)
+        # Orbits cross if their radial ranges overlap                                  
+        if e12 > (aj-ai)/ai:
+            return (i, j)                                                              
+    return None                                                                        
+
 # return sim in which planet trio has been replaced with two planets
 # with periods rescaled back to match the period of the innermost body prior in the original sim (prior to merger)
 def replace_trio(original_sim, trio_inds, new_state_sim):
     sim_copy = original_sim.copy()
-
+    print("original sim is", original_sim)
+    print("new-state sim is", new_state_sim)
     new_ps = new_state_sim.particles
     original_P1 = original_sim.particles[int(trio_inds[0])].P
+    print("The index for the unstable trio is {0} with".format(trio_inds))
+    crossing_inds = _find_crossing_pair(original_sim, trio_inds)
+    if crossing_inds:
+        print("{0} indices ARE CROSSING!****".format(crossing_inds))
+    for ind in trio_inds:
+        p = original_sim.particles[int(ind)]
+        orbit = p.orbit(primary=original_sim.particles[0])
+        print("P: a={0}, e={1}, a={2}, e={3}".format(p.a, p.e, orbit.a, orbit.e))
     for i in range(1, len(new_ps)): 
         new_ps[i].P = new_ps[i].P*original_P1
 
     # replace particles
     ind1, ind2, ind3 = int(trio_inds[0]), int(trio_inds[1]), int(trio_inds[2])
     if len(new_ps) == 3:
+        replace_p(sim_copy, ind1, new_ps[1])
+        print("REPLACING", ind1, "WITH THE NEW PARTICLE WITH AN A OF", new_ps[1].a)
+        replace_p(sim_copy, ind2, new_ps[2])
+        print("REPLACING", ind2, "WITH THE NEW PARTICLE WITH AN A OF", new_ps[2].a)
+        sim_copy.remove(ind3)
+        print("REMOVING THE", ind3, "INDEX")
+    if len(new_ps) == 2:
+        print("THERE'S ONLY 1 PARTICLE PLUS SUN PREDICTED??")
+        replace_p(sim_copy, ind1, new_ps[1])
+        print("REPLACING", ind1, "WITH THE NEW PARTICLE WITH AN A OF", new_ps[1].a)
+        sim_copy.remove(ind3)
+        sim_copy.remove(ind2)
+        print("REMOVING THE", ind3, "INDEX AND THE", ind2)
+    if len(new_ps) == 1:
+        print("ONLY THE STAR IS PREDICTED?")
+        sim_copy.remove(ind3)
+        sim_copy.remove(ind2)
+        sim_copy.remove(ind1)
+        print("REMOVING ALL 3 OF", ind2, ind1, ind3) 
+
+    '''if len(new_ps) == 3:
         replace_p(sim_copy, ind1, new_ps[1])
         replace_p(sim_copy, ind2, new_ps[2])
         sim_copy.remove(ind3)
@@ -128,12 +175,12 @@ def replace_trio(original_sim, trio_inds, new_state_sim):
         sim_copy.remove(ind3)
         sim_copy.remove(ind2)
         sim_copy.remove(ind1)
-
+    '''
     # re-order particles in ascending semi-major axis
     ps = sim_copy.particles
     semi_as = []
     for i in range(1, len(ps)):
-        semi_as.append(ps[i].a)
+        semi_as.append(ps[i].orbit(primary=ps[0]).a)
     sort_inds = np.argsort(semi_as)
 
     ordered_sim = sim_copy.copy()
@@ -157,7 +204,8 @@ def sim_subset(sim, p_inds, copy_time=False):
     sim_copy.add(m=ps[0].m)
     for i in range(1, sim.N):
         if i in p_inds:
-            sim_copy.add(m=ps[i].m, a=ps[i].a, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
+            o = ps[i].orbit(primary=ps[0])
+            sim_copy.add(m=ps[i].m, a=o.a, e=o.e, inc=o.inc, pomega=o.pomega, Omega=o.Omega, theta=o.theta)
         
     return sim_copy
 
@@ -180,7 +228,8 @@ def scale_sim(sim, p_inds):
     sim_copy.add(m=1.00)
     for i in range(1, sim.N):
         if i in p_inds:
-            sim_copy.add(m=ps[i].m/Mstar, P=ps[i].P/P1, e=ps[i].e, inc=ps[i].inc, pomega=ps[i].pomega, Omega=ps[i].Omega, theta=ps[i].theta)
+            o = ps[i].orbit(primary=ps[0])
+            sim_copy.add(m=ps[i].m/Mstar, P=o.P/P1, e=o.e, inc=o.inc, pomega=o.pomega, Omega=o.Omega, theta=o.theta)
 
     sim_copy.t = sim.t/P1
     return sim_copy
@@ -198,7 +247,7 @@ def revert_sim_units(sims):
             sim_copy.add(m=sim.original_Mstar)
             ps = sim.particles
             for j in range(1, sim.N):
-                sim_copy.add(m=ps[j].m*sim.original_Mstar, P=ps[j].P*sim.original_P1, e=ps[j].e, inc=ps[j].inc, pomega=ps[j].pomega, Omega=ps[j].Omega, theta=ps[j].theta)
+                sim_copy.add(primary=sim_copy.particles[0], m=ps[j].m*sim.original_Mstar, P=ps[j].P*sim.original_P1, e=ps[j].e, inc=ps[j].inc, pomega=ps[j].pomega, Omega=ps[j].Omega, theta=ps[j].theta)
             sim_copy.t = sim.t*sim.original_P1
             revertedsims.append(sim_copy)
     except AttributeError:
@@ -211,6 +260,6 @@ def remove_ejected_ps(sims):
         N = len(sim.particles)
         # run backwards so that removing particles doesn't change indices still needing removal
         for i in range(1, N)[::-1]: 
-            if sim.particles[i].a < 0:
+            if sim.particles[i].orbit(primary=sim.particles[0]).a < 0:
                 sim.remove(i, keep_sorted=True)
     return sims
