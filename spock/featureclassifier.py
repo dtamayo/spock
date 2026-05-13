@@ -154,7 +154,8 @@ class FeatureClassifier:
             warnings.warn(f'Min secular timescale > Nbodytmax orbits of inner most planet '\
                           f'Defaulting to integrating to {Nbodytmax} orbits. Might affect model performance')
         # set the number of outputs in short integration to be same as in original model (80 outputs over 1e4 orbits)
-        Nout = int((Norbits / 1e4) * 80)
+        Nout = max(int((Norbits / 1e4) * 80), 3)
+        # Require at least 3 outputs to calcul^ate features
 
         # make list of Trio objects for each adjacent trio
         trios = []
