@@ -19,7 +19,7 @@ def get_tseries(sim, args):
                  number of data collections equally spaced, list of trios]
         
     return: 
-            triotseries: The time series of collected data for each trio
+            triotseries: A list of trio objects for each trio
             stable: whether or not the end configuration is stable
         '''
     Norbits = args[0] # number of orbits
@@ -67,7 +67,7 @@ def get_tseries(sim, args):
                 raise
         for tr, trio in enumerate(trios):
             # populates data for each trio
-            triotseries[tr].populateData( sim, minP,i)
+            triotseries[tr].populateData(sim, minP,i)
     # returns list of objects and whether or not stable after short integration
     return [triotseries, stable]
 

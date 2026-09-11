@@ -100,7 +100,7 @@ class FeatureClassifier:
         else:
             return data
 
-    def simToData(self, sim, n_jobs, Nbodytmax = 1e6):
+    def simToData(self, sim, n_jobs = -1, Nbodytmax = 1e6):
         '''Given a simulation(s), returns data required for spock classification
         
             Arguments:
@@ -192,7 +192,7 @@ class FeatureClassifier:
         # calculate final vals
         dataList = []
         for each in triotseries:
-            each.fill_features(args) # turns runningList data into final features
+            each.fill_features(sim, args) # turns runningList data into final features
             dataList.append(each.features) # appends each feature results to dataList
         return dataList, stable
 

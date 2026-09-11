@@ -5,12 +5,14 @@ from celmech.resonances import resonance_jk_list
 import numpy as np
 import math
 import rebound
-MAXORDER = 3
+MAXORDER = 4
 
 class Trio:
     def __init__(self, trio, sim):
-        '''initializes new set of features.
+        '''initializes new set of features for the trio.
         
+            trio: indicies of the 3 particles in question, formatted as [p1, p2, p3]
+            sim:  REBOUND simulation
             note: each list of the key is the series of data points, 
                   second dict is for final features
         '''
@@ -23,6 +25,14 @@ class Trio:
         self.runningList['time'] = []
         self.runningList['MEGNO'] = []
         self.runningList['threeBRfill'] = []
+        self.runningList['massFac'] = []
+        self.runningList['e0'] = [] # innermost planet in trio w/ index trio[0]
+        self.runningList['e1'] = [] # middle planet in trio w/ index trio[1]
+        self.runningList['e2'] = [] # outer most planet in trio w/ index trio[2]
+
+        #testing the MASSFACS
+        self.runningList['massFacLargeMass'] = []
+
 
         # initialize conjunction angle information
 
@@ -37,6 +47,7 @@ class Trio:
             self.runningList['mu1' + label] = []
             self.runningList['mu2' + label] = []
             self.runningList['dRatio' + label] = []
+            self.runningList['hillFac' + label] = []
 
             self.theta['order' + label] = []
             self.theta['vector' + label] = []
@@ -55,12 +66,27 @@ class Trio:
             self.features['MMRstrength' + label] = np.nan
             self.features['conjunctionMag' + label] = np.nan
             self.features['relConjunctionMag' + label] = np.nan
+            self.features['pomega1Theta' + label] = np.nan
+            self.features['pomega2Theta' + label] = np.nan
+            self.features['p' + label] = np.nan
+            self.features['q' + label] = np.nan
             self.features['dRatio' + label] = np.nan
+            self.features['hillFac' + label] = np.nan
         self.features['MEGNO'] = np.nan
         self.features['MEGNOstd'] = np.nan
         self.features['massOrder'] = np.nan
         self.features['threeBRfillfac'] = np.nan
-        
+        self.features['massFac'] = np.nan
+        self.features['mass_fac_lowest_std'] = np.nan
+        self.features['mass_fac_lowest_norm_std'] = np.nan
+
+        #eccentricity variation
+        self.features['min_e_std'] = np.nan
+        self.features['min_norm_e_std'] = np.nan
+
+        #testing the MASSFACS
+        self.features['massFacLargeMass'] = np.nan
+
 
     def fillVal(self, Nout):
         '''Fills with nan values
@@ -81,7 +107,12 @@ class Trio:
             Note: must specify how each feature is calculated and added
         '''
         ps = sim.particles
-        
+
+        i1, i2, i3 = self.trio # indices for the innermost, middle and outer planet in trio
+        self.runningList['e0'][i] = ps[i1].e
+        self.runningList['e1'][i] = ps[i2].e
+        self.runningList['e2'][i] = ps[i3].e
+
         for q, [label, i1, i2] in enumerate(self.pairs):
             m1 = ps[i1].m
             m2 = ps[i2].m
@@ -129,15 +160,23 @@ class Trio:
             dRatios = find_strongest_MMR_width(sim, i1, i2)
             self.runningList['dRatio' + label][i] = dRatios[2]
 
+            #calculate hillFac
+            hillFacs = hillFac(sim, i1, i2)
+            self.runningList['hillFac' + label][i] = hillFacs
+
+            #calculate massFac (not needed bc it is calculated with initial conditions)
+            self.runningList['massFac'][i]= massFac(sim, self.trio)
+
+
+            #testing the MASSFACS
+
+            self.runningList['massFacLargeMass'][i] = massFacLargestMass(sim, self.trio)
 
         # check rebound version, if old use .calculate_megno, otherwise use .megno, old is just version less then 4
         if float(rebound.__version__[0]) < 4:
             self.runningList['MEGNO'][i] = sim.calculate_megno()
         else:
             self.runningList['MEGNO'][i] = sim.megno()
-
-        
-
 
     def startingFeatures(self, sim):
         '''Initializes, adding to the features that only depend on initial conditions'''
@@ -146,7 +185,7 @@ class Trio:
         for [label, i1, i2] in self.pairs:  
             # calculate crossing eccentricity
             self.features['EMcross' + label] = (ps[i2].a - ps[i1].a) / ps[i1].a
-            pRat = getIntPrat(ps[i1].P/ps[i2].P)
+            pRat = getIntPrat(sim, i1, i2) #NEWWWW
             self.theta['pRatio' + label] = pRat
             self.theta['order' + label] = pRat[1] - pRat[0]
             self.theta['vector' + label] = np.zeros(pRat[1] - pRat[0] + 1, dtype = complex)
@@ -162,17 +201,18 @@ class Trio:
             massSum += np.abs(ps[i].m - ps[massOrder[i-1]].m)
 
         massSum = massSum / (ps[1].m + ps[2].m + ps[3].m)
-        self.features['massOrder'] = massSum
-            
+        self.features['massOrder'] = massSum   
 
-    def fill_features(self, args):
-        '''fills the final set of features that are returned to the ML model.
+    def fill_features(self, sim, args):
+        ''' Called after short integration to fill in the final set of features 
+            that are returned to the ML model.
             
-            Each feature is filled depending on some combination of runningList features and initial condition features
+            Each feature is filled depending on some combination of runningList 
+            features and initial condition features
         '''
         Norbits = args[0]
         Nout = args[1]
-        trio = args[2]
+        trios = args[2] # should not be used, already defined for this trio in self.trio
         
         
         if not np.isnan(self.runningList['MEGNO']).any(): # no nans
@@ -185,6 +225,22 @@ class Trio:
                 self.runningList['MEGNO'][(Nout // 5):]
             )
 
+        # fill features that are defined for each trio
+
+        stds = [np.std(self.runningList['e{0}'.format(str(j))]) for j in [0,1,2]]
+        NORMstds = [np.std(self.runningList['e{0}'.format(str(j))])/np.mean(self.runningList['e{0}'.format(str(j))]) for j in [0,1,2]]
+        self.features['min_e_std'] = min(stds)
+        self.features['min_norm_e_std'] = min(NORMstds)
+
+
+        self.features['mass_fac_lowest_std'], self.features['mass_fac_lowest_norm_std'] = massFacEccentricityBoth(self.runningList, sim, self.trio)
+  
+
+        #other massFacs
+        self.features['massFac']= np.median(self.runningList['massFac'])
+        self.features['massFacLargeMass'] = np.median(self.runningList['massFacLargeMass'])
+
+        # fill features that are defined for each pair iterating over all pairs
         for [label, i1, i2] in self.pairs: 
             # cut out first value (init cond) to avoid cases
             # where user sets exactly b * n2 - a * n1 and strength is inf
@@ -208,7 +264,11 @@ class Trio:
                                                             )
             # selects the conjunction angle vector for the strongest resonance and normalizes
             self.features['conjunctionMag' + label] = np.max(np.abs(self.theta['vector' + label])) / Nout
-
+            self.features['pomega1Theta' + label] = np.abs(self.theta['vector' + label][-1]) / Nout
+            self.features['pomega2Theta' + label] = np.abs(self.theta['vector' + label][0]) / Nout
+            self.features['p' + label] = np.max(self.theta['pRatio' + label])
+            self.features['q' + label] = np.max(self.theta['order' + label])
+            
             # calculates conjunction angle consistency based on relative pomega
             self.features['relConjunctionMag' + label] = np.abs(self.theta['relvector' + label]) / Nout
             self.features['threeBRfillfac']= np.mean(self.runningList['threeBRfill'])
@@ -218,7 +278,15 @@ class Trio:
                 self.runningList['dRatio' + label][1:]
             )
 
+            # #calculates hillFac
+            self.features['hillFac' + label] = np.mean(
+            self.runningList['hillFac' + label][1:])
 
+        conj_mags = [self.features['conjunctionMag' + pair[0]] for pair in self.pairs]
+        self.features['conjunctionMagCutoff'] = np.nanmax(conj_mags)
+
+        rel_conj_mags = [self.features['relConjunctionMag' + pair[0]] for pair in self.pairs]
+        self.features['relConjunctionMagCutoff'] = np.nanmax(rel_conj_mags)
 
  ######################### Taken from celmech github.com/shadden/celmech
 def farey_sequence(n):
@@ -323,7 +391,7 @@ def find_strongest_MMR(sim, i1, i2):
     ey = ps[i1].e * np.sin(ps[i1].pomega) - ps[i2].e * np.sin(ps[i2].pomega)
     
     EM = np.sqrt(ex**2 + ey**2)
-    pomega12 = np.atan2(ex, ey)
+    # pomega12 = np.arctan2(ey, ex) 
     
     
     EMcross = (ps[i2].a - ps[i1].a) / ps[i1].a
@@ -345,14 +413,42 @@ def find_strongest_MMR(sim, i1, i2):
     return j, k, maxstrength
 ##############################################
 
+
+
 # testing new version of find_strongest_MMR
 
-# taken from https://arxiv.org/pdf/2410.21748
-Aq_values = {
-    1: 0.845, 2: 0.754, 3: 0.748, 4: 0.778, 5: 0.832, 6: 0.904, 7: 0.995, 8: 1.104, 9: 1.235, 10: 1.388
-}
+def get_resonance_window(pratio):
+    """
+    Returns minperiodratio and maxperiodratio resonances to test.
+    """
+    small = 1e-10
+    if pratio > 0.5:
+        jmin = 1
+        jmax = 100000
 
-def find_strongest_MMR_width(sim, i1, i2):
+        while jmax - jmin > 1:
+            jtest = (jmin + jmax) // 2
+            test_ratio = jtest / (jtest + 1)
+
+            if pratio < test_ratio:
+                jmax = jtest
+            else:
+                jmin = jtest
+
+        minperiodratio = jmin / (jmin + 1) - small
+        maxperiodratio = jmax / (jmax + 1) + small
+
+    else: # resonances below 1/2
+        minperiodratio = 0
+        maxperiodratio = 0.5 + small
+
+    return minperiodratio, maxperiodratio
+
+
+# from https://arxiv.org/pdf/2410.21748
+Aq_values = [None, 0.845, 0.754, 0.748, 0.778, 0.832, 0.904, 0.995, 1.104, 1.235, 1.388]
+
+def find_strongest_MMR_width(sim, i1, i2, maxorder = 5):
     """
     Calculates the normalized, actual resonant width (Δ) and normalized, maximum resonance width (Δ_max) 
     for the strongest resonance between planets i1 and i2. 
@@ -366,9 +462,9 @@ def find_strongest_MMR_width(sim, i1, i2):
     Returns:
         j: if system is 2:3, j=3
         k: order of resonance (if system is 2:3, k = 1)
-        deltaRatio: normalized width of system (Δ) / normalized max resonance width (Δ_max)
+        min_ratio: The lowest ratio will be the system with the strongest resonance
+                   Calculate as normalized width of system (Δ) / normalized max resonance width (Δ_max)
     """
-    maxorder = 2
     ps = sim.particles
     p1 = ps[i1]
     p2 = ps[i2]
@@ -384,9 +480,9 @@ def find_strongest_MMR_width(sim, i1, i2):
     if Pratio_actual < 0 or Pratio_actual > 1: # n < 0 = hyperbolic orbit, Pratio > 1 = orbits are crossing
         return np.nan, np.nan, np.nan
 
-    delta = 0.03
-    minperiodratio = max(Pratio_actual - delta, 0.)
-    maxperiodratio = min(Pratio_actual + delta, 0.99) # too many resonances close to 1
+    minperiodratio, maxperiodratio = get_resonance_window(Pratio_actual)
+    if np.isnan(minperiodratio) or np.isnan(maxperiodratio):
+        return np.nan, np.nan, np.nan
     res = resonant_period_ratios(minperiodratio, maxperiodratio, order=maxorder)
     
     # Calculating EM exactly would have to be done in celmech for each j/k res below, and would slow things down. This is good enough for approx expression
@@ -398,12 +494,10 @@ def find_strongest_MMR_width(sim, i1, i2):
     ec = (outer.a - inner.a) / outer.a # valid in assumption ((delta a)/a) << 1
     mu = (outer.m + inner.m) / ps[0].m
 
-    j, k, min_ratio = np.nan, np.nan, np.inf
+    min_p, min_q, min_ratio = np.nan, np.nan, np.inf
 
     for a, b in res:
         q = b - a  # resonance order
-        if q not in Aq_values:
-            min_ratio = np.nan
         
         Pratio_res = a / b
         delta_actual = abs(Pratio_actual - Pratio_res) / Pratio_res
@@ -416,16 +510,184 @@ def find_strongest_MMR_width(sim, i1, i2):
 
         ratio = delta_actual / delta_max
         if ratio < min_ratio:
-            j = b
-            k = b - a
+            min_p = b
+            min_q = b - a
             min_ratio = ratio
 
     if min_ratio == np.inf:
         min_ratio = np.nan
 
-    return j, k, min_ratio
+    return min_p, min_q, min_ratio
+
+def hillFac(sim, i1, i2):
+    '''
+    Calculates the Hill stability factor ratio for a two-planet system: (p/a) / (p/a)_crit
+    where p/a is the Marchal-Bozis parameterization of the system's dynamics.
+
+    Arguments:
+        sim: rebound simulation
+        i1: index of the inner planet
+        i2: index of the outer planet
+    Returns:
+        hillFac: the information necessary to determine if a two planet system is stable or 
+        not.
+    '''
+    ps = sim.particles
+    m0 = ps[0].m  #star 
+    m1 = ps[i1].m
+    m2 = ps[i2].m
+
+    M = m1 + m2 + m0  # total system mass 
+
+    M_prod = m1*m2 + m1*m0 + m2*m0 
+
+    G = sim.G # gravitational constant
+
+    c_vec = np.zeros(3) #total angular momentum
+    KE = 0
+    for j in [0, i1, i2]:
+        r_j = np.array([ps[j].x, ps[j].y, ps[j].z])
+        v_j = np.array([ps[j].vx, ps[j].vy, ps[j].vz])
+
+        c_vec += ps[j].m * np.cross(r_j, v_j) #angular momentum vec
+
+    
+        v = np.linalg.norm(v_j) 
+        m_j = ps[j].m 
+
+        KE += 0.5 * m_j * (v**2) # add each particle
+
+    c = np.linalg.norm(c_vec)
+
+    U = 0 # potential energy initialize
+
+    for j1, j2 in [[0, i1], [0, i2], [i1, i2]]:
+        r_a = np.array([ps[j1].x, ps[j1].y, ps[j1].z])
+        r_b = np.array([ps[j2].x, ps[j2].y, ps[j2].z])
+        r = np.linalg.norm(r_a - r_b)
+        
+        m_a = ps[j1].m
+        m_b = ps[j2].m
+
+        U += - (G*m_a*m_b)/r # adding all of the potential energies     
+    
+    h = KE + U
+
+    #calculate p/a from Eq. 12
+    param = - ((2*M) / (G**2 * M_prod**3))* c**2 * h 
+    
+    #calculate p/a_crit from Eq. 13
+    term1 = ((3**(4/3)) * (m1 * m2)) / (m0**(2/3) * (m1 + m2)**(4/3))
+    paramCrit = 1 + term1  #  ignore remaining terms since it only gets smaller
+    
+    hillFac = (abs((param - 1) / (paramCrit - 1)))**(1/2)
+    # if hillFac > 1, stable (close approaches are not allowed)
+    # if hillFac < 1, unstable (close approaches are allowed)
+
+    return hillFac
 
 
+def massFac(sim, trio):
+    '''
+    Calculates the mass factor (m1 + m3) / m2 to assess whether the three-body
+    system acts effectively as a two-body system involving the central planet.
+    Returns:
+        massFac: (m1 + m3) / m2
+    '''
+    ps = sim.particles
+    b1, b2, b3 = ps[trio[0]], ps[trio[1]], ps[trio[2]]
+    m1, m2, m3 = b1.m, b2.m, b3.m
+
+    massFac = (m1 + m3) / m2
+
+    return massFac
+
+
+def massFacEccentricityBoth(runningList, sim, trio):
+        '''
+        Computes two versions of massFac: # Update this
+        
+        1. massFacLowVarE: Uses the planet with the smallest variation in eccentricity (std) as the denominator.
+        2. massFacNormLowVarE: Uses the planet with the smallest normalized variation (std divided by mean) as the denominator.
+
+        Returns:
+            massFacLowVarE, massFacNormLowVarE
+        '''
+        # print(sim.t)
+        lowest_std_index = -1
+        lowest_std_value = np.inf
+        lowest_norm_std_index = -1
+        lowest_norm_std_value = np.inf
+        for j, i in enumerate(trio): # j is always 0, 1, 2, i is the index (could be 2,3,4)
+            e = runningList['e{0}'.format(str(j))]
+            if len(e) == 0 or np.isnan(e).any():
+                # Invalid data, return NaNs
+                return np.nan, np.nan
+            
+            if np.std(e) < lowest_std_value:
+                lowest_std_index = i
+                lowest_std_value = np.std(e)
+            if np.std(e)/np.mean(e) < lowest_norm_std_value:
+                lowest_norm_std_index = i
+                lowest_norm_std_value = np.std(e)/np.mean(e)
+
+        #if it didn't change
+        if lowest_std_index == -1 or lowest_norm_std_index == -1:
+            return np.nan, np.nan
+        
+        # if lowest_std_index not in trio: raise ValueError('No planet had lowest std(e)?')
+        # if lowest_norm_std_index not in trio: raise ValueError('No planet had lowest std(e)/mean(e)?')
+
+        # calculate massFacLowVarE
+        ps = sim.particles
+        # print(trio)
+        i1, i2, i3 = trio
+        m_tot = ps[i1].m + ps[i2].m + ps[i3].m
+
+        m_max = ps[lowest_std_index].m  # biggest mass is the one that changes the least
+        m_others = m_tot - m_max
+        mass_fac_lowest_std = m_others/m_max # mass of smaller two planets / biggest mass
+
+        m_max = ps[lowest_norm_std_index].m  # biggest mass is the one that changes the least
+        m_others = m_tot - m_max
+        mass_fac_lowest_norm_std = m_others/m_max # mass of smaller two planets / biggest mass
+
+        return mass_fac_lowest_std, mass_fac_lowest_norm_std
+
+
+
+def massFacLargestMass(sim, trio):
+    """
+    puts the largest massed planet in the denominator 
+
+    adds the other two in numerator
+    """
+    ps = sim.particles
+
+    mass_list = []
+    for i in trio:
+        mass_list.append((i, ps[i].m))
+
+
+    largest = mass_list[0]
+    for pair in mass_list:
+        if pair[1] > largest[1]:
+            largest = pair
+
+    central_idx = largest[0]
+    m2 = largest[1]  # denominator
+
+    num_indices = []
+    for i in trio:
+        if i != central_idx:
+            num_indices.append(i)
+
+    m1 = ps[num_indices[0]].m
+    m3 = ps[num_indices[1]].m
+
+    massFacLargeMass = (m1 + m3) / m2
+    
+    return massFacLargeMass
 
 def swap(a, b):
     '''Simple swap function'''
@@ -447,7 +709,7 @@ def twoBRFillFac(pRat, mu1, mu2, EM):
         # if ratio is less then 1/2 then there is no first order res that is near
         # if pRat >=1 it means something is wrong
         # if ratio or EM are nan something is wrong
-        return np.nan
+        return 0
 
     orderConsider = MAXORDER # up to what order to consider
     
@@ -481,26 +743,22 @@ def twoBRFillFac(pRat, mu1, mu2, EM):
 
     return sumVal / (firstAbove - firstBelow)
 
+def getIntPrat(sim, i1, i2, maxorder=4):
+    """
+    Returns the j,k resonance closest/strongest to the current period ratio,
+    using find_strongest_MMR_width().
+    """
+    j, k, strength = find_strongest_MMR_width(sim, i1, i2, maxorder=maxorder)
 
-def getIntPrat( Pratio: list):
-    maxorder = MAXORDER
-    delta = 0.05
-    minperiodratio = Pratio-delta
-    maxperiodratio = Pratio+delta # too many resonances close to 1
-    if maxperiodratio >.999:
-        maxperiodratio =.999
-    res = resonant_period_ratios(minperiodratio,maxperiodratio, order=maxorder)
-    ratio = [10000000,10]
-    for i,each in enumerate(res):
-        if np.abs((each[0]/each[1])-Pratio)<np.abs((ratio[0]/ratio[1])-Pratio):
-            #which = i
-            
-            ratio = each
+    if np.isnan(j) or np.isnan(k):
+        return None
+
+    # Convert j,k into the integer period ratio format (e.g., for 2:3, return (2,3))
+    p = j - k
+    q = j
     
-    # frac = fractions.Fraction(Pratio).limit_denominator(40)
-    # val = frac.numerator, frac.denominator
+    return p, q, strength
 
-    return ratio
 
 def calcThetaVec(la, pomegaa, coefa, lb, pomegab, coefb, val,):
     theta = (val[1]*lb) - (val[0]*la) - (pomegaa * coefa) -(pomegab * coefb)
@@ -510,6 +768,8 @@ def calcThetaVec(la, pomegaa, coefa, lb, pomegab, coefb, val,):
 def calcThetaRelVec(la, lb, val, pomegarel):
     theta = (val[1]*lb) -(val[0]*la)-(val[1]-val[0])*pomegarel
     return np.exp(theta*1j)
+
+
 
 
 def threeBRFillFac(sim, trio):
